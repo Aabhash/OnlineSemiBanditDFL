@@ -1,0 +1,19 @@
+[project]
+name = "constrained-bandits"
+version = "0.1.0"
+description = "Decision-Focused Learning for Constrained Bandits"
+requires-python = ">=3.10"
+dependencies = [
+    "jax",
+    "jaxlib",
+    "optax",
+    "numpy",
+    "matplotlib",
+    "gurobipy",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "ipython",
+]
