@@ -4,6 +4,26 @@ import gurobipy as gp
 from gurobipy import GRB
 
 
+_GUROBI_ENV = None
+
+
+def _get_gurobi_env():
+    global _GUROBI_ENV
+    if _GUROBI_ENV is None:
+        _GUROBI_ENV = gp.Env(empty=True)
+        _GUROBI_ENV.setParam('OutputFlag', 0)
+        _GUROBI_ENV.start()
+    return _GUROBI_ENV
+
+
+def solve_top_k(values: np.ndarray, K: int) -> np.ndarray:
+    n_items = len(values)
+    solution = np.zeros(n_items)
+    top_k_indices = np.argsort(-values)[:K]
+    solution[top_k_indices] = 1
+    return solution
+
+
 def solve_knapsack_greedy(values: np.ndarray, weights: np.ndarray, capacity: float) -> np.ndarray:
     n_items = len(values)
     ratios = values / (weights + 1e-8)
@@ -27,27 +47,24 @@ def solve_knapsack_gurobi(values: np.ndarray, weights: np.ndarray, capacity: flo
     if not np.all(np.isfinite(values)):
         values = np.nan_to_num(values, nan=0.0, posinf=100.0, neginf=-100.0)
 
-    with gp.Env(empty=True) as env:
-        env.setParam('OutputFlag', 0)
-        env.start()
+    env = _get_gurobi_env()
+    with gp.Model(env=env) as model:
+        x = model.addVars(n_items, vtype=GRB.BINARY, name="x")
+        model.setObjective(
+            gp.quicksum(values[i] * x[i] for i in range(n_items)),
+            GRB.MAXIMIZE
+        )
+        model.addConstr(
+            gp.quicksum(weights[i] * x[i] for i in range(n_items)) <= capacity,
+            name="capacity"
+        )
+        model.optimize()
 
-        with gp.Model(env=env) as model:
-            x = model.addVars(n_items, vtype=GRB.BINARY, name="x")
-            model.setObjective(
-                gp.quicksum(values[i] * x[i] for i in range(n_items)),
-                GRB.MAXIMIZE
-            )
-            model.addConstr(
-                gp.quicksum(weights[i] * x[i] for i in range(n_items)) <= capacity,
-                name="capacity"
-            )
-            model.optimize()
-
-            solution = np.zeros(n_items)
-            if model.Status == GRB.OPTIMAL:
-                for i in range(n_items):
-                    solution[i] = x[i].X
-            return solution
+        solution = np.zeros(n_items)
+        if model.Status == GRB.OPTIMAL:
+            for i in range(n_items):
+                solution[i] = x[i].X
+        return solution
 
 
 def solve_knapsack(values: np.ndarray, weights: np.ndarray, capacity: float) -> np.ndarray:
@@ -108,3 +125,82 @@ def solve_knapsack_with_sensitivity(values: np.ndarray, weights: np.ndarray,
         "decision_relevance": decision_relevance,
         "rc_relevance": rc_relevance,
     }
+
+
+def soft_knapsack_lp(values: np.ndarray, weights: np.ndarray, capacity: float) -> np.ndarray:
+    n_items = len(values)
+    values = np.array(values, dtype=np.float64)
+    
+    value_to_weight = values / (weights + 1e-8)
+    order = np.argsort(-value_to_weight)
+    
+    lp_solution = np.zeros(n_items)
+    remaining = capacity
+    
+    for i in order:
+        if weights[i] <= remaining:
+            lp_solution[i] = 1.0
+            remaining -= weights[i]
+        elif remaining > 0:
+            lp_solution[i] = remaining / weights[i]
+            remaining = 0
+        else:
+            lp_solution[i] = 0.0
+    
+    return lp_solution
+
+
+def perturbed_soft_knapsack(
+    values: np.ndarray,
+    weights: np.ndarray,
+    capacity: float,
+    temperature: float = 0.5,
+    n_samples: int = 10,
+    rng: np.random.Generator = None
+) -> tuple:
+    if rng is None:
+        rng = np.random.default_rng()
+    
+    n_items = len(values)
+    samples = []
+    
+    for _ in range(n_samples):
+        u = rng.uniform(0.001, 0.999, size=n_items)
+        gumbel = -np.log(-np.log(u))
+        perturbed_values = values + temperature * gumbel
+        
+        lp_sol = soft_knapsack_lp(perturbed_values, weights, capacity)
+        samples.append(lp_sol)
+
+    soft_selection = np.mean(samples, axis=0)
+    
+    return soft_selection, samples
+
+
+def soft_knapsack_gradient(
+    values: np.ndarray,
+    weights: np.ndarray,
+    capacity: float,
+    loss_grad: np.ndarray,
+    temperature: float = 0.5,
+    n_samples: int = 10,
+    rng: np.random.Generator = None
+) -> np.ndarray:
+    if rng is None:
+        rng = np.random.default_rng()
+    
+    n_items = len(values)
+    value_grads = np.zeros(n_items)
+    
+    for _ in range(n_samples):
+        u = rng.uniform(0.001, 0.999, size=n_items)
+        epsilon = -np.log(-np.log(u)) * temperature
+        
+        perturbed_values = values + epsilon
+        lp_sol = soft_knapsack_lp(perturbed_values, weights, capacity)
+
+        sample_loss = np.dot(loss_grad, lp_sol)
+        value_grads += epsilon * sample_loss / (temperature ** 2)
+    
+    return value_grads / n_samples
+

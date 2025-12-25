@@ -26,9 +26,14 @@ from src.agents import (
     UCBAgent,
     LinUCBAgent,
     NeuralUCBAgent,
+    BayesianSPOAgent,
     FullSPOAgent,
-    OptimisticSPOAgent,
-    EndToEndSPOAgent,
+    DecisionUCBAgent,
+    SimplePKLAgent,
+    InverseRegretAgent,
+    ConservativeUnifiedAgent,
+    CNUCBAgent,
+    CNTSAgent,
     run_experiment,
 )
 
@@ -36,6 +41,7 @@ from src.solver import solve_knapsack
 
 from src.losses import (
     spo_plus_grad,
+    spo_plus_grad_balanced,
     spo_plus_grad_bandit,
     nce_grad_bandit,
 )
@@ -59,12 +65,18 @@ __all__ = [
     "UCBAgent",
     "LinUCBAgent",
     "NeuralUCBAgent",
+    "BayesianSPOAgent",
     "FullSPOAgent",
-    "OptimisticSPOAgent",
-    "EndToEndSPOAgent",
+    "DecisionUCBAgent",
+    "SimplePKLAgent",
+    "InverseRegretAgent",
+    "ConservativeUnifiedAgent",
+    "CNUCBAgent",
+    "CNTSAgent",
     "run_experiment",
     "solve_knapsack",
     "spo_plus_grad",
+    "spo_plus_grad_balanced",
     "spo_plus_grad_bandit",
     "nce_grad_bandit",
 ]

@@ -11,7 +11,11 @@ from src.agents import run_experiment
 from src.agents.ucb import LinUCBAgent, NeuralUCBAgent
 from src.agents.bayesian import ThompsonSamplingAgent, UCBAgent
 from src.agents.baselines import RandomAgent
-from src.agents.spo import OptimisticSPOAgent, EndToEndSPOAgent, FullSPOAgent
+from src.agents.spo import BayesianSPOAgent, FullSPOAgent, DecisionUCBAgent
+from src.agents.pkl import SimplePKLAgent
+from src.agents.irm import InverseRegretAgent
+from src.agents.unified import ConservativeUnifiedAgent
+from src.agents.cn_ucb import CNUCBAgent, CNTSAgent
 from src.models import BayesianLinearModel
 
 
@@ -20,6 +24,7 @@ DATASETS = {
         'n_items': 32,
         'n_features': 5,
         'capacity': 20.0,
+        'noise_width': 0
     },
     'portfolio': {
         'n_portfolios': 50,
@@ -27,18 +32,36 @@ DATASETS = {
         'lookback': 12,
     },
     'assortment': {
-        'n_products': 50,
-        'n_slots': 5,
+        'n_products': 100,
+        'n_slots': 10,
         'context_dim': 10,
+    },
+    'cn_linear': {
+        'type': 'cn_synthetic',
+        'n_arms': 20,
+        'n_features': 80,
+        'K': 4,
+        'score_type': 'linear',
+    },
+    'cn_quadratic': {
+        'type': 'cn_synthetic',
+        'n_arms': 20,
+        'n_features': 80,
+        'K': 4,
+        'score_type': 'quadratic',
+    },
+    'cn_cosine': {
+        'type': 'cn_synthetic',
+        'n_arms': 20,
+        'n_features': 80,
+        'K': 4,
+        'score_type': 'cosine',
     },
 }
 
 
 def get_agents(env, seed, lr=0.01, n_rounds=300):
     return {
-        'Random': RandomAgent(
-            env.n_arms, env.weights, env.capacity, seed=seed
-        ),
         'UCB-Bayesian': UCBAgent(
             BayesianLinearModel(env.context_dim, env.n_arms),
             env.weights, env.capacity, beta=1.0
@@ -55,20 +78,44 @@ def get_agents(env, seed, lr=0.01, n_rounds=300):
             env.context_dim, env.n_arms, env.weights, env.capacity,
             hidden_dim=32, alpha=1.0, lambda_reg=1.0, lr=lr, seed=seed
         ),
-        'OptimisticSPO': OptimisticSPOAgent(
+
+        'BayesianSPO': BayesianSPOAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=32, beta_start=1.0, beta_end=1.0, decay_rounds=n_rounds,
+            hidden_dim=32, beta=1.0, decay_rounds=n_rounds,
             alpha=0.0, lambda_reg=1.0, seed=seed
-        ),
-        'EndToEndSPO': EndToEndSPOAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=32, beta_start=1.0, beta_end=1.0, decay_rounds=n_rounds,
-            alpha=0.0, lambda_reg=1.0, theta_lr_scale=20.0, seed=seed
         ),
         'FullSPO': FullSPOAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             hidden_dim=32, beta_start=1.0, beta_end=1.0, decay_rounds=n_rounds,
             lambda_reg=1.0, seed=seed
+        ),
+        'DecisionUCB': DecisionUCBAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            hidden_dim=32, beta_pred_start=1.0, beta_pred_end=1.0,
+            beta_decision=1.0, decay_rounds=n_rounds,
+            alpha=0.0, lambda_reg=1.0, seed=seed
+        ),
+
+        'SimplePKL': SimplePKLAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            hidden_dim=32, beta=1.0, temperature=0.1,
+            n_perturbations=10, lambda_reg=1.0, seed=seed
+        ),
+        'IRM': InverseRegretAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            hidden_dim=32, beta=1.0, bound_weight=1.0, mse_weight=1.0,
+            lambda_reg=1.0, seed=seed
+        ),
+        'ConservativeUnified': ConservativeUnifiedAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            hidden_dim=32, beta=1.0, diversity_threshold=1.0,
+            temperature=0.1, n_perturbations=10, lambda_reg=1.0, seed=seed
+        ),
+
+        'CN-UCB': CNUCBAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            hidden_dim=32, lambda_reg=1.0, gamma=1.0, lr=lr,
+            constraint_type='knapsack', per_arm_context=False, seed=seed
         ),
     }
 
@@ -79,9 +126,13 @@ def run_evaluation(
     n_seeds: int = 5,
     lr: float = 0.01,
     output_dir: str = 'results',
+    noise: float = 0.0,
     verbose: bool = True,
 ):
-    dataset_config = DATASETS.get(dataset, DATASETS['synthetic'])
+    dataset_config = DATASETS.get(dataset, DATASETS['synthetic']).copy()
+
+    if dataset == 'synthetic' and noise != 0.0:
+        dataset_config['noise_width'] = noise
 
     results = {'full': {}, 'semi_bandit': {}}
     trajectories = {}
@@ -90,7 +141,8 @@ def run_evaluation(
         print(f'\n{"=" * 60}')
         print(f'DATASET: {dataset.upper()}')
         print(f'{"=" * 60}')
-        print(f'Rounds: {n_rounds}, Seeds: {n_seeds}, LR: {lr}')
+        noise_info = f', Noise: {dataset_config.get("noise_width", 0.0)}' if dataset == 'synthetic' else ''
+        print(f'Rounds: {n_rounds}, Seeds: {n_seeds}, LR: {lr}{noise_info}')
 
     for feedback_mode, full_feedback in [('semi_bandit', False), ('full', True)]:
         if verbose:
@@ -210,6 +262,8 @@ def main():
                         help='Do not save results')
     parser.add_argument('--datasets', type=str, default='synthetic',
                         help='Comma-separated list of datasets (synthetic,portfolio,assortment)')
+    parser.add_argument('--noise', type=float, default=0.0,
+                        help='Noise width for synthetic dataset (default: 0.0)')
 
     args = parser.parse_args()
 
@@ -237,6 +291,7 @@ def main():
     print(f'Rounds: {n_rounds}')
     print(f'Seeds: {n_seeds}')
     print(f'Learning rate: {args.lr}')
+    print(f'Noise: {args.noise}')
     print(f'Output: {args.output_dir}')
     print(f'Started: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
 
@@ -250,6 +305,7 @@ def main():
             n_seeds=n_seeds,
             lr=args.lr,
             output_dir=args.output_dir,
+            noise=args.noise,
         )
 
         print_summary(results, dataset)

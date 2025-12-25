@@ -1,3 +1,4 @@
+import jax.numpy as jnp
 import numpy as np
 from typing import Union
 from src.models import LinearModel, MLPModel
@@ -19,8 +20,8 @@ class RandomAgent:
         self.capacity = capacity
         self.rng = np.random.default_rng(seed)
 
-        self.reward_sum = np.zeros(n_arms)
-        self.reward_count = np.zeros(n_arms)
+        self.reward_sum = jnp.zeros(n_arms)
+        self.reward_count = jnp.zeros(n_arms)
 
     def act(self, X: np.ndarray) -> np.ndarray:
         order = self.rng.permutation(self.n_arms)
@@ -34,21 +35,24 @@ class RandomAgent:
 
         return selection
 
-    def predict(self, X: np.ndarray) -> np.ndarray:
-        pred = np.zeros(self.n_arms)
+    def predict(self, X: np.ndarray) -> jnp.ndarray:
+        pred = jnp.zeros(self.n_arms)
         mask = self.reward_count > 0
-        pred[mask] = self.reward_sum[mask] / self.reward_count[mask]
+        pred = jnp.where(mask, self.reward_sum / jnp.maximum(self.reward_count, 1), pred)
         return pred
 
     def update(self, X: np.ndarray, selection: np.ndarray, rewards: np.ndarray,
                full_feedback: bool = False):
+        rewards = jnp.asarray(rewards)
+        selection = jnp.asarray(selection)
+
         if full_feedback:
-            self.reward_sum += rewards
-            self.reward_count += 1
+            self.reward_sum = self.reward_sum + rewards
+            self.reward_count = self.reward_count + 1
         else:
             selected = selection > 0.5
-            self.reward_sum[selected] += rewards[selected]
-            self.reward_count[selected] += 1
+            self.reward_sum = jnp.where(selected, self.reward_sum + rewards, self.reward_sum)
+            self.reward_count = jnp.where(selected, self.reward_count + 1, self.reward_count)
 
 
 class GreedyAgent:
@@ -68,7 +72,7 @@ class GreedyAgent:
 
     def act(self, X: np.ndarray) -> np.ndarray:
         Y_pred = self.model.predict(X)
-        return solve_knapsack(Y_pred, self.weights, self.capacity)
+        return solve_knapsack(np.asarray(Y_pred), self.weights, self.capacity)
 
     def update(self, X: np.ndarray, Y_true: np.ndarray, lr: float):
         if self.loss_type == "mse":

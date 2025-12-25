@@ -16,6 +16,7 @@ COLOR_MAP = {
     'OptimisticSPO': 'purple',
     'EndToEndSPO': 'brown',
     'FullSPO': 'pink',
+    'DecisionUCB': 'cyan',
 }
 
 

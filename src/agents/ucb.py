@@ -1,6 +1,12 @@
+import jax
+import jax.numpy as jnp
 import numpy as np
 from src.solver import solve_knapsack
-from src.agents.utils.bayesian import sherman_morrison_update, init_per_arm_regression
+from src.agents.utils.bayesian import (
+    init_per_arm_regression,
+    compute_ucb_values,
+    update_bayesian_stats,
+)
 
 
 class LinUCBAgent:
@@ -26,23 +32,23 @@ class LinUCBAgent:
         )
 
     def act(self, X: np.ndarray) -> np.ndarray:
-        ucb_values = np.zeros(self.n_arms)
-
-        for i in range(self.n_arms):
-            theta_i = self.A_inv[i] @ self.b[i]
-            mean = theta_i @ X
-            std = np.sqrt(X @ self.A_inv[i] @ X)
-            ucb_values[i] = mean + self.alpha * std
-
-        return solve_knapsack(ucb_values, self.weights, self.capacity)
+        features = jnp.asarray(X)
+        ucb_values = compute_ucb_values(features, self.A_inv, self.b, self.alpha)
+        return solve_knapsack(np.asarray(ucb_values), self.weights, self.capacity)
 
     def update(self, X: np.ndarray, selection: np.ndarray, rewards: np.ndarray,
                full_feedback: bool = False):
-        for i in range(self.n_arms):
-            if full_feedback or selection[i] > 0.5:
-                self.A[i] += np.outer(X, X)
-                self.b[i] += X * rewards[i]
-                self.A_inv[i] = sherman_morrison_update(self.A_inv[i], X)
+        features = jnp.asarray(X)
+        rewards_jax = jnp.asarray(rewards)
+
+        if full_feedback:
+            mask = jnp.ones(self.n_arms, dtype=bool)
+        else:
+            mask = jnp.asarray(selection) > 0.5
+
+        self.A, self.b, self.A_inv = update_bayesian_stats(
+            self.A, self.b, self.A_inv, features, rewards_jax, mask
+        )
 
 
 class NeuralUCBAgent:
@@ -53,86 +59,214 @@ class NeuralUCBAgent:
         n_arms: int,
         weights: np.ndarray,
         capacity: float,
-        hidden_dim: int = 64,
+        hidden_dim: int = 100,
         alpha: float = 1.0,
         lambda_reg: float = 1.0,
-        lr: float = 0.001,
+        lr: float = 0.01,
         seed: int = None,
+        train_interval: int = 10,
+        train_epochs: int = 20,
     ):
         self.context_dim = context_dim
         self.n_arms = n_arms
         self.weights = weights
         self.capacity = capacity
         self.hidden_dim = hidden_dim
-        self.alpha = alpha
+        self.nu = alpha
         self.lambda_reg = lambda_reg
         self.lr = lr
-        self.rng = np.random.default_rng(seed)
-
-        self.W1 = self.rng.standard_normal((hidden_dim, context_dim)) * 0.1
-        self.b1 = np.zeros(hidden_dim)
-        self.W2 = self.rng.standard_normal((n_arms, hidden_dim)) * 0.1
-        self.b2 = np.zeros(n_arms)
-
-        self.A, self.b_bayes, self.A_inv = init_per_arm_regression(
-            n_arms, hidden_dim, lambda_reg
-        )
-
-        self.data_buffer = []
-        self.update_freq = 10
+        self.train_interval = train_interval
+        self.train_epochs = train_epochs
         self.t = 0
 
-    def _forward(self, X: np.ndarray) -> tuple:
-        h = np.maximum(0, self.W1 @ X + self.b1)
-        out = self.W2 @ h + self.b2
-        return out, h
+        key = jax.random.PRNGKey(seed if seed else 0)
+        k1, k2 = jax.random.split(key)
+        self.W1 = jax.random.normal(k1, (context_dim, hidden_dim)) / np.sqrt(hidden_dim)
+        self.b1 = jnp.zeros(hidden_dim)
+        self.W2 = jax.random.normal(k2, (hidden_dim, n_arms)) / np.sqrt(hidden_dim)
+        self.b2 = jnp.zeros(n_arms)
+
+        self.W1_init = self.W1.copy()
+        self.b1_init = self.b1.copy()
+        self.W2_init = self.W2.copy()
+        self.b2_init = self.b2.copy()
+
+        self.total_params = (context_dim * hidden_dim + hidden_dim +
+                            hidden_dim * n_arms + n_arms)
+
+        self.U_diag = lambda_reg * jnp.ones(self.total_params)
+
+        self.history_X = []
+        self.history_Y = []
+        self.history_mask = []
+        self.rng = np.random.default_rng(seed if seed else 0)
+
+        self._cached_g_features = None
+        self._cached_X = None
+
+        self._build_jit_functions()
+
+    def _build_jit_functions(self):
+        context_dim = self.context_dim
+        hidden_dim = self.hidden_dim
+        n_arms = self.n_arms
+
+        w1_size = context_dim * hidden_dim
+        b1_size = hidden_dim
+        w2_size = hidden_dim * n_arms
+
+        @jax.jit
+        def forward(W1, b1, W2, b2, X):
+            z1 = X @ W1 + b1
+            h = jnp.maximum(0, z1)
+            return h @ W2 + b2
+
+        @jax.jit
+        def compute_jacobian(flat_params, X):
+            def forward_flat(fp):
+                W1 = fp[:w1_size].reshape(context_dim, hidden_dim)
+                b1 = fp[w1_size:w1_size + b1_size]
+                W2 = fp[w1_size + b1_size:w1_size + b1_size + w2_size].reshape(
+                    hidden_dim, n_arms)
+                b2 = fp[w1_size + b1_size + w2_size:]
+                z1 = X @ W1 + b1
+                h = jnp.maximum(0, z1)
+                return h @ W2 + b2
+            return jax.jacobian(forward_flat)(flat_params)
+
+        @jax.jit
+        def compute_uncertainties(g_features, U_diag, lambda_reg, nu):
+            sigma2 = lambda_reg * nu * (g_features ** 2) / U_diag
+            return jnp.sqrt(jnp.sum(sigma2, axis=1))
+
+        @jax.jit
+        def update_U_diag(U_diag, g_features, mask):
+            masked_g2 = jnp.where(mask[:, None], g_features ** 2, 0.0)
+            return U_diag + jnp.sum(masked_g2, axis=0)
+
+        self._jit_forward = forward
+        self._jit_jacobian = compute_jacobian
+        self._jit_uncertainties = compute_uncertainties
+        self._jit_update_U = update_U_diag
+
+    def _get_params(self):
+        return {'W1': self.W1, 'b1': self.b1, 'W2': self.W2, 'b2': self.b2}
+
+    def _flatten_params(self, params):
+        return jnp.concatenate([
+            params['W1'].ravel(),
+            params['b1'].ravel(),
+            params['W2'].ravel(),
+            params['b2'].ravel()
+        ])
+
+    def _forward(self, X):
+        return self._jit_forward(self.W1, self.b1, self.W2, self.b2, X)
+
+    def _compute_gradient_features(self, X):
+        flat_params = self._flatten_params(self._get_params())
+        return self._jit_jacobian(flat_params, X)
+
+    def _compute_uncertainties(self, g_features):
+        return self._jit_uncertainties(g_features, self.U_diag, self.lambda_reg, self.nu)
 
     def act(self, X: np.ndarray) -> np.ndarray:
-        _, features = self._forward(X)
+        self.t += 1
+        X = jnp.asarray(X)
 
-        ucb_values = np.zeros(self.n_arms)
-        for i in range(self.n_arms):
-            theta_i = self.A_inv[i] @ self.b_bayes[i]
-            mean = theta_i @ features
-            std = np.sqrt(features @ self.A_inv[i] @ features)
-            ucb_values[i] = mean + self.alpha * std
+        predictions = self._forward(X)
+        g_features = self._compute_gradient_features(X)
+        uncertainties = self._compute_uncertainties(g_features)
 
-        return solve_knapsack(ucb_values, self.weights, self.capacity)
+        self._cached_g_features = g_features
+        self._cached_X = X
+
+        ucb_values = predictions + uncertainties
+        return solve_knapsack(np.asarray(ucb_values), self.weights, self.capacity)
+
+    def _update_information_matrix(self, g_features, mask):
+        self.U_diag = self._jit_update_U(self.U_diag, g_features, mask)
+
+    def _train_batch(self, batch_size=100):
+        if len(self.history_X) == 0:
+            return
+
+        all_X = jnp.asarray(self.history_X)
+        all_Y = jnp.asarray(self.history_Y)
+        all_mask = jnp.asarray(self.history_mask)
+        n_samples = len(all_X)
+
+        params_init = {
+            'W1': self.W1_init, 'b1': self.b1_init,
+            'W2': self.W2_init, 'b2': self.b2_init
+        }
+
+        for epoch in range(self.train_epochs):
+            if n_samples <= batch_size:
+                batch_idx = np.arange(n_samples)
+            else:
+                batch_idx = self.rng.choice(n_samples, size=batch_size, replace=False)
+
+            X_batch = all_X[batch_idx]
+            Y_batch = all_Y[batch_idx]
+            mask_batch = all_mask[batch_idx]
+
+            def loss_fn(params):
+                z1 = X_batch @ params['W1'] + params['b1']
+                h = jnp.maximum(0, z1)
+                pred = h @ params['W2'] + params['b2']
+
+                diff = (pred - Y_batch) * mask_batch
+                n_obs = jnp.maximum(jnp.sum(mask_batch), 1.0)
+                mse_loss = 0.5 * jnp.sum(diff ** 2) / n_obs
+
+                reg_loss = 0.0
+                for key in params:
+                    reg_loss = reg_loss + jnp.mean((params[key] - params_init[key]) ** 2)
+                reg_loss = 0.5 * self.lambda_reg * reg_loss
+
+                return mse_loss + reg_loss
+
+            params = self._get_params()
+            grads = jax.grad(loss_fn)(params)
+
+            grad_norm = jnp.sqrt(sum(jnp.sum(g**2) for g in grads.values()))
+            clip_coef = jnp.minimum(1.0, 1.0 / (grad_norm + 1e-6))
+
+            self.W1 = self.W1 - self.lr * grads['W1'] * clip_coef
+            self.b1 = self.b1 - self.lr * grads['b1'] * clip_coef
+            self.W2 = self.W2 - self.lr * grads['W2'] * clip_coef
+            self.b2 = self.b2 - self.lr * grads['b2'] * clip_coef
 
     def update(self, X: np.ndarray, selection: np.ndarray, rewards: np.ndarray,
                full_feedback: bool = False):
-        self.t += 1
+        X_jax = jnp.asarray(X)
 
-        pred, features = self._forward(X)
+        if self._cached_g_features is not None and self._cached_X is not None:
+            if jnp.allclose(X_jax, self._cached_X):
+                g_features = self._cached_g_features
+            else:
+                g_features = self._compute_gradient_features(X_jax)
+        else:
+            g_features = self._compute_gradient_features(X_jax)
 
-        for i in range(self.n_arms):
-            if full_feedback or selection[i] > 0.5:
-                self.A[i] += np.outer(features, features)
-                self.b_bayes[i] += features * rewards[i]
-                self.A_inv[i] = sherman_morrison_update(self.A_inv[i], features)
+        self._cached_g_features = None
+        self._cached_X = None
 
-        self.data_buffer.append((X, selection, rewards, full_feedback))
+        if full_feedback:
+            mask = jnp.ones(self.n_arms, dtype=bool)
+        else:
+            mask = jnp.asarray(selection) > 0.5
 
-        if self.t % self.update_freq == 0 and len(self.data_buffer) >= self.update_freq:
-            self._update_network()
+        self._update_information_matrix(g_features, mask)
 
-    def _update_network(self):
-        for X, selection, rewards, full_feedback in self.data_buffer[-self.update_freq:]:
-            pred, h = self._forward(X)
+        predictions = np.asarray(self._forward(X_jax))
+        Y_target = np.where(mask, rewards, predictions)
+        obs_mask = np.asarray(mask).astype(float)
 
-            for i in range(self.n_arms):
-                if full_feedback or selection[i] > 0.5:
-                    error = np.clip(pred[i] - rewards[i], -1, 1)
+        self.history_X.append(np.asarray(X))
+        self.history_Y.append(Y_target)
+        self.history_mask.append(obs_mask)
 
-                    self.W2[i] -= self.lr * error * h
-                    self.b2[i] -= self.lr * error
-
-                    d_h = error * self.W2[i] * (h > 0)
-                    d_h = np.clip(d_h, -1, 1)
-                    self.W1 -= self.lr * np.outer(d_h, X)
-                    self.b1 -= self.lr * d_h
-
-        self.W1 = np.clip(self.W1, -5, 5)
-        self.W2 = np.clip(self.W2, -5, 5)
-        self.b1 = np.clip(self.b1, -5, 5)
-        self.b2 = np.clip(self.b2, -5, 5)
+        if self.t % self.train_interval == 0:
+            self._train_batch()
