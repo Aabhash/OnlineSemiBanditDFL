@@ -53,15 +53,17 @@ def _get_prediction(agent, X):
 def _compute_mse(Y_pred, Y_true):
     if Y_pred is None:
         return np.nan
-    return np.mean((np.asarray(Y_pred) - np.asarray(Y_true)) ** 2)
+    Y_pred = np.asarray(Y_pred).flatten()
+    Y_true = np.asarray(Y_true).flatten()
+    return np.mean((Y_pred - Y_true) ** 2)
 
 
 def _compute_spo_loss(Y_pred, Y_true, weights, capacity):
     from src.solver import solve_knapsack
     if Y_pred is None:
         return np.nan
-    Y_pred = np.asarray(Y_pred)
-    Y_true = np.asarray(Y_true)
+    Y_pred = np.asarray(Y_pred).flatten()
+    Y_true = np.asarray(Y_true).flatten()
     x_opt = solve_knapsack(Y_true, weights, capacity)
     x_spo = solve_knapsack(2 * Y_pred - Y_true, weights, capacity)
     loss = Y_true @ x_opt - Y_true @ x_spo
@@ -87,6 +89,32 @@ def _compute_test_losses(agent, X_test, Y_test, weights, capacity):
     return mse_total / valid_count, spo_total / valid_count
 
 
+def _compute_test_regret(agent, X_test, Y_test, weights, capacity, solver=None):
+    """Compute cumulative regret on held-out test set using current policy."""
+    from src.solver import solve_knapsack
+    n_samples = len(X_test)
+    total_regret = 0.0
+
+    for i in range(n_samples):
+        # Get agent's decision for this context
+        selection = agent.act(X_test[i])
+        selection = np.asarray(selection)
+
+        # Compute optimal decision
+        Y_true = Y_test[i]
+        if solver is not None:
+            optimal_selection = solver(Y_true)
+        else:
+            optimal_selection = solve_knapsack(Y_true, weights, capacity)
+
+        # Compute regret
+        reward = np.sum(Y_true * selection)
+        optimal_reward = np.sum(Y_true * optimal_selection)
+        total_regret += optimal_reward - reward
+
+    return total_regret
+
+
 def run_experiment(
     env,
     agent,
@@ -104,8 +132,7 @@ def run_experiment(
     rewards = []
     regrets = []
     cumulative_regret = []
-    mse_losses = []
-    spo_losses = []
+    test_regrets = []
     total_regret = 0.0
 
     if test_set is not None:
@@ -113,20 +140,25 @@ def run_experiment(
     else:
         X_test, Y_test = env.generate_test_set(n_test_samples)
 
+    # Get solver from environment
+    solver = getattr(env, 'solve', None)
+
     X = env.reset()
+
+    # Compute test regret every eval_interval rounds
+    eval_interval = max(1, n_rounds // 20)  # Evaluate ~20 times during training
 
     for t in range(n_rounds):
         selection = agent.act(X)
 
         observed_values, reward, info = env.step(selection, full_feedback=full_feedback)
 
-        if t == n_rounds - 1:
-            mse, spo = _compute_test_losses(agent, X_test, Y_test, env.weights, env.capacity)
-            mse_losses.append(mse)
-            spo_losses.append(spo)
+        # Compute test regret periodically
+        if t == n_rounds - 1 or (t > 0 and t % eval_interval == 0):
+            test_regret = _compute_test_regret(agent, X_test, Y_test, env.weights, env.capacity, solver)
+            test_regrets.append(test_regret)
         else:
-            mse_losses.append(np.nan)
-            spo_losses.append(np.nan)
+            test_regrets.append(np.nan)
 
         instant_regret = info['regret']
         total_regret += instant_regret
@@ -166,6 +198,5 @@ def run_experiment(
         'regrets': regrets,
         'cumulative_regret': cumulative_regret,
         'final_regret': total_regret,
-        'mse_losses': mse_losses,
-        'spo_losses': spo_losses,
+        'test_regrets': test_regrets,
     }

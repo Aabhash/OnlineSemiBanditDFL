@@ -10,7 +10,7 @@ from src.envs import create_env
 from src.agents import run_experiment
 from src.agents.ucb import LinUCBAgent, NeuralUCBAgent
 from src.agents.bayesian import ThompsonSamplingAgent, UCBAgent
-from src.agents.baselines import RandomAgent
+from src.agents.baselines import RandomAgent, EpsilonGreedyAgent, MSENeuralAgent
 from src.agents.spo import BayesianSPOAgent, FullSPOAgent, DecisionUCBAgent
 from src.agents.pkl import SimplePKLAgent
 from src.agents.irm import InverseRegretAgent
@@ -22,100 +22,155 @@ from src.models import BayesianLinearModel
 DATASETS = {
     'synthetic': {
         'n_items': 32,
-        'n_features': 5,
+        'context_dim': 5,
         'capacity': 20.0,
-        'noise_width': 0
     },
-    'portfolio': {
-        'n_portfolios': 50,
-        'n_select': 5,
-        'lookback': 12,
-    },
+    # REMOVED: 'portfolio' - predictions too good, decisions don't vary much
     'assortment': {
         'n_products': 100,
         'n_slots': 10,
         'context_dim': 10,
     },
+    # MovieLens recommendation datasets
+    'movielens': {
+        'n_movies': 50,
+        'n_slots': 5,
+        'context_dim': 20,
+    },
+    'movielens_large': {
+        'n_movies': 100,
+        'n_slots': 10,
+        'context_dim': 30,
+    },
+    # RecSim recommendation datasets (non-stationary user interests)
+    'recsim': {
+        'n_docs': 50,
+        'slate_size': 5,
+        'n_topics': 10,
+        'context_dim': 20,
+    },
+    'recsim_stationary': {
+        'n_docs': 50,
+        'slate_size': 5,
+        'n_topics': 10,
+        'context_dim': 20,
+        'stationary': True,
+    },
+    # CN datasets: score_type is extracted from dataset name (cn_linear -> linear)
     'cn_linear': {
-        'type': 'cn_synthetic',
         'n_arms': 20,
-        'n_features': 80,
+        'context_dim': 80,
         'K': 4,
-        'score_type': 'linear',
     },
     'cn_quadratic': {
-        'type': 'cn_synthetic',
         'n_arms': 20,
-        'n_features': 80,
+        'context_dim': 80,
         'K': 4,
-        'score_type': 'quadratic',
     },
     'cn_cosine': {
-        'type': 'cn_synthetic',
         'n_arms': 20,
-        'n_features': 80,
+        'context_dim': 80,
         'K': 4,
-        'score_type': 'cosine',
     },
+    # Shortest path datasets (synthetic only - Warcraft requires CNN)
+    'shortest_path_5': {
+        'grid_size': 5,
+        'data_type': 'synthetic',
+        'context_dim': 10,
+    },
+    'shortest_path_8': {
+        'grid_size': 8,
+        'data_type': 'synthetic',
+        'context_dim': 20,
+    },
+    # REMOVED: 'warcraft_12' - image data requires CNN, MLP insufficient
 }
 
 
-def get_agents(env, seed, lr=0.01, n_rounds=300):
+def get_agents(env, seed, lr=0.01, n_rounds=300, hidden_dim=None):
+    # Scale hidden_dim based on input dimension for high-dim datasets if not specified
+    # Use 64 for high-dim (CN datasets with 80 features), 32 for low-dim
+    if hidden_dim is None:
+        hidden_dim = 64 if env.context_dim > 20 else 32
+
+    # Get solver from environment (handles knapsack, shortest path, etc.)
+    solver = env.solve
+
+    # Check if environment is a minimization problem (e.g., shortest path)
+    # If so, UCB-based agents should use LCB instead
+    minimize = getattr(env, 'minimize', False)
+
     return {
         'UCB-Bayesian': UCBAgent(
             BayesianLinearModel(env.context_dim, env.n_arms),
-            env.weights, env.capacity, beta=1.0
+            env.weights, env.capacity, beta=1.0, minimize=minimize, solver=solver
         ),
         'ThompsonSampling': ThompsonSamplingAgent(
             BayesianLinearModel(env.context_dim, env.n_arms),
-            env.weights, env.capacity
+            env.weights, env.capacity, minimize=minimize, solver=solver
         ),
         'LinUCB': LinUCBAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            alpha=1.0, lambda_reg=1.0
+            alpha=1.0, lambda_reg=1.0, minimize=minimize, solver=solver
         ),
-        'NeuralUCB': NeuralUCBAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=32, alpha=1.0, lambda_reg=1.0, lr=lr, seed=seed
-        ),
-
+        # 'NeuralUCB': NeuralUCBAgent(
+        #     env.context_dim, env.n_arms, env.weights, env.capacity,
+        #     hidden_dim=hidden_dim, alpha=1.0, lambda_reg=1.0, lr=lr,
+        #     minimize=minimize, solver=solver, seed=seed
+        # ),
         'BayesianSPO': BayesianSPOAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=32, beta=1.0, decay_rounds=n_rounds,
-            alpha=0.0, lambda_reg=1.0, seed=seed
+            hidden_dim=hidden_dim, beta=1.0, decay_rounds=n_rounds,
+            alpha=0.0, lambda_reg=1.0, solver=solver, seed=seed
         ),
         'FullSPO': FullSPOAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=32, beta_start=1.0, beta_end=1.0, decay_rounds=n_rounds,
-            lambda_reg=1.0, seed=seed
+            hidden_dim=hidden_dim, beta_start=1.0, beta_end=1.0, decay_rounds=n_rounds,
+            lambda_reg=1.0, solver=solver, seed=seed
         ),
         'DecisionUCB': DecisionUCBAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=32, beta_pred_start=1.0, beta_pred_end=1.0,
+            hidden_dim=hidden_dim, beta_pred_start=1.0, beta_pred_end=1.0,
             beta_decision=1.0, decay_rounds=n_rounds,
-            alpha=0.0, lambda_reg=1.0, seed=seed
+            alpha=0.0, lambda_reg=1.0, solver=solver, seed=seed
         ),
+        # 'SimplePKL': SimplePKLAgent(
+        #     env.context_dim, env.n_arms, env.weights, env.capacity,
+        #     hidden_dim=hidden_dim, beta=1.0, temperature=0.1,
+        #     n_perturbations=10, lambda_reg=1.0, solver=solver, seed=seed
+        # ),
+        # 'IRM': InverseRegretAgent(
+        #     env.context_dim, env.n_arms, env.weights, env.capacity,
+        #     hidden_dim=hidden_dim, beta=1.0, bound_weight=1.0, mse_weight=1.0,
+        #     lambda_reg=1.0, solver=solver, seed=seed
+        # ),
+        # 'ConservativeUnified': ConservativeUnifiedAgent(
+        #     env.context_dim, env.n_arms, env.weights, env.capacity,
+        #     hidden_dim=hidden_dim, beta=1.0, diversity_threshold=1.0,
+        #     temperature=0.1, n_perturbations=10, lambda_reg=1.0,
+        #     solver=solver, seed=seed
+        # ),
 
-        'SimplePKL': SimplePKLAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=32, beta=1.0, temperature=0.1,
-            n_perturbations=10, lambda_reg=1.0, seed=seed
-        ),
-        'IRM': InverseRegretAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=32, beta=1.0, bound_weight=1.0, mse_weight=1.0,
-            lambda_reg=1.0, seed=seed
-        ),
-        'ConservativeUnified': ConservativeUnifiedAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=32, beta=1.0, diversity_threshold=1.0,
-            temperature=0.1, n_perturbations=10, lambda_reg=1.0, seed=seed
-        ),
+        # 'CN-UCB': CNUCBAgent(
+        #     env.context_dim, env.n_arms, env.weights, env.capacity,
+        #     hidden_dim=hidden_dim, lambda_reg=1.0, gamma=1.0, lr=lr,
+        #     constraint_type='knapsack', per_arm_context=False,
+        #     solver=solver, seed=seed
+        # ),
 
-        'CN-UCB': CNUCBAgent(
+        # IERM (Hu & Kallus, 2024) is NOT included - it's an offline method
+        # See docs/why_not_ierm.md for details
+
+        # Baselines
+        'EpsilonGreedy': EpsilonGreedyAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=32, lambda_reg=1.0, gamma=1.0, lr=lr,
-            constraint_type='knapsack', per_arm_context=False, seed=seed
+            hidden_dim=hidden_dim, epsilon=0.1, decay_epsilon=True,
+            decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed
+        ),
+        'MSENeural': MSENeuralAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            hidden_dim=hidden_dim, beta=1.0, lambda_reg=1.0,
+            decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed
         ),
     }
 
@@ -125,6 +180,7 @@ def run_evaluation(
     n_rounds: int = 300,
     n_seeds: int = 5,
     lr: float = 0.01,
+    hidden_dim: int = None,
     output_dir: str = 'results',
     noise: float = 0.0,
     verbose: bool = True,
@@ -155,7 +211,7 @@ def run_evaluation(
             env_base = create_env(dataset, seed=seed, **dataset_config)
             test_set = env_base.generate_test_set(100)
 
-            agents = get_agents(env_base, seed, lr, n_rounds)
+            agents = get_agents(env_base, seed, lr, n_rounds, hidden_dim)
 
             for agent_name, agent in agents.items():
                 if verbose:
@@ -264,6 +320,8 @@ def main():
                         help='Comma-separated list of datasets (synthetic,portfolio,assortment)')
     parser.add_argument('--noise', type=float, default=0.0,
                         help='Noise width for synthetic dataset (default: 0.0)')
+    parser.add_argument('--hidden_dim', type=int, default=None,
+                        help='Hidden dimension for neural networks (default: auto based on context_dim)')
 
     args = parser.parse_args()
 
@@ -277,8 +335,8 @@ def main():
         n_rounds = args.n_rounds or 300
         n_seeds = args.n_seeds or 3
     elif args.full:
-        n_rounds = args.n_rounds or 500
-        n_seeds = args.n_seeds or 5
+        n_rounds = args.n_rounds or 2000  # Paper-scale: 2000 rounds
+        n_seeds = args.n_seeds or 10      # Paper-scale: 10 seeds
     else:
         n_rounds = args.n_rounds or 300
         n_seeds = args.n_seeds or 3
@@ -291,6 +349,7 @@ def main():
     print(f'Rounds: {n_rounds}')
     print(f'Seeds: {n_seeds}')
     print(f'Learning rate: {args.lr}')
+    print(f'Hidden dim: {args.hidden_dim or "auto"}')
     print(f'Noise: {args.noise}')
     print(f'Output: {args.output_dir}')
     print(f'Started: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
@@ -304,6 +363,7 @@ def main():
             n_rounds=n_rounds,
             n_seeds=n_seeds,
             lr=args.lr,
+            hidden_dim=args.hidden_dim,
             output_dir=args.output_dir,
             noise=args.noise,
         )

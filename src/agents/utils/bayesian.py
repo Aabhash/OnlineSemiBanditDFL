@@ -32,19 +32,21 @@ def init_per_arm_regression(
     return A, b, A_inv
 
 
-@jax.jit
 def compute_ucb_values(
     features: jnp.ndarray,
     A_inv: jnp.ndarray,
     b: jnp.ndarray,
     beta: float,
+    minimize: bool = False,
 ) -> jnp.ndarray:
     theta = jnp.einsum('nij,nj->ni', A_inv, b)
     means = theta @ features
     Ax = jnp.einsum('nij,j->ni', A_inv, features)
     variances = jnp.einsum('i,ni->n', features, Ax)
     stds = jnp.sqrt(jnp.maximum(variances, 0.0))
-    return means + beta * stds
+    if minimize:
+        return means - beta * stds  # LCB for cost minimization
+    return means + beta * stds  # UCB for reward maximization
 
 
 @jax.jit

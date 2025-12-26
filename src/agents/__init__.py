@@ -1,5 +1,5 @@
 from src.agents.base import run_experiment
-from src.agents.baselines import RandomAgent, GreedyAgent
+from src.agents.baselines import RandomAgent, GreedyAgent, EpsilonGreedyAgent, MSENeuralAgent
 from src.agents.bayesian import ThompsonSamplingAgent, UCBAgent
 from src.agents.ucb import LinUCBAgent, NeuralUCBAgent
 
@@ -17,6 +17,8 @@ __all__ = [
     'run_experiment',
     'RandomAgent',
     'GreedyAgent',
+    'EpsilonGreedyAgent',
+    'MSENeuralAgent',
     'ThompsonSamplingAgent',
     'UCBAgent',
     'LinUCBAgent',

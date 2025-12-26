@@ -23,6 +23,10 @@ class ConstrainedBanditEnv(ABC):
         self.current_values = None
         self.t = 0
 
+    @property
+    def minimize(self) -> bool:
+        return False
+
     @abstractmethod
     def _generate_sample(self) -> Tuple[np.ndarray, np.ndarray]:
         pass
@@ -67,6 +71,9 @@ class ConstrainedBanditEnv(ABC):
     def _solve_optimal(self, values: np.ndarray) -> np.ndarray:
         from src.solver import solve_knapsack
         return solve_knapsack(values, self.weights, self.capacity)
+
+    def solve(self, values: np.ndarray) -> np.ndarray:
+        return self._solve_optimal(values)
 
     def get_context(self) -> np.ndarray:
         return self.current_context

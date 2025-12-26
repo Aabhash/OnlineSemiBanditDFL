@@ -1,7 +1,6 @@
 import jax
 import jax.numpy as jnp
 import numpy as np
-from src.solver import solve_knapsack
 from src.agents.utils.bayesian import (
     init_per_arm_regression,
     compute_ucb_values,
@@ -19,6 +18,8 @@ class LinUCBAgent:
         capacity: float,
         alpha: float = 1.0,
         lambda_reg: float = 1.0,
+        minimize: bool = False,
+        solver=None,
     ):
         self.context_dim = context_dim
         self.n_arms = n_arms
@@ -26,6 +27,13 @@ class LinUCBAgent:
         self.capacity = capacity
         self.alpha = alpha
         self.lambda_reg = lambda_reg
+        self.minimize = minimize
+
+        if solver is None:
+            from src.solver import solve_knapsack
+            self.solver = lambda v: solve_knapsack(np.asarray(v), weights, capacity)
+        else:
+            self.solver = solver
 
         self.A, self.b, self.A_inv = init_per_arm_regression(
             n_arms, context_dim, lambda_reg
@@ -33,8 +41,8 @@ class LinUCBAgent:
 
     def act(self, X: np.ndarray) -> np.ndarray:
         features = jnp.asarray(X)
-        ucb_values = compute_ucb_values(features, self.A_inv, self.b, self.alpha)
-        return solve_knapsack(np.asarray(ucb_values), self.weights, self.capacity)
+        ucb_values = compute_ucb_values(features, self.A_inv, self.b, self.alpha, self.minimize)
+        return self.solver(np.asarray(ucb_values))
 
     def update(self, X: np.ndarray, selection: np.ndarray, rewards: np.ndarray,
                full_feedback: bool = False):
@@ -63,15 +71,24 @@ class NeuralUCBAgent:
         alpha: float = 1.0,
         lambda_reg: float = 1.0,
         lr: float = 0.01,
+        minimize: bool = False,
+        solver=None,
         seed: int = None,
         train_interval: int = 10,
-        train_epochs: int = 20,
+        train_epochs: int = 100,
     ):
         self.context_dim = context_dim
         self.n_arms = n_arms
         self.weights = weights
         self.capacity = capacity
         self.hidden_dim = hidden_dim
+        self.minimize = minimize
+
+        if solver is None:
+            from src.solver import solve_knapsack
+            self.solver = lambda v: solve_knapsack(np.asarray(v), weights, capacity)
+        else:
+            self.solver = solver
         self.nu = alpha
         self.lambda_reg = lambda_reg
         self.lr = lr
@@ -135,13 +152,16 @@ class NeuralUCBAgent:
             return jax.jacobian(forward_flat)(flat_params)
 
         @jax.jit
-        def compute_uncertainties(g_features, U_diag, lambda_reg, nu):
-            sigma2 = lambda_reg * nu * (g_features ** 2) / U_diag
-            return jnp.sqrt(jnp.sum(sigma2, axis=1))
+        def compute_uncertainties(g_features, U_diag, lambda_reg, nu, m):
+            g_scaled = g_features / jnp.sqrt(m)
+            sigma2 = g_scaled ** 2 / U_diag
+            return nu * jnp.sqrt(jnp.sum(sigma2, axis=1))
 
         @jax.jit
-        def update_U_diag(U_diag, g_features, mask):
-            masked_g2 = jnp.where(mask[:, None], g_features ** 2, 0.0)
+        def update_U_diag(U_diag, g_features, mask, m):
+            # Scale gradients before squaring (consistent with uncertainty computation)
+            g_scaled = g_features / jnp.sqrt(m)
+            masked_g2 = jnp.where(mask[:, None], g_scaled ** 2, 0.0)
             return U_diag + jnp.sum(masked_g2, axis=0)
 
         self._jit_forward = forward
@@ -168,7 +188,8 @@ class NeuralUCBAgent:
         return self._jit_jacobian(flat_params, X)
 
     def _compute_uncertainties(self, g_features):
-        return self._jit_uncertainties(g_features, self.U_diag, self.lambda_reg, self.nu)
+        # Use total_params for scaling, not hidden_dim (Zhou et al. 2020)
+        return self._jit_uncertainties(g_features, self.U_diag, self.lambda_reg, self.nu, self.total_params)
 
     def act(self, X: np.ndarray) -> np.ndarray:
         self.t += 1
@@ -181,11 +202,15 @@ class NeuralUCBAgent:
         self._cached_g_features = g_features
         self._cached_X = X
 
-        ucb_values = predictions + uncertainties
-        return solve_knapsack(np.asarray(ucb_values), self.weights, self.capacity)
+        if self.minimize:
+            lcb_values = predictions - uncertainties  # LCB for cost minimization
+            return self.solver(np.asarray(lcb_values))
+        else:
+            ucb_values = predictions + uncertainties  # UCB for reward maximization
+            return self.solver(np.asarray(ucb_values))
 
     def _update_information_matrix(self, g_features, mask):
-        self.U_diag = self._jit_update_U(self.U_diag, g_features, mask)
+        self.U_diag = self._jit_update_U(self.U_diag, g_features, mask, self.total_params)
 
     def _train_batch(self, batch_size=100):
         if len(self.history_X) == 0:

@@ -188,19 +188,131 @@ def soft_knapsack_gradient(
 ) -> np.ndarray:
     if rng is None:
         rng = np.random.default_rng()
-    
+
     n_items = len(values)
     value_grads = np.zeros(n_items)
-    
+
     for _ in range(n_samples):
         u = rng.uniform(0.001, 0.999, size=n_items)
         epsilon = -np.log(-np.log(u)) * temperature
-        
+
         perturbed_values = values + epsilon
         lp_sol = soft_knapsack_lp(perturbed_values, weights, capacity)
 
         sample_loss = np.dot(loss_grad, lp_sol)
         value_grads += epsilon * sample_loss / (temperature ** 2)
-    
+
     return value_grads / n_samples
+
+import heapq
+
+
+def solve_shortest_path_grid(
+    grid_costs: np.ndarray,
+    source: tuple = (0, 0),
+    target: tuple = None,
+) -> np.ndarray:
+    H, W = grid_costs.shape
+
+    if target is None:
+        target = (H - 1, W - 1)
+
+    directions = [
+        (-1, -1), (-1, 0), (-1, 1),
+        (0, -1),           (0, 1),
+        (1, -1),  (1, 0),  (1, 1)
+    ]
+
+    dist = np.full((H, W), np.inf)
+    dist[source] = grid_costs[source]
+    parent = np.full((H, W, 2), -1, dtype=np.int32)
+
+    pq = [(grid_costs[source], source[0], source[1])]
+    visited = np.zeros((H, W), dtype=bool)
+
+    while pq:
+        d, r, c = heapq.heappop(pq)
+
+        if visited[r, c]:
+            continue
+        visited[r, c] = True
+
+        if (r, c) == target:
+            break
+
+        for dr, dc in directions:
+            nr, nc = r + dr, c + dc
+
+            if 0 <= nr < H and 0 <= nc < W and not visited[nr, nc]:
+                new_dist = dist[r, c] + grid_costs[nr, nc]
+
+                if new_dist < dist[nr, nc]:
+                    dist[nr, nc] = new_dist
+                    parent[nr, nc] = [r, c]
+                    heapq.heappush(pq, (new_dist, nr, nc))
+
+    path = np.zeros((H, W), dtype=np.float64)
+
+    if dist[target] < np.inf:
+        r, c = target
+        while (r, c) != source:
+            path[r, c] = 1.0
+            pr, pc = parent[r, c]
+            r, c = pr, pc
+        path[source] = 1.0
+
+    return path
+
+
+def solve_shortest_path_edges(
+    edge_costs: np.ndarray,
+    edge_list: np.ndarray,
+    n_nodes: int,
+    source: int,
+    target: int,
+) -> np.ndarray:
+    n_edges = len(edge_costs)
+
+    adj = [[] for _ in range(n_nodes)]
+    for e_idx, (u, v) in enumerate(edge_list):
+        adj[u].append((v, e_idx, edge_costs[e_idx]))
+        adj[v].append((u, e_idx, edge_costs[e_idx]))  # undirected
+
+    dist = np.full(n_nodes, np.inf)
+    dist[source] = 0
+    parent_edge = np.full(n_nodes, -1, dtype=np.int32)
+
+    pq = [(0, source)]
+    visited = np.zeros(n_nodes, dtype=bool)
+
+    while pq:
+        d, u = heapq.heappop(pq)
+
+        if visited[u]:
+            continue
+        visited[u] = True
+
+        if u == target:
+            break
+
+        for v, e_idx, cost in adj[u]:
+            if not visited[v]:
+                new_dist = dist[u] + cost
+                if new_dist < dist[v]:
+                    dist[v] = new_dist
+                    parent_edge[v] = e_idx
+                    heapq.heappush(pq, (new_dist, v))
+
+    path = np.zeros(n_edges, dtype=np.float64)
+
+    if dist[target] < np.inf:
+        node = target
+        while node != source:
+            e_idx = parent_edge[node]
+            path[e_idx] = 1.0
+            # Find parent node
+            u, v = edge_list[e_idx]
+            node = u if v == node else v
+
+    return path
 

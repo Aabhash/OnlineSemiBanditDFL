@@ -2,7 +2,6 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import optax
-from src.solver import solve_knapsack
 from src.losses import spo_plus_grad
 from src.agents.utils.bayesian import (
     init_per_arm_regression,
@@ -30,6 +29,7 @@ class BayesianSPOAgent:
         decay_rounds: int = 300,
         max_grad_norm: float = 5.0,
         min_lr_ratio: float = 0.1,
+        solver=None,
         seed: int = None,
     ):
         self.context_dim = context_dim
@@ -37,6 +37,12 @@ class BayesianSPOAgent:
         self.weights = jnp.asarray(weights)
         self.weights_np = np.asarray(weights)
         self.capacity = capacity
+
+        if solver is None:
+            from src.solver import solve_knapsack
+            self.solver = lambda v: solve_knapsack(np.asarray(v), self.weights_np, capacity)
+        else:
+            self.solver = solver
         self.hidden_dim = hidden_dim
         self.alpha = alpha
         self.lambda_reg = lambda_reg
@@ -89,7 +95,7 @@ class BayesianSPOAgent:
 
         h, _ = self._features(X)
         ucb_values = compute_ucb_values(h, self.A_inv, self.b_bayes, self.beta)
-        return solve_knapsack(np.asarray(ucb_values), self.weights_np, self.capacity)
+        return self.solver(np.asarray(ucb_values))
 
     def update(self, X, selection, rewards, lr: float = None, full_feedback: bool = False):
         X = jnp.asarray(X)

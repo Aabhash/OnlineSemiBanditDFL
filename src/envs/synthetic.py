@@ -10,15 +10,23 @@ class SyntheticKnapsackEnv(ConstrainedBanditEnv):
     def __init__(
         self,
         n_items: int = 32,
-        n_features: int = 5,
+        n_features: int = None,
+        context_dim: int = None,
         capacity: float = 20.0,
         deg: int = 4,
         noise_width: float = 0.5,
         seed: int = 42,
     ):
+        if context_dim is not None:
+            effective_dim = context_dim
+        elif n_features is not None:
+            effective_dim = n_features
+        else:
+            effective_dim = 5  # default
+
         self.data = SyntheticKnapsackData(
             n_items=n_items,
-            n_features=n_features,
+            context_dim=effective_dim,
             capacity=capacity,
             deg=deg,
             noise_width=noise_width,
@@ -27,7 +35,7 @@ class SyntheticKnapsackEnv(ConstrainedBanditEnv):
 
         super().__init__(
             n_arms=n_items,
-            context_dim=n_features,
+            context_dim=effective_dim,
             weights=self.data.weights,
             capacity=capacity,
             seed=seed,

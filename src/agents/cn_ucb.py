@@ -3,7 +3,7 @@ import jax.numpy as jnp
 import numpy as np
 import optax
 from functools import partial
-from src.solver import solve_knapsack, solve_top_k
+from src.solver import solve_top_k
 
 TRAIN_INTERVAL = 10
 TRAIN_EPOCHS = 100
@@ -88,6 +88,7 @@ class CNUCBAgent:
         lr: float = 0.01,
         constraint_type: str = 'knapsack',
         K: int = None,
+        solver=None,
         seed: int = None,
         train_interval: int = TRAIN_INTERVAL,
         train_epochs: int = TRAIN_EPOCHS,
@@ -100,6 +101,12 @@ class CNUCBAgent:
         self.weights_np = np.asarray(weights)
         self.capacity = capacity
         self.hidden_dim = hidden_dim
+
+        if solver is None:
+            from src.solver import solve_knapsack
+            self.solver = lambda v: solve_knapsack(np.asarray(v), self.weights_np, capacity)
+        else:
+            self.solver = solver
         self.lambda_reg = lambda_reg
         self.gamma = gamma
         self.lr = lr
@@ -167,7 +174,8 @@ class CNUCBAgent:
         return _compute_all_gradients(params, X, self.n_arms, self.total_params)
 
     def _compute_uncertainties(self, g_features):
-        g_scaled = g_features / np.sqrt(self.hidden_dim)
+        # Scale by sqrt(total_params) per NTK theory (Hwang et al. 2023)
+        g_scaled = g_features / np.sqrt(self.total_params)
         uncertainties = jnp.sqrt(jnp.sum(g_scaled ** 2 / self.Z_diag, axis=1))
 
         return uncertainties
@@ -190,10 +198,11 @@ class CNUCBAgent:
         if self.constraint_type == 'top_k':
             return solve_top_k(np.asarray(ucb_values), self.K)
         else:
-            return solve_knapsack(np.asarray(ucb_values), self.weights_np, self.capacity)
+            return self.solver(np.asarray(ucb_values))
 
     def _update_gram_matrix(self, g_features, mask):
-        g_scaled = g_features / np.sqrt(self.hidden_dim)
+        # Scale by sqrt(total_params) per NTK theory (Hwang et al. 2023)
+        g_scaled = g_features / np.sqrt(self.total_params)
         for i in range(self.n_arms):
             if mask[i]:
                 g = g_scaled[i]
@@ -296,6 +305,7 @@ class CNTSAgent:
         lr: float = 0.01,
         constraint_type: str = 'knapsack',
         K: int = None,
+        solver=None,
         seed: int = None,
         train_interval: int = TRAIN_INTERVAL,
         train_epochs: int = TRAIN_EPOCHS,
@@ -308,6 +318,12 @@ class CNTSAgent:
         self.weights_np = np.asarray(weights)
         self.capacity = capacity
         self.hidden_dim = hidden_dim
+
+        if solver is None:
+            from src.solver import solve_knapsack
+            self.solver = lambda v: solve_knapsack(np.asarray(v), self.weights_np, capacity)
+        else:
+            self.solver = solver
         self.lambda_reg = lambda_reg
         self.nu = nu
         self.M = M
@@ -376,7 +392,8 @@ class CNTSAgent:
         return _compute_all_gradients(params, X, self.n_arms, self.total_params)
 
     def _compute_uncertainties(self, g_features):
-        g_scaled = g_features / np.sqrt(self.hidden_dim)
+        # Scale by sqrt(total_params) per NTK theory (Hwang et al. 2023)
+        g_scaled = g_features / np.sqrt(self.total_params)
         uncertainties = jnp.sqrt(jnp.sum(g_scaled ** 2 / self.Z_diag, axis=1))
         return uncertainties
 
@@ -404,10 +421,11 @@ class CNTSAgent:
         if self.constraint_type == 'top_k':
             return solve_top_k(optimistic_values, self.K)
         else:
-            return solve_knapsack(optimistic_values, self.weights_np, self.capacity)
+            return self.solver(optimistic_values)
 
     def _update_gram_matrix(self, g_features, mask):
-        g_scaled = g_features / np.sqrt(self.hidden_dim)
+        # Scale by sqrt(total_params) per NTK theory (Hwang et al. 2023)
+        g_scaled = g_features / np.sqrt(self.total_params)
         for i in range(self.n_arms):
             if mask[i]:
                 g = g_scaled[i]

@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 from typing import Dict, Optional
+from scipy import stats
 
 
 COLOR_MAP = {
@@ -13,11 +14,124 @@ COLOR_MAP = {
     'ThompsonSampling': 'green',
     'LinUCB': 'orange',
     'NeuralUCB': 'red',
-    'OptimisticSPO': 'purple',
-    'EndToEndSPO': 'brown',
+    'BayesianSPO': 'purple',
     'FullSPO': 'pink',
     'DecisionUCB': 'cyan',
+    'SimplePKL': 'brown',
+    'IRM': 'olive',
+    'ConservativeUnified': 'teal',
+    'CN-UCB': 'magenta',
+    'CN-TS': 'darkblue',
+    'CombLinUCB': 'darkgreen',
+    'CombLinTS': 'darkred',
+    'EpsilonGreedy': 'gold',
+    'MSENeural': 'coral',
 }
+
+
+def compute_significance(results_dict, alpha=0.05):
+    agents = list(results_dict.keys())
+    n_agents = len(agents)
+
+    p_values = {}
+    significant_pairs = []
+
+    for i in range(n_agents):
+        for j in range(i + 1, n_agents):
+            a1, a2 = agents[i], agents[j]
+            r1, r2 = results_dict[a1], results_dict[a2]
+
+            min_len = min(len(r1), len(r2))
+            if min_len < 3:
+                continue
+
+            r1, r2 = r1[:min_len], r2[:min_len]
+
+            try:
+                stat, p = stats.wilcoxon(r1, r2)
+                p_values[(a1, a2)] = p
+
+                if p < alpha:
+                    if np.mean(r1) < np.mean(r2):
+                        significant_pairs.append((a1, a2, p, 'better'))
+                    else:
+                        significant_pairs.append((a2, a1, p, 'better'))
+            except Exception:
+                p_values[(a1, a2)] = 1.0
+
+    summary_lines = ["Pairwise Significance Tests (Wilcoxon, alpha=0.05):", "-" * 50]
+
+    if significant_pairs:
+        summary_lines.append("\nSignificant differences:")
+        for winner, loser, p, _ in sorted(significant_pairs, key=lambda x: x[2]):
+            summary_lines.append(f"  {winner} < {loser} (p={p:.4f})")
+    else:
+        summary_lines.append("\nNo significant differences found.")
+
+    return {
+        'p_values': p_values,
+        'significant_pairs': significant_pairs,
+        'summary': '\n'.join(summary_lines),
+    }
+
+
+def compute_confidence_intervals(results_dict, confidence=0.95):
+    z = stats.norm.ppf((1 + confidence) / 2)  # z-score for confidence level
+
+    intervals = {}
+    for agent, regrets in results_dict.items():
+        mean = np.mean(regrets)
+        std = np.std(regrets)
+        n = len(regrets)
+        ci = z * std / np.sqrt(n)
+        intervals[agent] = {
+            'mean': mean,
+            'std': std,
+            'ci': ci,
+            'ci_lower': mean - ci,
+            'ci_upper': mean + ci,
+            'n': n,
+        }
+    return intervals
+
+
+def print_significance_report(results, dataset, feedback_mode, output_file=None):
+    if results is None or dataset not in results:
+        return
+
+    if feedback_mode not in results[dataset]:
+        return
+
+    agent_regrets = results[dataset][feedback_mode]
+
+    sig_results = compute_significance(agent_regrets)
+    ci_results = compute_confidence_intervals(agent_regrets)
+
+    lines = [
+        f"\n{'=' * 60}",
+        f"STATISTICAL ANALYSIS: {dataset.upper()} - {feedback_mode.replace('_', ' ').title()}",
+        f"{'=' * 60}",
+        "\nFinal Regret (Mean +/- 95% CI):",
+        "-" * 40,
+    ]
+
+    sorted_agents = sorted(ci_results.items(), key=lambda x: x[1]['mean'])
+
+    for rank, (agent, ci) in enumerate(sorted_agents, 1):
+        lines.append(
+            f"  {rank}. {agent:<20} {ci['mean']:>8.1f} +/- {ci['ci']:>6.1f} "
+            f"(n={ci['n']}, std={ci['std']:.1f})"
+        )
+
+    lines.append("")
+    lines.append(sig_results['summary'])
+
+    report = '\n'.join(lines)
+    print(report)
+
+    if output_file:
+        with open(output_file, 'a') as f:
+            f.write(report + '\n')
 
 
 def load_data(input_dir):
@@ -79,47 +193,43 @@ def plot_with_ci(ax, agents, title, ylabel):
     ax.grid(True, alpha=0.3)
 
 
+def smooth_curves(agents, window_fraction=10, min_window=5):
+    smoothed = {}
+    for name, curves in agents.items():
+        smoothed[name] = []
+        for c in curves:
+            arr = np.array(c)
+            window = max(min_window, min(50, len(arr) // window_fraction))
+            if window > 1 and len(arr) > window:
+                smoothed_c = np.convolve(arr, np.ones(window)/window, mode='valid')
+            else:
+                smoothed_c = arr
+            smoothed[name].append(smoothed_c)
+    return smoothed
+
+
 def plot_learning_curves(trajectories, dataset, output_dir):
-    fig, axes = plt.subplots(2, 3, figsize=(14, 8))
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8), sharey='row')
 
     agents = extract_curves(trajectories, dataset, 'semi_bandit', 'cumulative_regret')
     if agents:
-        plot_with_ci(axes[0, 0], agents, f'{dataset.title()}: Semi-Bandit Cumulative Regret', 'Cumulative Regret')
+        plot_with_ci(axes[0, 0], agents, f'Semi-Bandit: Cumulative Regret', 'Cumulative Regret')
 
     agents = extract_curves(trajectories, dataset, 'full', 'cumulative_regret')
     if agents:
-        plot_with_ci(axes[0, 1], agents, f'{dataset.title()}: Full Feedback Cumulative Regret', 'Cumulative Regret')
+        plot_with_ci(axes[0, 1], agents, f'Full Feedback: Cumulative Regret', 'Cumulative Regret')
+
+    agents = extract_curves(trajectories, dataset, 'semi_bandit', 'regrets')
+    if agents:
+        smoothed = smooth_curves(agents)
+        plot_with_ci(axes[1, 0], smoothed, f'Semi-Bandit: Per-Round Regret', 'Per-Round Regret')
 
     agents = extract_curves(trajectories, dataset, 'full', 'regrets')
     if agents:
-        smoothed = {}
-        for name, curves in agents.items():
-            smoothed[name] = []
-            for c in curves:
-                arr = np.array(c)
-                window = min(50, len(arr) // 10)
-                if window > 1:
-                    smoothed_c = np.convolve(arr, np.ones(window)/window, mode='valid')
-                else:
-                    smoothed_c = arr
-                smoothed[name].append(smoothed_c)
-        plot_with_ci(axes[0, 2], smoothed, f'{dataset.title()}: Per-Round Regret (smoothed)', 'Per-Round Regret')
+        smoothed = smooth_curves(agents)
+        plot_with_ci(axes[1, 1], smoothed, f'Full Feedback: Per-Round Regret', 'Per-Round Regret')
 
-    agents = extract_curves(trajectories, dataset, 'full', 'mse_losses')
-    neural_agents = {k: v for k, v in agents.items() if k in ['NeuralUCB', 'OptimisticSPO', 'EndToEndSPO', 'FullSPO']}
-    if neural_agents:
-        plot_with_ci(axes[1, 0], neural_agents, f'{dataset.title()}: MSE Loss', 'MSE Loss')
-
-    agents = extract_curves(trajectories, dataset, 'full', 'spo_losses')
-    neural_agents = {k: v for k, v in agents.items() if k in ['NeuralUCB', 'OptimisticSPO', 'EndToEndSPO', 'FullSPO']}
-    if neural_agents:
-        plot_with_ci(axes[1, 1], neural_agents, f'{dataset.title()}: SPO+ Loss (Full)', 'SPO+ Loss')
-
-    agents = extract_curves(trajectories, dataset, 'semi_bandit', 'spo_losses')
-    neural_agents = {k: v for k, v in agents.items() if k in ['NeuralUCB', 'OptimisticSPO', 'EndToEndSPO', 'FullSPO']}
-    if neural_agents:
-        plot_with_ci(axes[1, 2], neural_agents, f'{dataset.title()}: SPO+ Loss (Semi-Bandit)', 'SPO+ Loss')
-
+    fig.suptitle(f'{dataset.title()} Dataset', fontsize=12, fontweight='bold')
     plt.tight_layout()
 
     output_path = Path(output_dir)
@@ -270,7 +380,7 @@ def plot_ranking_heatmap(results, output_dir):
     plt.close()
 
 
-def plot_all(trajectories, results, output_dir):
+def plot_all(trajectories, results, output_dir, include_stats=True):
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
@@ -290,6 +400,19 @@ def plot_all(trajectories, results, output_dir):
     plot_final_regret_bars(results, output_dir)
     plot_ranking_heatmap(results, output_dir)
 
+    if include_stats:
+        stats_file = output_path / 'statistical_analysis.txt'
+        # Clear existing file
+        if stats_file.exists():
+            stats_file.unlink()
+
+        print("\nStatistical Analysis:")
+        for dataset in sorted(datasets):
+            for feedback in ['semi_bandit', 'full']:
+                print_significance_report(results, dataset, feedback, stats_file)
+
+        print(f"\n  Saved: statistical_analysis.txt")
+
 
 def main():
     parser = argparse.ArgumentParser(description='Generate comprehensive plots from experiment results')
@@ -298,8 +421,10 @@ def main():
     parser.add_argument('--output', type=str, default=None,
                         help='Output directory for plots (default: input/plots)')
     parser.add_argument('--type', type=str, default='all',
-                        choices=['all', 'curves', 'bars', 'comparison', 'heatmap'],
+                        choices=['all', 'curves', 'bars', 'comparison', 'heatmap', 'stats'],
                         help='Type of plot to generate')
+    parser.add_argument('--no-stats', action='store_true',
+                        help='Skip statistical analysis when using --type all')
 
     args = parser.parse_args()
 
@@ -320,7 +445,7 @@ def main():
     output_path.mkdir(parents=True, exist_ok=True)
 
     if args.type == 'all':
-        plot_all(trajectories, results, args.output)
+        plot_all(trajectories, results, args.output, include_stats=not args.no_stats)
     elif args.type == 'curves':
         print("\nGenerating learning curves:")
         for dataset in sorted(datasets):
@@ -337,6 +462,15 @@ def main():
     elif args.type == 'heatmap':
         print("\nGenerating ranking heatmap:")
         plot_ranking_heatmap(results, args.output)
+    elif args.type == 'stats':
+        print("\nStatistical Analysis:")
+        stats_file = output_path / 'statistical_analysis.txt'
+        if stats_file.exists():
+            stats_file.unlink()
+        for dataset in sorted(datasets):
+            for feedback in ['semi_bandit', 'full']:
+                print_significance_report(results, dataset, feedback, stats_file)
+        print(f"\n  Saved: statistical_analysis.txt")
 
     print(f"\nDone! Plots saved to {args.output}")
 

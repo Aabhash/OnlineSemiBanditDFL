@@ -1,7 +1,7 @@
 import jax.numpy as jnp
 import numpy as np
 from src.models import MLPModel
-from src.solver import solve_knapsack, solve_knapsack_with_sensitivity
+from src.solver import solve_knapsack_with_sensitivity
 from src.losses import spo_plus_grad
 from src.agents.utils.mlp import mlp_forward
 from src.agents.utils.bayesian import (
@@ -28,6 +28,7 @@ class DecisionUCBAgent:
         alpha: float = 0.0,
         lambda_reg: float = 1.0,
         lr: float = 0.01,
+        solver=None,
         seed: int = None,
     ):
         self.context_dim = context_dim
@@ -36,6 +37,13 @@ class DecisionUCBAgent:
         self.weights_np = np.asarray(weights)
         self.capacity = capacity
         self.hidden_dim = hidden_dim
+
+        if solver is None:
+            from src.solver import solve_knapsack
+            self.solver = lambda v: solve_knapsack(np.asarray(v), self.weights_np, capacity)
+        else:
+            self.solver = solver
+
         self.beta_pred_start = beta_pred_start
         self.beta_pred_end = beta_pred_end
         self.beta_pred = beta_pred_start
@@ -75,7 +83,7 @@ class DecisionUCBAgent:
 
         ucb_values = pred_values + self.beta_pred * pred_uncertainty + self.beta_decision * decision_sensitivity
 
-        return solve_knapsack(np.asarray(ucb_values), self.weights_np, self.capacity)
+        return self.solver(np.asarray(ucb_values))
 
     def update(self, X, selection, rewards, lr: float = None, full_feedback: bool = False):
         X = jnp.asarray(X)

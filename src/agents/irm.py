@@ -1,6 +1,5 @@
 import jax.numpy as jnp
 import numpy as np
-from src.solver import solve_knapsack
 from src.agents.utils.bayesian import (
     init_per_arm_regression,
     compute_ucb_values,
@@ -22,6 +21,7 @@ class InverseRegretAgent:
         bound_weight: float = 1.0,
         mse_weight: float = 1.0,
         lambda_reg: float = 1.0,
+        solver=None,
         seed: int = None,
     ):
         self.context_dim = context_dim
@@ -29,6 +29,12 @@ class InverseRegretAgent:
         self.weights = weights
         self.capacity = capacity
         self.hidden_dim = hidden_dim
+
+        if solver is None:
+            from src.solver import solve_knapsack
+            self.solver = lambda v: solve_knapsack(np.asarray(v), weights, capacity)
+        else:
+            self.solver = solver
         self.beta = beta
         self.bound_weight = bound_weight
         self.mse_weight = mse_weight
@@ -69,7 +75,7 @@ class InverseRegretAgent:
         self.t += 1
         features = self._get_features(X)
         ucb_values = self._compute_ucb_values(features)
-        return solve_knapsack(np.asarray(ucb_values), self.weights, self.capacity)
+        return self.solver(np.asarray(ucb_values))
 
     def _compute_regret_bound(self, selection: np.ndarray, rewards: np.ndarray,
                                ucb_values: jnp.ndarray) -> float:

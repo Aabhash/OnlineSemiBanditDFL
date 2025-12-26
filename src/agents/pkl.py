@@ -1,7 +1,7 @@
 import jax.numpy as jnp
 import numpy as np
 from src.models import MLPModel
-from src.solver import solve_knapsack, perturbed_soft_knapsack
+from src.solver import perturbed_soft_knapsack
 from src.agents.utils.bayesian import (
     init_per_arm_regression,
     compute_ucb_values,
@@ -23,6 +23,7 @@ class SimplePKLAgent:
         temperature: float = 0.5,
         n_perturbations: int = 10,
         lambda_reg: float = 1.0,
+        solver=None,
         seed: int = None,
     ):
         self.context_dim = context_dim
@@ -30,6 +31,12 @@ class SimplePKLAgent:
         self.weights = weights
         self.capacity = capacity
         self.hidden_dim = hidden_dim
+
+        if solver is None:
+            from src.solver import solve_knapsack
+            self.solver = lambda v: solve_knapsack(np.asarray(v), weights, capacity)
+        else:
+            self.solver = solver
         self.beta = beta
         self.temperature = temperature
         self.n_perturbations = n_perturbations
@@ -61,7 +68,7 @@ class SimplePKLAgent:
         self.t += 1
         _, features = self._forward(X)
         ucb_values = compute_ucb_values(features, self.A_inv, self.b, self.beta)
-        return solve_knapsack(np.asarray(ucb_values), self.weights, self.capacity)
+        return self.solver(np.asarray(ucb_values))
 
     def update(self, X: np.ndarray, selection: np.ndarray, rewards: np.ndarray,
                lr: float = 0.01, full_feedback: bool = False):
@@ -85,8 +92,8 @@ class SimplePKLAgent:
             h = jnp.maximum(0, z1)
 
             Y_pred = compute_bayesian_predictions(h, self.A_inv, self.b)
-            x_opt = solve_knapsack(np.asarray(rewards), self.weights, self.capacity)
-            x_spo = solve_knapsack(np.asarray(2 * Y_pred - rewards), self.weights, self.capacity)
+            x_opt = self.solver(np.asarray(rewards))
+            x_spo = self.solver(np.asarray(2 * Y_pred - rewards))
             grad = jnp.asarray(2 * (x_spo - x_opt))
 
             grad = jnp.clip(grad, -5, 5)

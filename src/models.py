@@ -180,13 +180,15 @@ class BayesianLinearModel:
         theta_samples = self.mu + jnp.einsum('nij,nj->ni', L, noise)
         return theta_samples @ X
 
-    def predict_ucb(self, X, beta: float = 1.0) -> jnp.ndarray:
+    def predict_ucb(self, X, beta: float = 1.0, minimize: bool = False) -> jnp.ndarray:
         X = jnp.asarray(X)
         means = self.mu @ X
         Sx = jnp.einsum('nij,j->ni', self.Sigma, X)
         variances = jnp.einsum('i,ni->n', X, Sx)
         stds = jnp.sqrt(jnp.maximum(variances, 0.0))
-        return means + beta * stds
+        if minimize:
+            return means - beta * stds  # LCB for cost minimization
+        return means + beta * stds  # UCB for reward maximization
 
     def update(self, X, arm: int, reward: float):
         X = jnp.asarray(X)
