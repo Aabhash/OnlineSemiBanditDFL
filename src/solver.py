@@ -67,10 +67,14 @@ def solve_knapsack_gurobi(values: np.ndarray, weights: np.ndarray, capacity: flo
         return solution
 
 
-def solve_knapsack(values: np.ndarray, weights: np.ndarray, capacity: float) -> np.ndarray:
+def solve_knapsack(values: np.ndarray, weights: np.ndarray, capacity: float,
+                   tie_break_noise: float = 1e-6) -> np.ndarray:
     values = np.array(values, dtype=np.float64)
     if not np.all(np.isfinite(values)):
         values = np.nan_to_num(values, nan=0.0, posinf=100.0, neginf=-100.0)
+
+    if tie_break_noise > 0 and np.std(values) < 1e-4:
+        values = values + np.random.randn(len(values)) * tie_break_noise
 
     return solve_knapsack_gurobi(values, weights, capacity)
 
@@ -264,6 +268,69 @@ def solve_shortest_path_grid(
     return path
 
 
+def solve_fantasy_lineup(
+    values: np.ndarray,
+    salaries: np.ndarray,
+    positions: np.ndarray,
+    salary_cap: float = 50000,
+) -> np.ndarray:
+    n_players = len(values)
+
+    values = np.array(values, dtype=np.float64)
+    if not np.all(np.isfinite(values)):
+        values = np.nan_to_num(values, nan=0.0, posinf=100.0, neginf=-100.0)
+
+    env = _get_gurobi_env()
+    with gp.Model(env=env) as model:
+        x = model.addVars(n_players, vtype=GRB.BINARY, name="x")
+
+        model.setObjective(
+            gp.quicksum(values[i] * x[i] for i in range(n_players)),
+            GRB.MAXIMIZE
+        )
+
+        model.addConstr(
+            gp.quicksum(salaries[i] * x[i] for i in range(n_players)) <= salary_cap,
+            name="salary_cap"
+        )
+
+        position_limits = {
+            'QB': (1, 1),
+            'RB': (2, 3),
+            'WR': (3, 4),
+            'TE': (1, 2),
+            'DST': (1, 1),
+        }
+
+        for pos, (min_count, max_count) in position_limits.items():
+            pos_indices = [i for i in range(n_players) if positions[i] == pos]
+            if pos_indices:
+                model.addConstr(
+                    gp.quicksum(x[i] for i in pos_indices) >= min_count,
+                    name=f"min_{pos}"
+                )
+                model.addConstr(
+                    gp.quicksum(x[i] for i in pos_indices) <= max_count,
+                    name=f"max_{pos}"
+                )
+
+        model.addConstr(
+            gp.quicksum(x[i] for i in range(n_players)) == 9,
+            name="total_players"
+        )
+
+        model.optimize()
+
+        solution = np.zeros(n_players)
+        if model.Status == GRB.OPTIMAL:
+            for i in range(n_players):
+                solution[i] = x[i].X
+        else:
+            return solve_knapsack(values, salaries, salary_cap)
+
+        return solution
+
+
 def solve_shortest_path_edges(
     edge_costs: np.ndarray,
     edge_list: np.ndarray,
@@ -276,7 +343,7 @@ def solve_shortest_path_edges(
     adj = [[] for _ in range(n_nodes)]
     for e_idx, (u, v) in enumerate(edge_list):
         adj[u].append((v, e_idx, edge_costs[e_idx]))
-        adj[v].append((u, e_idx, edge_costs[e_idx]))  # undirected
+        adj[v].append((u, e_idx, edge_costs[e_idx]))
 
     dist = np.full(n_nodes, np.inf)
     dist[source] = 0
@@ -310,7 +377,6 @@ def solve_shortest_path_edges(
         while node != source:
             e_idx = parent_edge[node]
             path[e_idx] = 1.0
-            # Find parent node
             u, v = edge_list[e_idx]
             node = u if v == node else v
 

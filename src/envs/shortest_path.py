@@ -2,7 +2,7 @@ import numpy as np
 from typing import Tuple, Dict, Any
 
 from src.solver import solve_shortest_path_grid
-from src.data.shortest_path import SyntheticGridData, WarcraftData
+from src.data.shortest_path import SyntheticGridData
 
 
 class ShortestPathEnv:
@@ -40,13 +40,6 @@ class ShortestPathEnv:
                 seed=seed,
             )
             self.context_dim = context_dim
-        elif data_type == 'warcraft':
-            self.data = WarcraftData(
-                grid_size=grid_size,
-                data_dir=data_dir,
-                seed=seed,
-            )
-            self.context_dim = self.data.context_dim
         else:
             raise ValueError(f"Unknown data_type: {data_type}")
 

@@ -1,7 +1,7 @@
 import numpy as np
 import jax.numpy as jnp
 from typing import Dict, List
-from src.agents.utils.bayesian import compute_bayesian_predictions
+from src.agents.bayesian_utils import compute_bayesian_predictions
 
 
 def _get_prediction(agent, X):
@@ -90,24 +90,18 @@ def _compute_test_losses(agent, X_test, Y_test, weights, capacity):
 
 
 def _compute_test_regret(agent, X_test, Y_test, weights, capacity, solver=None):
-    """Compute cumulative regret on held-out test set using current policy."""
     from src.solver import solve_knapsack
     n_samples = len(X_test)
     total_regret = 0.0
 
     for i in range(n_samples):
-        # Get agent's decision for this context
         selection = agent.act(X_test[i])
         selection = np.asarray(selection)
-
-        # Compute optimal decision
         Y_true = Y_test[i]
         if solver is not None:
             optimal_selection = solver(Y_true)
         else:
             optimal_selection = solve_knapsack(Y_true, weights, capacity)
-
-        # Compute regret
         reward = np.sum(Y_true * selection)
         optimal_reward = np.sum(Y_true * optimal_selection)
         total_regret += optimal_reward - reward
@@ -124,10 +118,11 @@ def run_experiment(
     test_set: tuple = None,
     n_test_samples: int = 100,
 ) -> Dict[str, List[float]]:
-    from src.agents.baselines import RandomAgent, GreedyAgent
-    from src.agents.bayesian import ThompsonSamplingAgent, UCBAgent
-    from src.agents.ucb import LinUCBAgent, NeuralUCBAgent
-    from src.agents.spo import FullSPOAgent, BayesianSPOAgent
+    from src.agents.shared_context.baselines import RandomAgent, GreedyAgent
+    from src.agents.shared_context.bayesian import ThompsonSamplingAgent, UCBAgent
+    from src.agents.shared_context.ucb import LinUCBAgent, NeuralUCBAgent
+    from src.agents.shared_context.full_spo import FullSPOAgent
+    from src.agents.shared_context.bayesian_spo import BayesianSPOAgent
 
     rewards = []
     regrets = []
@@ -140,20 +135,14 @@ def run_experiment(
     else:
         X_test, Y_test = env.generate_test_set(n_test_samples)
 
-    # Get solver from environment
     solver = getattr(env, 'solve', None)
-
     X = env.reset()
-
-    # Compute test regret every eval_interval rounds
-    eval_interval = max(1, n_rounds // 20)  # Evaluate ~20 times during training
+    eval_interval = max(1, n_rounds // 20)
 
     for t in range(n_rounds):
         selection = agent.act(X)
-
         observed_values, reward, info = env.step(selection, full_feedback=full_feedback)
 
-        # Compute test regret periodically
         if t == n_rounds - 1 or (t > 0 and t % eval_interval == 0):
             test_regret = _compute_test_regret(agent, X_test, Y_test, env.weights, env.capacity, solver)
             test_regrets.append(test_regret)

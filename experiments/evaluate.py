@@ -8,15 +8,23 @@ sys.path.insert(0, '.')
 
 from src.envs import create_env
 from src.agents import run_experiment
-from src.agents.ucb import LinUCBAgent, NeuralUCBAgent
-from src.agents.bayesian import ThompsonSamplingAgent, UCBAgent
-from src.agents.baselines import RandomAgent, EpsilonGreedyAgent, MSENeuralAgent
-from src.agents.spo import BayesianSPOAgent, FullSPOAgent, DecisionUCBAgent
-from src.agents.pkl import SimplePKLAgent
-from src.agents.irm import InverseRegretAgent
-from src.agents.unified import ConservativeUnifiedAgent
-from src.agents.cn_ucb import CNUCBAgent, CNTSAgent
+
+from src.agents.shared_context.ucb import LinUCBAgent, NeuralUCBAgent
+from src.agents.shared_context.bayesian import ThompsonSamplingAgent, UCBAgent
+from src.agents.shared_context.baselines import RandomAgent, EpsilonGreedyAgent, MSENeuralAgent
+from src.agents.shared_context.bayesian_spo import BayesianSPOAgent
+from src.agents.shared_context.full_spo import FullSPOAgent
+from src.agents.shared_context.decision_ucb import DecisionUCBAgent
+
+from src.agents.per_arm_context.cn_ucb import CNUCBAgent, CNTSAgent
+from src.agents.per_arm_context.per_arm_bayesian_spo import PerArmBayesianSPOAgent
+from src.agents.per_arm_context.per_arm_spo import PerArmFullSPOAgent, PerArmDecisionUCBAgent
+from src.agents.per_arm_context.per_arm_baselines import PerArmMSENeuralAgent, PerArmEpsilonGreedyAgent, PerArmNeuralUCBAgent
+from src.agents.per_arm_context.per_arm_bayesian import PerArmUCBAgent, PerArmThompsonSamplingAgent, PerArmLinUCBAgent
+from src.agents.per_arm_context.per_arm_ntk_spo import PerArmNTKSPOAgent, PerArmNTKDecisionUCBAgent
+
 from src.models import BayesianLinearModel
+
 
 
 DATASETS = {
@@ -25,38 +33,35 @@ DATASETS = {
         'context_dim': 5,
         'capacity': 20.0,
     },
-    # REMOVED: 'portfolio' - predictions too good, decisions don't vary much
-    'assortment': {
-        'n_products': 100,
-        'n_slots': 10,
+    'shortest_path_5': {
+        'grid_size': 5,
+        'data_type': 'synthetic',
         'context_dim': 10,
     },
-    # MovieLens recommendation datasets
-    'movielens': {
-        'n_movies': 50,
-        'n_slots': 5,
+    'shortest_path_8': {
+        'grid_size': 8,
+        'data_type': 'synthetic',
         'context_dim': 20,
     },
-    'movielens_large': {
-        'n_movies': 100,
-        'n_slots': 10,
-        'context_dim': 30,
+    'criteo_ads': {
+        'n_campaigns': 100,
+        'n_select': 10,
+        'context_dim': 50,
+        'subsample_rate': 0.1,
+        'env_fraction': 0.8,
+        'noise_std': 0.05,
     },
-    # RecSim recommendation datasets (non-stationary user interests)
-    'recsim': {
-        'n_docs': 50,
-        'slate_size': 5,
-        'n_topics': 10,
+
+    # === PER-ARM CONTEXT DATASETS ===
+    # Each arm has its own context vector
+
+    'fantasy': {
+        'n_players': 100,
+        'salary_cap': 50000,
         'context_dim': 20,
+        'season': 2020,
+        'use_position_constraint': False,
     },
-    'recsim_stationary': {
-        'n_docs': 50,
-        'slate_size': 5,
-        'n_topics': 10,
-        'context_dim': 20,
-        'stationary': True,
-    },
-    # CN datasets: score_type is extracted from dataset name (cn_linear -> linear)
     'cn_linear': {
         'n_arms': 20,
         'context_dim': 80,
@@ -72,32 +77,18 @@ DATASETS = {
         'context_dim': 80,
         'K': 4,
     },
-    # Shortest path datasets (synthetic only - Warcraft requires CNN)
-    'shortest_path_5': {
-        'grid_size': 5,
-        'data_type': 'synthetic',
-        'context_dim': 10,
-    },
-    'shortest_path_8': {
-        'grid_size': 8,
-        'data_type': 'synthetic',
-        'context_dim': 20,
-    },
-    # REMOVED: 'warcraft_12' - image data requires CNN, MLP insufficient
 }
+
+SHARED_CONTEXT_DATASETS = ['synthetic', 'shortest_path_5', 'shortest_path_8', 'criteo_ads']
+PER_ARM_CONTEXT_DATASETS = ['fantasy', 'cn_linear', 'cn_quadratic', 'cn_cosine']
 
 
 def get_agents(env, seed, lr=0.01, n_rounds=300, hidden_dim=None):
-    # Scale hidden_dim based on input dimension for high-dim datasets if not specified
-    # Use 64 for high-dim (CN datasets with 80 features), 32 for low-dim
     if hidden_dim is None:
         hidden_dim = 64 if env.context_dim > 20 else 32
 
-    # Get solver from environment (handles knapsack, shortest path, etc.)
     solver = env.solve
 
-    # Check if environment is a minimization problem (e.g., shortest path)
-    # If so, UCB-based agents should use LCB instead
     minimize = getattr(env, 'minimize', False)
 
     return {
@@ -175,6 +166,86 @@ def get_agents(env, seed, lr=0.01, n_rounds=300, hidden_dim=None):
     }
 
 
+def get_per_arm_agents(env, seed, lr=0.01, n_rounds=300, hidden_dim=None):
+    if hidden_dim is None:
+        hidden_dim = 64 if env.context_dim > 20 else 32
+
+    solver = env.solve
+
+    return {
+        'PerArmBayesianSPO': PerArmBayesianSPOAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            hidden_dim=hidden_dim, beta=1.0, alpha=0.0, lambda_reg=1.0,
+            lr=lr, decay_rounds=n_rounds, solver=solver, seed=seed
+        ),
+        'PerArmFullSPO': PerArmFullSPOAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            hidden_dim=hidden_dim, beta_start=2.0, beta_end=0.1,
+            decay_rounds=n_rounds, lambda_reg=1.0, lr=lr,
+            solver=solver, seed=seed
+        ),
+        'PerArmDecisionUCB': PerArmDecisionUCBAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            hidden_dim=hidden_dim, beta_pred_start=2.0, beta_pred_end=0.1,
+            beta_decision=1.0, decay_rounds=n_rounds, alpha=0.0,
+            lambda_reg=1.0, lr=lr, solver=solver, seed=seed
+        ),
+
+        'PerArmNTKSPO': PerArmNTKSPOAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            hidden_dim=hidden_dim, gamma_start=2.0, gamma_end=0.1,
+            decay_rounds=n_rounds, lambda_reg=1.0, lambda_ntk=1.0,
+            lr=lr, solver=solver, seed=seed
+        ),
+        'PerArmNTKDecisionUCB': PerArmNTKDecisionUCBAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            hidden_dim=hidden_dim, gamma_start=2.0, gamma_end=0.1,
+            beta_decision=1.0, decay_rounds=n_rounds, lambda_reg=1.0,
+            lambda_ntk=1.0, lr=lr, solver=solver, seed=seed
+        ),
+
+        'PerArmLinUCB': PerArmLinUCBAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            alpha=1.0, lambda_reg=1.0, solver=solver
+        ),
+        'PerArmUCB': PerArmUCBAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            beta=1.0, lambda_reg=1.0, solver=solver
+        ),
+        'PerArmTS': PerArmThompsonSamplingAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            lambda_reg=1.0, sigma=1.0, solver=solver, seed=seed
+        ),
+
+        'PerArmNeuralUCB': PerArmNeuralUCBAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            hidden_dim=hidden_dim, alpha=1.0, lambda_reg=1.0, lr=lr,
+            solver=solver, seed=seed
+        ),
+        'CN-UCB': CNUCBAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            hidden_dim=hidden_dim, lambda_reg=1.0, gamma=1.0, lr=lr,
+            per_arm_context=True, solver=solver, seed=seed
+        ),
+        'CN-TS': CNTSAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            hidden_dim=hidden_dim, lambda_reg=1.0, nu=1.0, lr=lr,
+            per_arm_context=True, solver=solver, seed=seed
+        ),
+
+        'PerArmMSENeural': PerArmMSENeuralAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            hidden_dim=hidden_dim, beta=1.0, lambda_reg=1.0,
+            decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed
+        ),
+        'PerArmEpsilonGreedy': PerArmEpsilonGreedyAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            hidden_dim=hidden_dim, epsilon=0.1, decay_epsilon=True,
+            decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed
+        ),
+    }
+
+
 def run_evaluation(
     dataset: str = 'synthetic',
     n_rounds: int = 300,
@@ -211,7 +282,11 @@ def run_evaluation(
             env_base = create_env(dataset, seed=seed, **dataset_config)
             test_set = env_base.generate_test_set(100)
 
-            agents = get_agents(env_base, seed, lr, n_rounds, hidden_dim)
+            # Use per-arm agents for per-arm context environments (e.g., Fantasy)
+            if env_base.per_arm_context:
+                agents = get_per_arm_agents(env_base, seed, lr, n_rounds, hidden_dim)
+            else:
+                agents = get_agents(env_base, seed, lr, n_rounds, hidden_dim)
 
             for agent_name, agent in agents.items():
                 if verbose:

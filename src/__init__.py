@@ -1,15 +1,18 @@
 from src.envs import (
     ConstrainedBanditEnv,
     SyntheticKnapsackEnv,
-    PortfolioEnv,
-    AssortmentEnv,
+    CNSyntheticEnv,
+    ShortestPathEnv,
+    CriteoEnv,
+    FantasyEnv,
     create_env,
 )
 
 from src.data import (
     SyntheticKnapsackData,
-    FamaFrenchData,
-    InstacartData,
+    CNSyntheticData,
+    SyntheticGridData,
+    FantasyData,
 )
 
 from src.models import (
@@ -29,12 +32,20 @@ from src.agents import (
     BayesianSPOAgent,
     FullSPOAgent,
     DecisionUCBAgent,
-    SimplePKLAgent,
-    InverseRegretAgent,
-    ConservativeUnifiedAgent,
+    EpsilonGreedyAgent,
+    MSENeuralAgent,
+    run_experiment,
+)
+
+from src.agents import (
+    PerArmBayesianSPOAgent,
+    PerArmFullSPOAgent,
+    PerArmNTKSPOAgent,
+    PerArmNTKDecisionUCBAgent,
     CNUCBAgent,
     CNTSAgent,
-    run_experiment,
+    PerArmLinUCBAgent,
+    PerArmNeuralUCBAgent,
 )
 
 from src.solver import solve_knapsack
@@ -49,12 +60,15 @@ from src.losses import (
 __all__ = [
     "ConstrainedBanditEnv",
     "SyntheticKnapsackEnv",
-    "PortfolioEnv",
-    "AssortmentEnv",
+    "CNSyntheticEnv",
+    "ShortestPathEnv",
+    "CriteoEnv",
+    "FantasyEnv",
     "create_env",
     "SyntheticKnapsackData",
-    "FamaFrenchData",
-    "InstacartData",
+    "CNSyntheticData",
+    "SyntheticGridData",
+    "FantasyData",
     "LinearModel",
     "MLPModel",
     "BayesianLinearModel",
@@ -68,12 +82,17 @@ __all__ = [
     "BayesianSPOAgent",
     "FullSPOAgent",
     "DecisionUCBAgent",
-    "SimplePKLAgent",
-    "InverseRegretAgent",
-    "ConservativeUnifiedAgent",
+    "EpsilonGreedyAgent",
+    "MSENeuralAgent",
+    "run_experiment",
+    "PerArmBayesianSPOAgent",
+    "PerArmFullSPOAgent",
+    "PerArmNTKSPOAgent",
+    "PerArmNTKDecisionUCBAgent",
     "CNUCBAgent",
     "CNTSAgent",
-    "run_experiment",
+    "PerArmLinUCBAgent",
+    "PerArmNeuralUCBAgent",
     "solve_knapsack",
     "spo_plus_grad",
     "spo_plus_grad_balanced",
