@@ -1,23 +1,27 @@
 import numpy as np
 import pandas as pd
 from pathlib import Path
-from typing import Tuple, Dict, Optional, List
+from typing import Tuple, Dict, Optional, List, Union
 
 
 class FantasyData:
 
     def __init__(
         self,
-        n_players: int = 100,
-        context_dim: int = 20,
+        n_players: Optional[int] = None,  # None = all players
+        context_dim: int = 12,  # Actual feature dim (no random projection)
         data_dir: Optional[str] = None,
         season: int = 2020,
         seed: int = 42,
+        min_appearances: int = 3,  # Minimum weeks a player must appear in
+        holdout_weeks: int = 0,  # Last N weeks held out for evaluation
         verbose: bool = False,
     ):
-        self.n_players = n_players
+        self._n_players_requested = n_players
+        self.min_appearances = min_appearances
         self.context_dim = context_dim
         self.season = season
+        self.holdout_weeks = holdout_weeks
         self.verbose = verbose
         self.rng = np.random.default_rng(seed)
 
@@ -38,20 +42,62 @@ class FantasyData:
 
         df = pd.read_parquet(parquet_file)
 
+        # Compute position-specific opponent strength
+        # How many points does each opponent allow to each position?
+        self.opp_pos_strength = {}
+        for pos in ['QB', 'RB', 'WR', 'TE', 'DST']:
+            pos_df = df[df['position'] == pos]
+            if len(pos_df) > 0:
+                opp_avg = pos_df.groupby('opponent')['fantasy_points'].mean()
+                opp_mean = opp_avg.mean()
+                opp_std = opp_avg.std() if opp_avg.std() > 0 else 1.0
+                self.opp_pos_strength[pos] = (opp_avg - opp_mean) / opp_std
+            else:
+                self.opp_pos_strength[pos] = pd.Series(dtype=float)
+
+        # Also keep aggregate for fallback
+        self.opp_strength = df.groupby('opponent')['fantasy_points'].mean()
+        opp_mean = self.opp_strength.mean()
+        opp_std = self.opp_strength.std()
+        self.opp_strength_normalized = (self.opp_strength - opp_mean) / opp_std
+
+        # Filter to players with enough appearances
+        player_counts = df.groupby('player_id').size()
+        frequent_players = player_counts[player_counts >= self.min_appearances].index
+        df = df[df['player_id'].isin(frequent_players)].copy()
+
+        # Select players
         player_avg = df.groupby('player_id')['fantasy_points'].mean()
-        top_players = player_avg.nlargest(self.n_players).index.tolist()
+        if self._n_players_requested is not None:
+            selected_players = player_avg.nlargest(self._n_players_requested).index.tolist()
+        else:
+            selected_players = player_avg.index.tolist()
 
-        df = df[df['player_id'].isin(top_players)].copy()
+        self.n_players = len(selected_players)
+        df = df[df['player_id'].isin(selected_players)].copy()
 
-        self.player_to_idx = {p: i for i, p in enumerate(top_players)}
+        self.player_to_idx = {p: i for i, p in enumerate(selected_players)}
         self.idx_to_player = {i: p for p, i in self.player_to_idx.items()}
         df['player_idx'] = df['player_id'].map(self.player_to_idx)
 
-        self.weeks = sorted(df['week'].unique())
+        all_weeks = sorted(df['week'].unique())
+
+        # Split into train and holdout
+        if self.holdout_weeks > 0:
+            self.weeks = all_weeks[:-self.holdout_weeks]  # Train weeks
+            self.holdout_week_list = all_weeks[-self.holdout_weeks:]  # Holdout weeks
+        else:
+            self.weeks = all_weeks
+            self.holdout_week_list = []
+
         self.n_weeks = len(self.weeks)
+        self.n_holdout_weeks = len(self.holdout_week_list)
+
+        # Store full df for context extraction
+        self._df = df
 
         self.week_data = {}
-        for week in self.weeks:
+        for week in all_weeks:  # Load all weeks (train + holdout)
             week_df = df[df['week'] == week].copy()
 
             present_players = week_df['player_idx'].values
@@ -110,27 +156,41 @@ class FantasyData:
             self.projection_matrix = None
 
         self._week_idx = 0
+        self._sequential_idx = 0  # For sequential sampling
 
         if self.verbose:
+            holdout_info = f", holdout weeks {self.holdout_week_list}" if self.holdout_weeks > 0 else ""
             print(f"Loaded Fantasy {self.season}: {self.n_players} players, "
-                  f"{self.n_weeks} weeks, salaries ${self.base_salaries.min():.0f}-${self.base_salaries.max():.0f}")
+                  f"{self.n_weeks} train weeks{holdout_info}, "
+                  f"salaries ${self.base_salaries.min():.0f}-${self.base_salaries.max():.0f}")
 
     def _get_raw_context_dim(self) -> int:
-        return 11
+        return 12  # Added opponent strength
 
     def _extract_context(self, row: pd.Series) -> np.ndarray:
+        # Get position-specific opponent strength (much more predictive!)
+        opp = row.get('opponent', '')
+        pos = row.get('position', '')
+
+        # Use position-specific if available, else aggregate
+        if pos in self.opp_pos_strength and opp in self.opp_pos_strength[pos].index:
+            opp_strength = self.opp_pos_strength[pos].get(opp, 0.0)
+        else:
+            opp_strength = self.opp_strength_normalized.get(opp, 0.0)
+
         context = np.array([
             row.get('prev_avg_points', 0) / 20.0,
             row.get('prev_std_points', 0) / 10.0,
             row.get('salary_normalized', 0.5),
-            row.get('week_sin', 0),
-            row.get('week_cos', 1),
+            opp_strength,  # Position-specific opponent weakness
             row.get('home', 0),
             int(row.get('position') == 'QB'),
             int(row.get('position') == 'RB'),
             int(row.get('position') == 'WR'),
             int(row.get('position') == 'TE'),
             int(row.get('position') == 'DST'),
+            row.get('week_sin', 0),
+            row.get('week_cos', 1),
         ])
         return context
 
@@ -169,12 +229,17 @@ class FantasyData:
 
         return context, values
 
-    def sample_per_arm(self) -> Tuple[np.ndarray, np.ndarray]:
-        week = self.rng.choice(self.weeks)
+    def sample_per_arm(self, sequential: bool = False) -> Tuple[np.ndarray, np.ndarray]:
+        if sequential:
+            week = self.weeks[self._sequential_idx % self.n_weeks]
+            self._sequential_idx += 1
+        else:
+            week = self.rng.choice(self.weeks)
+
         data = self.get_week(week)
 
         contexts = data['contexts'].copy()
-        contexts += self.rng.standard_normal(contexts.shape) * 0.1
+        # Removed: contexts += self.rng.standard_normal(contexts.shape) * 0.1
 
         values = data['points'].copy()
 
@@ -182,6 +247,24 @@ class FantasyData:
         values[~available] = 0.0
 
         return contexts, values
+
+    def reset_sequential(self):
+        self._sequential_idx = 0
+
+    def get_holdout_set(self) -> List[Tuple[np.ndarray, np.ndarray]]:
+        if not self.holdout_week_list:
+            return []
+
+        holdout_samples = []
+        for week in self.holdout_week_list:
+            data = self.get_week(week)
+            contexts = data['contexts'].copy()
+            values = data['points'].copy()
+            available = data['available']
+            values[~available] = 0.0
+            holdout_samples.append((contexts, values))
+
+        return holdout_samples
 
     def sample_with_details(self) -> Dict:
         week = self.rng.choice(self.weeks)

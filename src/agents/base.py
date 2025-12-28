@@ -125,10 +125,14 @@ def run_experiment(
     from src.agents.shared_context.bayesian_spo import BayesianSPOAgent
 
     rewards = []
+    optimal_rewards = []
     regrets = []
     cumulative_regret = []
     test_regrets = []
+    holdout_evals = []  # (round, holdout_result) pairs
     total_regret = 0.0
+    total_reward = 0.0
+    total_optimal = 0.0
 
     if test_set is not None:
         X_test, Y_test = test_set
@@ -136,6 +140,7 @@ def run_experiment(
         X_test, Y_test = env.generate_test_set(n_test_samples)
 
     solver = getattr(env, 'solve', None)
+    has_holdout = hasattr(env, 'evaluate_on_holdout') and hasattr(env, 'holdout_weeks') and env.holdout_weeks > 0
     X = env.reset()
     eval_interval = max(1, n_rounds // 20)
 
@@ -146,13 +151,23 @@ def run_experiment(
         if t == n_rounds - 1 or (t > 0 and t % eval_interval == 0):
             test_regret = _compute_test_regret(agent, X_test, Y_test, env.weights, env.capacity, solver)
             test_regrets.append(test_regret)
+
+            # Evaluate on holdout if available
+            if has_holdout:
+                holdout_result = env.evaluate_on_holdout(agent)
+                holdout_evals.append((t, holdout_result))
         else:
             test_regrets.append(np.nan)
 
         instant_regret = info['regret']
+        optimal_reward = info.get('optimal_reward', reward + instant_regret)
+
         total_regret += instant_regret
+        total_reward += reward
+        total_optimal += optimal_reward
 
         rewards.append(reward)
+        optimal_rewards.append(optimal_reward)
         regrets.append(instant_regret)
         cumulative_regret.append(total_regret)
 
@@ -184,8 +199,12 @@ def run_experiment(
 
     return {
         'rewards': rewards,
+        'optimal_rewards': optimal_rewards,
         'regrets': regrets,
         'cumulative_regret': cumulative_regret,
         'final_regret': total_regret,
+        'final_reward': total_reward,
+        'final_optimal': total_optimal,
         'test_regrets': test_regrets,
+        'holdout_evals': holdout_evals,
     }

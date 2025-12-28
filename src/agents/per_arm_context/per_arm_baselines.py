@@ -327,12 +327,26 @@ class PerArmNeuralUCBAgent:
         self.history_mask = []
         self.rng = np.random.default_rng(seed if seed else 0)
 
+        # Output scaling to handle target scale mismatch
+        # Network outputs ~N(0,1), we learn scale/bias to match targets
+        self.output_scale = 1.0
+        self.output_bias = 0.0
+        self.target_mean = 0.0
+        self.target_std = 1.0
+        self.target_count = 0
+
     def _forward(self, X):
+        """Raw network output before scaling."""
         X = jnp.asarray(X)
         Z1 = X @ self.W1 + self.b1
         H = jnp.maximum(0, Z1)
         out = (H @ self.W2 + self.b2).squeeze(-1)
         return out
+
+    def predict(self, X):
+        """Scaled predictions matching target distribution."""
+        raw = self._forward(X)
+        return raw * self.output_scale + self.output_bias
 
     def _compute_gradient_features(self, X):
         X = jnp.asarray(X)
@@ -369,17 +383,19 @@ class PerArmNeuralUCBAgent:
         self.t += 1
         X = jnp.asarray(X)
 
-        predictions = self._forward(X)
+        predictions = self.predict(X)
         g_features = self._compute_gradient_features(X)
         uncertainties = self._compute_uncertainties(g_features)
+        # Scale uncertainties by output_scale to match prediction scale
+        scaled_uncertainties = uncertainties * self.output_scale
 
         self._cached_g_features = g_features
 
         if self.minimize:
-            lcb_values = predictions - uncertainties
+            lcb_values = predictions - scaled_uncertainties
             return self.solver(np.asarray(lcb_values))
         else:
-            ucb_values = predictions + uncertainties
+            ucb_values = predictions + scaled_uncertainties
             return self.solver(np.asarray(ucb_values))
 
     def _update_information_matrix(self, g_features, mask):
@@ -439,11 +455,45 @@ class PerArmNeuralUCBAgent:
             self.W2 = self.W2 - self.lr * grads['W2'] * clip_coef
             self.b2 = self.b2 - self.lr * grads['b2'] * clip_coef
 
+    def _update_output_scaling(self, rewards, mask):
+        observed = np.asarray(rewards)[np.asarray(mask)]
+        if len(observed) == 0:
+            return
+
+        # Online update of target mean and std (Welford's algorithm)
+        for y in observed:
+            self.target_count += 1
+            delta = y - self.target_mean
+            self.target_mean += delta / self.target_count
+            delta2 = y - self.target_mean
+            self.target_std += delta * delta2
+
+        if self.target_count > 1:
+            variance = self.target_std / (self.target_count - 1)
+            std = np.sqrt(max(variance, 1e-6))
+            # Network outputs ~N(0,1), scale to match target ~N(mean, std)
+            self.output_scale = std
+            self.output_bias = self.target_mean
+
+    def _normalize_targets(self, targets):
+        if self.target_count > 1 and self.output_scale > 1e-6:
+            return (np.asarray(targets) - self.target_mean) / self.output_scale
+        return np.asarray(targets)
+
     def update(self, X: np.ndarray, selection: np.ndarray, rewards: np.ndarray,
                lr: float = None, full_feedback: bool = False):
+        X_np = np.asarray(X)
         X = jnp.asarray(X)
         selection = jnp.asarray(selection)
         rewards = jnp.asarray(rewards)
+
+        if full_feedback:
+            mask = jnp.ones(self.n_arms, dtype=bool)
+        else:
+            mask = selection > 0.5
+
+        # Update output scaling from observed rewards FIRST
+        self._update_output_scaling(rewards, mask)
 
         if hasattr(self, '_cached_g_features'):
             g_features = self._cached_g_features
@@ -451,18 +501,28 @@ class PerArmNeuralUCBAgent:
         else:
             g_features = self._compute_gradient_features(X)
 
-        if full_feedback:
-            mask = jnp.ones(self.n_arms, dtype=bool)
-        else:
-            mask = selection > 0.5
-
         self._update_information_matrix(g_features, mask)
 
-        predictions = np.asarray(self._forward(X))
-        Y_target = np.where(np.asarray(mask), np.asarray(rewards), predictions)
-        obs_mask = np.asarray(mask).astype(float)
+        # Get raw predictions (in normalized space) for imputation
+        raw_predictions = np.asarray(self._forward(X))
+        rewards_np = np.asarray(rewards)
+        mask_np = np.asarray(mask)
 
-        self.history_X.append(np.asarray(X))
+        if full_feedback:
+            # Normalize all rewards for training
+            Y_target = self._normalize_targets(rewards_np)
+            obs_mask = np.ones(self.n_arms)
+        else:
+            # For unobserved arms, use raw prediction (already in normalized space)
+            # For observed arms, normalize the observed reward
+            Y_target = np.where(
+                mask_np,
+                self._normalize_targets(rewards_np),
+                raw_predictions
+            )
+            obs_mask = mask_np.astype(float)
+
+        self.history_X.append(X_np)
         self.history_Y.append(Y_target)
         self.history_mask.append(obs_mask)
 

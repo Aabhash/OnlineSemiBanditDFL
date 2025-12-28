@@ -4,6 +4,11 @@ from src.agents.per_arm_context.per_arm_ntk_spo import PerArmNTKSPOAgent, PerArm
 from src.agents.per_arm_context.cn_ucb import CNUCBAgent, CNTSAgent
 from src.agents.per_arm_context.per_arm_bayesian import PerArmLinUCBAgent
 from src.agents.per_arm_context.per_arm_baselines import PerArmNeuralUCBAgent
+from src.agents.per_arm_context.per_arm_bayesian_ierm import (
+    PerArmBayesianIERMAgent,
+    PerArmBayesianIERMDMAgent,
+    PerArmBayesianIERMDRAgent,
+)
 
 __all__ = [
     'PerArmBayesianSPOAgent',
@@ -14,4 +19,7 @@ __all__ = [
     'CNTSAgent',
     'PerArmLinUCBAgent',
     'PerArmNeuralUCBAgent',
+    'PerArmBayesianIERMAgent',
+    'PerArmBayesianIERMDMAgent',
+    'PerArmBayesianIERMDRAgent',
 ]

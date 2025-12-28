@@ -20,6 +20,8 @@ class CNSyntheticData:
         K: int = 4,
         score_type: str = 'linear',
         noise_std: float = 0.0,
+        use_knapsack: bool = True,  # If True, use varied weights + knapsack
+        weight_range: tuple = (1.0, 5.0),  # Weight range like Fantasy salaries
         seed: int = 42,
     ):
         self.n_arms = n_arms
@@ -34,6 +36,7 @@ class CNSyntheticData:
         self.K = K
         self.score_type = score_type
         self.noise_std = noise_std
+        self.use_knapsack = use_knapsack
         self.rng = np.random.default_rng(seed)
 
         # Per-arm coefficient vectors (each normalized to unit norm)
@@ -42,8 +45,16 @@ class CNSyntheticData:
             a = self.rng.standard_normal(self.n_features)
             self.coefficients[i] = a / np.linalg.norm(a)
 
-        self.weights = np.ones(n_arms)
-        self.capacity = float(K)
+        if use_knapsack:
+            # Varied weights like Fantasy salaries
+            self.weights = self.rng.uniform(weight_range[0], weight_range[1], n_arms)
+            # Capacity allows ~K items on average (avg_weight * K * 1.1 for some slack)
+            avg_weight = (weight_range[0] + weight_range[1]) / 2
+            self.capacity = avg_weight * K * 1.1
+        else:
+            # Original top-K behavior
+            self.weights = np.ones(n_arms)
+            self.capacity = float(K)
 
     def _compute_scores(self, context: np.ndarray) -> np.ndarray:
         """Compute reward values for all arms given shared context."""
@@ -119,6 +130,8 @@ class CNSyntheticEnv:
         K: int = 4,
         score_type: str = 'linear',
         noise_std: float = 0.0,
+        use_knapsack: bool = True,  # If True, use varied weights + knapsack
+        weight_range: tuple = (1.0, 5.0),
         seed: int = 42,
         use_per_arm_context: bool = True,  # Default to per-arm for CN datasets
     ):
@@ -135,12 +148,15 @@ class CNSyntheticEnv:
             K=K,
             score_type=score_type,
             noise_std=noise_std,
+            use_knapsack=use_knapsack,
+            weight_range=weight_range,
             seed=seed,
         )
         self.n_arms = n_arms
         self.n_features = effective_dim
         self.context_dim = effective_dim
         self.K = K
+        self.use_knapsack = use_knapsack
         self._use_per_arm_context = use_per_arm_context
 
         self.weights = self.data.weights
@@ -175,9 +191,7 @@ class CNSyntheticEnv:
         selection = np.asarray(selection)
 
         true_values = self._current_values
-        optimal_selection = np.zeros(self.n_arms)
-        top_k_indices = np.argsort(-true_values)[:self.K]
-        optimal_selection[top_k_indices] = 1
+        optimal_selection = self.solve(true_values)
 
         reward = np.sum(true_values * selection)
         optimal_reward = np.sum(true_values * optimal_selection)
@@ -215,8 +229,15 @@ class CNSyntheticEnv:
         return np.array(X_test), np.array(Y_test)
 
     def solve(self, values: np.ndarray) -> np.ndarray:
-        """Solve for optimal selection (top-K)."""
-        selection = np.zeros(self.n_arms)
-        top_k_indices = np.argsort(-np.asarray(values))[:self.K]
-        selection[top_k_indices] = 1
-        return selection
+        """Solve for optimal selection."""
+        values = np.asarray(values)
+        if self.use_knapsack:
+            # Use knapsack solver for varied weights
+            from src.solver import solve_knapsack
+            return solve_knapsack(values, self.weights, self.capacity)
+        else:
+            # Original top-K behavior
+            selection = np.zeros(self.n_arms)
+            top_k_indices = np.argsort(-values)[:self.K]
+            selection[top_k_indices] = 1
+            return selection

@@ -20,8 +20,9 @@ from src.agents.per_arm_context.cn_ucb import CNUCBAgent, CNTSAgent
 from src.agents.per_arm_context.per_arm_bayesian_spo import PerArmBayesianSPOAgent
 from src.agents.per_arm_context.per_arm_spo import PerArmFullSPOAgent, PerArmDecisionUCBAgent
 from src.agents.per_arm_context.per_arm_baselines import PerArmMSENeuralAgent, PerArmEpsilonGreedyAgent, PerArmNeuralUCBAgent
-from src.agents.per_arm_context.per_arm_bayesian import PerArmUCBAgent, PerArmThompsonSamplingAgent, PerArmLinUCBAgent
+from src.agents.per_arm_context.per_arm_bayesian import PerArmThompsonSamplingAgent, PerArmLinUCBAgent, PerArmNeuralLinUCBAgent
 from src.agents.per_arm_context.per_arm_ntk_spo import PerArmNTKSPOAgent, PerArmNTKDecisionUCBAgent
+from src.agents.per_arm_context.per_arm_bayesian_ierm import PerArmBayesianIERMAgent, PerArmBayesianIERMDMAgent, PerArmBayesianIERMDRAgent
 
 from src.models import BayesianLinearModel
 
@@ -56,31 +57,45 @@ DATASETS = {
     # Each arm has its own context vector
 
     'fantasy': {
-        'n_players': 100,
+        'n_players': None,  # All players (494)
         'salary_cap': 50000,
-        'context_dim': 20,
+        'context_dim': 12,  # Actual features, no random projection
         'season': 2020,
         'use_position_constraint': False,
+        'holdout_weeks': 5,  # Last 5 weeks for evaluation
+    },
+    'fpl': {
+        'n_players': None,  # All players
+        'budget': 100.0,  # 100m budget
+        'context_dim': 8,
+        'seasons': '2023_24',  # Single season (most recent with xP)
+        'min_appearances': 3,
     },
     'cn_linear': {
         'n_arms': 20,
         'context_dim': 80,
         'K': 4,
+        'use_knapsack': True,  # Varied weights + knapsack constraint
+        'weight_range': (1.0, 5.0),
     },
     'cn_quadratic': {
         'n_arms': 20,
         'context_dim': 80,
         'K': 4,
+        'use_knapsack': True,
+        'weight_range': (1.0, 5.0),
     },
     'cn_cosine': {
         'n_arms': 20,
         'context_dim': 80,
         'K': 4,
+        'use_knapsack': True,
+        'weight_range': (1.0, 5.0),
     },
 }
 
 SHARED_CONTEXT_DATASETS = ['synthetic', 'shortest_path_5', 'shortest_path_8', 'criteo_ads']
-PER_ARM_CONTEXT_DATASETS = ['fantasy', 'cn_linear', 'cn_quadratic', 'cn_cosine']
+PER_ARM_CONTEXT_DATASETS = ['fantasy', 'fpl', 'cn_linear', 'cn_quadratic', 'cn_cosine']
 
 
 def get_agents(env, seed, lr=0.01, n_rounds=300, hidden_dim=None):
@@ -114,17 +129,17 @@ def get_agents(env, seed, lr=0.01, n_rounds=300, hidden_dim=None):
             hidden_dim=hidden_dim, beta=1.0, decay_rounds=n_rounds,
             alpha=0.0, lambda_reg=1.0, solver=solver, seed=seed
         ),
-        'FullSPO': FullSPOAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, beta_start=1.0, beta_end=1.0, decay_rounds=n_rounds,
-            lambda_reg=1.0, solver=solver, seed=seed
-        ),
-        'DecisionUCB': DecisionUCBAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, beta_pred_start=1.0, beta_pred_end=1.0,
-            beta_decision=1.0, decay_rounds=n_rounds,
-            alpha=0.0, lambda_reg=1.0, solver=solver, seed=seed
-        ),
+        # 'FullSPO': FullSPOAgent(
+        #     env.context_dim, env.n_arms, env.weights, env.capacity,
+        #     hidden_dim=hidden_dim, beta_start=1.0, beta_end=1.0, decay_rounds=n_rounds,
+        #     lambda_reg=1.0, solver=solver, seed=seed
+        # ),
+        # 'DecisionUCB': DecisionUCBAgent(
+        #     env.context_dim, env.n_arms, env.weights, env.capacity,
+        #     hidden_dim=hidden_dim, beta_pred_start=1.0, beta_pred_end=1.0,
+        #     beta_decision=1.0, decay_rounds=n_rounds,
+        #     alpha=0.0, lambda_reg=1.0, solver=solver, seed=seed
+        # ),
         # 'SimplePKL': SimplePKLAgent(
         #     env.context_dim, env.n_arms, env.weights, env.capacity,
         #     hidden_dim=hidden_dim, beta=1.0, temperature=0.1,
@@ -178,39 +193,40 @@ def get_per_arm_agents(env, seed, lr=0.01, n_rounds=300, hidden_dim=None):
             hidden_dim=hidden_dim, beta=1.0, alpha=0.0, lambda_reg=1.0,
             lr=lr, decay_rounds=n_rounds, solver=solver, seed=seed
         ),
-        'PerArmFullSPO': PerArmFullSPOAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, beta_start=2.0, beta_end=0.1,
-            decay_rounds=n_rounds, lambda_reg=1.0, lr=lr,
-            solver=solver, seed=seed
-        ),
-        'PerArmDecisionUCB': PerArmDecisionUCBAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, beta_pred_start=2.0, beta_pred_end=0.1,
-            beta_decision=1.0, decay_rounds=n_rounds, alpha=0.0,
-            lambda_reg=1.0, lr=lr, solver=solver, seed=seed
-        ),
+        # 'PerArmFullSPO': PerArmFullSPOAgent(
+        #     env.context_dim, env.n_arms, env.weights, env.capacity,
+        #     hidden_dim=hidden_dim, beta_start=2.0, beta_end=0.1,
+        #     decay_rounds=n_rounds, lambda_reg=1.0, lr=lr,
+        #     solver=solver, seed=seed
+        # ),
+        # 'PerArmDecisionUCB': PerArmDecisionUCBAgent(
+        #     env.context_dim, env.n_arms, env.weights, env.capacity,
+        #     hidden_dim=hidden_dim, beta_pred_start=2.0, beta_pred_end=0.1,
+        #     beta_decision=1.0, decay_rounds=n_rounds, alpha=0.0,
+        #     lambda_reg=1.0, lr=lr, solver=solver, seed=seed
+        # ),
 
-        'PerArmNTKSPO': PerArmNTKSPOAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, gamma_start=2.0, gamma_end=0.1,
-            decay_rounds=n_rounds, lambda_reg=1.0, lambda_ntk=1.0,
-            lr=lr, solver=solver, seed=seed
-        ),
-        'PerArmNTKDecisionUCB': PerArmNTKDecisionUCBAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, gamma_start=2.0, gamma_end=0.1,
-            beta_decision=1.0, decay_rounds=n_rounds, lambda_reg=1.0,
-            lambda_ntk=1.0, lr=lr, solver=solver, seed=seed
-        ),
+        # 'PerArmNTKSPO': PerArmNTKSPOAgent(
+        #     env.context_dim, env.n_arms, env.weights, env.capacity,
+        #     hidden_dim=hidden_dim, gamma=1.0,
+        #     lambda_reg=1.0, lambda_ntk=1.0,
+        #     lr=lr, solver=solver, seed=seed
+        # ),
+        # 'PerArmNTKDecisionUCB': PerArmNTKDecisionUCBAgent(
+        #     env.context_dim, env.n_arms, env.weights, env.capacity,
+        #     hidden_dim=hidden_dim, gamma=1.0,
+        #     beta_decision=1.0, lambda_reg=1.0,
+        #     lambda_ntk=1.0, lr=lr, solver=solver, seed=seed
+        # ),
 
         'PerArmLinUCB': PerArmLinUCBAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             alpha=1.0, lambda_reg=1.0, solver=solver
         ),
-        'PerArmUCB': PerArmUCBAgent(
+        'PerArmNeuralLinUCB': PerArmNeuralLinUCBAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            beta=1.0, lambda_reg=1.0, solver=solver
+            hidden_dim=hidden_dim, alpha=1.0, lambda_reg=1.0,
+            solver=solver, seed=seed
         ),
         'PerArmTS': PerArmThompsonSamplingAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
@@ -242,6 +258,17 @@ def get_per_arm_agents(env, seed, lr=0.01, n_rounds=300, hidden_dim=None):
             env.context_dim, env.n_arms, env.weights, env.capacity,
             hidden_dim=hidden_dim, epsilon=0.1, decay_epsilon=True,
             decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed
+        ),
+
+        'PerArmBayesianIERM-DM': PerArmBayesianIERMDMAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            hidden_dim=hidden_dim, beta=1.0, alpha=0.0, lambda_reg=1.0,
+            lr=lr, decay_rounds=n_rounds, solver=solver, seed=seed
+        ),
+        'PerArmBayesianIERM-DR': PerArmBayesianIERMDRAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            hidden_dim=hidden_dim, beta=1.0, alpha=0.0, lambda_reg=1.0,
+            lr=lr, decay_rounds=n_rounds, solver=solver, seed=seed
         ),
     }
 
@@ -307,42 +334,89 @@ def run_evaluation(
                 trajectories[(agent_name, dataset, feedback_mode, seed)] = {
                     'cumulative_regret': result['cumulative_regret'],
                     'regrets': result['regrets'],
+                    'rewards': result['rewards'],
+                    'optimal_rewards': result['optimal_rewards'],
+                    'holdout_evals': result.get('holdout_evals', []),
                     'mse_losses': result.get('mse_losses', []),
                     'spo_losses': result.get('spo_losses', []),
                 }
 
                 if verbose:
-                    print(f'{result["final_regret"]:.0f}', flush=True)
+                    # Print cumulative regret and holdout regret
+                    holdout_evals = result.get('holdout_evals', [])
+                    if holdout_evals:
+                        final_holdout = holdout_evals[-1][1]
+                        holdout_regret = final_holdout['regret']
+                        print(f'regret={result["final_regret"]:.0f}, holdout_regret={holdout_regret:.0f}', flush=True)
+                    else:
+                        print(f'{result["final_regret"]:.0f}', flush=True)
 
     return results, trajectories
 
 
-def print_summary(results, dataset='synthetic'):
+def print_summary(results, dataset='synthetic', trajectories=None):
     print(f'\n{"=" * 70}')
     print(f'RESULTS SUMMARY - {dataset.upper()}')
     print(f'{"=" * 70}')
 
+    # Check if holdout data is available
+    has_holdout = False
+    if trajectories:
+        for key, data in trajectories.items():
+            if key[1] == dataset and data.get('holdout_evals'):
+                has_holdout = True
+                break
+
     for feedback_mode in ['semi_bandit', 'full']:
         print(f'\n{feedback_mode.replace("_", " ").title()} Feedback:')
-        print(f'{"Agent":<20} {"Mean":>12} {"Std":>10} {"Rank":>6}')
-        print('-' * 50)
+
+        if has_holdout and feedback_mode == 'semi_bandit':
+            print(f'{"Agent":<25} {"Regret":>10} {"Std":>8} {"Holdout":>10} {"Rank":>6}')
+            print('-' * 65)
+        else:
+            print(f'{"Agent":<25} {"Regret":>10} {"Std":>8} {"Rank":>6}')
+            print('-' * 55)
 
         agents = results[feedback_mode]
         sorted_agents = sorted(agents.items(), key=lambda x: np.mean(x[1]))
+
+        # Collect holdout regret per agent
+        holdout_data = {}
+        if trajectories and has_holdout and feedback_mode == 'semi_bandit':
+            for key, data in trajectories.items():
+                agent_name, ds, mode, seed = key
+                if ds == dataset and mode == feedback_mode:
+                    holdout_evals = data.get('holdout_evals', [])
+                    if holdout_evals:
+                        final_regret = holdout_evals[-1][1]['regret']
+                        if agent_name not in holdout_data:
+                            holdout_data[agent_name] = []
+                        holdout_data[agent_name].append(final_regret)
 
         for rank, (agent_name, regrets) in enumerate(sorted_agents, 1):
             mean = np.mean(regrets)
             std = np.std(regrets)
             marker = ' **' if rank == 1 else ''
-            print(f'{agent_name:<20} {mean:>12.1f} {std:>10.1f} {rank:>6}{marker}')
+
+            if has_holdout and feedback_mode == 'semi_bandit' and agent_name in holdout_data:
+                holdout_regret = np.mean(holdout_data[agent_name])
+                print(f'{agent_name:<25} {mean:>10.0f} {std:>8.0f} {holdout_regret:>10.0f} {rank:>5}{marker}')
+            else:
+                print(f'{agent_name:<25} {mean:>10.0f} {std:>8.0f} {rank:>5}{marker}')
 
     semi_bandit_best = min(results['semi_bandit'].items(), key=lambda x: np.mean(x[1]))
     full_best = min(results['full'].items(), key=lambda x: np.mean(x[1]))
 
     print(f'\n{"=" * 70}')
     print('WINNERS:')
-    print(f'  Semi-bandit: {semi_bandit_best[0]} ({np.mean(semi_bandit_best[1]):.1f})')
-    print(f'  Full feedback: {full_best[0]} ({np.mean(full_best[1]):.1f})')
+    print(f'  Semi-bandit: {semi_bandit_best[0]} ({np.mean(semi_bandit_best[1]):.0f})')
+    print(f'  Full feedback: {full_best[0]} ({np.mean(full_best[1]):.0f})')
+
+
+def plot_trajectories(trajectories, dataset, output_dir, feedback_mode='semi_bandit'):
+    """Plot training and holdout curves. Delegates to plot_results module."""
+    from experiments.plot_results import plot_trajectories as _plot_trajectories
+    _plot_trajectories(trajectories, dataset, output_dir, feedback_mode)
 
 
 def save_results(results, trajectories, output_dir):
@@ -443,13 +517,17 @@ def main():
             noise=args.noise,
         )
 
-        print_summary(results, dataset)
+        print_summary(results, dataset, trajectories)
 
         all_results[dataset] = results
         all_trajectories.update(trajectories)
 
     if not args.no_save:
         save_results(all_results, all_trajectories, args.output_dir)
+
+        # Generate plots for each dataset
+        for dataset in datasets:
+            plot_trajectories(all_trajectories, dataset, args.output_dir, 'semi_bandit')
 
     print(f'\nCompleted: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
 
