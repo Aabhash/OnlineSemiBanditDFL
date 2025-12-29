@@ -24,57 +24,57 @@ agents:
       high: 10.0
       log: true
 
-  FullSPO:
-    tune_lr: true
-    lr:
-      type: float
-      low: 0.0001
-      high: 0.1
-      log: true
-    beta_start:
-      type: float
-      low: 0.1
-      high: 5.0
-      log: true
-    beta_end:
-      type: float
-      low: 0.01
-      high: 1.0
-      log: true
-    hidden_dim:
-      type: categorical
-      choices: [32, 64, 128]
-    lambda_reg:
-      type: float
-      low: 0.01
-      high: 10.0
-      log: true
+  # FullSPO:
+  #   tune_lr: true
+  #   lr:
+  #     type: float
+  #     low: 0.0001
+  #     high: 0.1
+  #     log: true
+  #   beta_start:
+  #     type: float
+  #     low: 0.1
+  #     high: 5.0
+  #     log: true
+  #   beta_end:
+  #     type: float
+  #     low: 0.01
+  #     high: 1.0
+  #     log: true
+  #   hidden_dim:
+  #     type: categorical
+  #     choices: [32, 64, 128]
+  #   lambda_reg:
+  #     type: float
+  #     low: 0.01
+  #     high: 10.0
+  #     log: true
 
-  DecisionUCB:
-    tune_lr: true
-    lr:
-      type: float
-      low: 0.0001
-      high: 0.1
-      log: true
-    beta_pred_start:
-      type: float
-      low: 0.1
-      high: 5.0
-      log: true
-    beta_pred_end:
-      type: float
-      low: 0.01
-      high: 1.0
-      log: true
-    beta_decision:
-      type: float
-      low: 0.1
-      high: 3.0
-      log: true
-    hidden_dim:
-      type: categorical
-      choices: [32, 64, 128]
+  # DecisionUCB:
+  #   tune_lr: true
+  #   lr:
+  #     type: float
+  #     low: 0.0001
+  #     high: 0.1
+  #     log: true
+  #   beta_pred_start:
+  #     type: float
+  #     low: 0.1
+  #     high: 5.0
+  #     log: true
+  #   beta_pred_end:
+  #     type: float
+  #     low: 0.01
+  #     high: 1.0
+  #     log: true
+  #   beta_decision:
+  #     type: float
+  #     low: 0.1
+  #     high: 3.0
+  #     log: true
+  #   hidden_dim:
+  #     type: categorical
+  #     choices: [32, 64, 128]
 
   LinUCB:
     tune_lr: false

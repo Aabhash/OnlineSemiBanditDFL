@@ -16,7 +16,7 @@ __all__ = [
 
 
 def create_env(env_type: str, seed: int = 42, **kwargs):
-    if env_type == 'synthetic':
+    if env_type == 'synthetic' or env_type.startswith('synthetic_'):
         return SyntheticKnapsackEnv(seed=seed, **kwargs)
     elif env_type.startswith('cn_'):
         score_type = env_type[3:]
@@ -48,6 +48,7 @@ def create_env(env_type: str, seed: int = 42, **kwargs):
     else:
         raise ValueError(
             f"Unknown environment type: {env_type}. "
-            f"Available: synthetic, cn_linear, cn_quadratic, cn_cosine, "
+            f"Available: synthetic, synthetic_no_noise, synthetic_low_noise, synthetic_high_noise, "
+            f"cn_linear, cn_quadratic, cn_cosine, "
             f"shortest_path_5, shortest_path_8, criteo_ads, fantasy, nfl_logged, nfl_online"
         )

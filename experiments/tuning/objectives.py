@@ -6,7 +6,6 @@ import optuna
 
 from .timing import TrialTimer
 from .results_store import TrialResult, ResultsStore
-from .validation import create_validator
 from .early_stopping import run_with_pruning
 from .wandb_logger import WandbTrialLogger, WandbRunLogger
 
@@ -79,7 +78,6 @@ def create_agent_from_params(
         UCBAgent,
         EpsilonGreedyAgent,
         MSENeuralAgent,
-        GreedyAgent,
         RandomAgent,
     )
     from src.agents.per_arm_context import (
@@ -140,10 +138,12 @@ def create_agent_from_params(
             **{k: v for k, v in params.items() if k != 'lr'}
         )
     elif agent_name == 'Greedy':
-        return GreedyAgent(
+        # Greedy is EpsilonGreedy with epsilon=0 (no exploration)
+        return EpsilonGreedyAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            lr=lr, solver=solver, seed=seed,
-            **{k: v for k, v in params.items() if k != 'lr'}
+            epsilon=0.0, decay_epsilon=False,
+            decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed,
+            **{k: v for k, v in params.items() if k not in ['lr', 'epsilon', 'decay_epsilon']}
         )
     elif agent_name == 'Random':
         return RandomAgent(env.n_arms, env.weights, env.capacity, solver=solver)
@@ -194,6 +194,14 @@ def create_agent_from_params(
             decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed,
             **{k: v for k, v in params.items() if k != 'lr'}
         )
+    elif agent_name == 'PerArmGreedy':
+        # PerArmGreedy is PerArmEpsilonGreedy with epsilon=0 (no exploration)
+        return PerArmEpsilonGreedyAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            epsilon=0.0, decay_epsilon=False,
+            decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed,
+            **{k: v for k, v in params.items() if k not in ['lr', 'epsilon', 'decay_epsilon']}
+        )
     elif agent_name == 'PerArmRandom':
         return PerArmRandomAgent(env.n_arms, env.weights, env.capacity, solver=solver)
     else:
@@ -221,8 +229,13 @@ def get_n_rounds_for_dataset(config: Dict[str, Any], dataset: str) -> int:
 
 
 def uses_holdout_for_selection(config: Dict[str, Any], dataset: str) -> bool:
+    """Check if dataset uses holdout regret for HP selection (e.g., nfl_logged)."""
     dataset_config = config['datasets'].get(dataset, {})
     return dataset_config.get('eval_metric') == 'holdout'
+
+
+def is_online_dataset(config: Dict[str, Any], dataset: str) -> bool:
+    return not uses_holdout_for_selection(config, dataset)
 
 
 class ObjectiveFactory:
@@ -245,6 +258,7 @@ class ObjectiveFactory:
         uses_lr = search_space.get('tune_lr', False) or 'lr' in search_space
         wandb_enabled = config.get('wandb', {}).get('enabled', False)
         use_holdout = uses_holdout_for_selection(config, dataset)
+        is_online = is_online_dataset(config, dataset)
 
         def objective(trial: 'optuna.Trial') -> float:
             params = sample_hyperparameters(trial, search_space)
@@ -284,7 +298,6 @@ class ObjectiveFactory:
 
                 try:
                     env = create_env_for_tuning(dataset, seed, config)
-                    validator = create_validator(env, config)
 
                     agent = create_agent_from_params(
                         agent_name, env, params, seed, n_rounds, lr
@@ -297,7 +310,7 @@ class ObjectiveFactory:
                             trial=trial,
                             n_rounds=n_rounds,
                             eval_interval=eval_interval,
-                            validator=validator,
+                            validator=None,  # No validation for online datasets
                             config=config,
                             full_feedback=full_feedback,
                             lr=lr,
@@ -305,6 +318,7 @@ class ObjectiveFactory:
                             seed_idx=seed_idx,
                             n_seeds=n_seeds,
                             wandb_logger=seed_logger,
+                            is_online=is_online,
                         )
 
                     total_wall_time += timer.elapsed
@@ -386,6 +400,7 @@ class ObjectiveFactory:
         uses_lr = search_space.get('tune_lr', False) or 'lr' in search_space
         wandb_enabled = config.get('wandb', {}).get('enabled', False)
         use_holdout = uses_holdout_for_selection(config, dataset)
+        is_online = is_online_dataset(config, dataset)
 
         def objective(trial: 'optuna.Trial') -> float:
             params = sample_hyperparameters(trial, search_space)
@@ -415,7 +430,6 @@ class ObjectiveFactory:
 
                 try:
                     env = create_env_for_tuning(dataset, seed, config)
-                    validator = create_validator(env, config)
                     agent = create_agent_from_params(agent_name, env, params, seed, n_rounds, lr)
 
                     result = run_with_pruning(
@@ -424,7 +438,7 @@ class ObjectiveFactory:
                         trial=trial,
                         n_rounds=n_rounds,
                         eval_interval=eval_interval,
-                        validator=validator,
+                        validator=None,  # No validation for online datasets
                         config=config,
                         full_feedback=full_feedback,
                         lr=lr,
@@ -432,6 +446,7 @@ class ObjectiveFactory:
                         seed_idx=seed_idx,
                         n_seeds=n_seeds,
                         wandb_logger=seed_logger,
+                        is_online=is_online,
                     )
 
                     if seed_logger is not None:

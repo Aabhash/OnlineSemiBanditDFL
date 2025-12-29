@@ -165,6 +165,19 @@ Examples:
             print(f"Error: Unknown agent '{args.agent}'")
             print(f"Available agents: {list(search_spaces.keys())}")
             sys.exit(1)
+        # Validate agent is compatible with dataset's env_type
+        compatible_agents = get_agents_for_dataset(search_spaces, config, args.dataset)
+        if args.agent not in compatible_agents:
+            dataset_config = config['datasets'][args.dataset]
+            env_type = dataset_config['env_type']
+            print(f"Error: Agent '{args.agent}' is not compatible with dataset '{args.dataset}'")
+            print(f"Dataset env_type: {env_type}")
+            if env_type == 'per_arm_context':
+                print("This dataset requires PerArm* or CN-* agents")
+            else:
+                print("This dataset requires shared context agents (not PerArm* or CN-*)")
+            print(f"Compatible agents: {compatible_agents}")
+            sys.exit(1)
         agents = [args.agent]
     else:
         agents = get_agents_for_dataset(search_spaces, config, args.dataset)

@@ -32,7 +32,7 @@ def run_with_pruning(
     trial: Optional['optuna.Trial'],
     n_rounds: int,
     eval_interval: int,
-    validator: BaseValidator,
+    validator: Optional[BaseValidator],
     config: Dict[str, Any],
     full_feedback: bool,
     lr: float,
@@ -40,24 +40,22 @@ def run_with_pruning(
     seed_idx: int = 0,
     n_seeds: int = 1,
     wandb_logger: Optional['WandbRunLogger'] = None,
+    is_online: bool = True,
 ) -> ExperimentResult:
     rewards = []
     optimal_rewards = []
     regrets = []
     cumulative_regret = 0.0
-    validation_regrets = []
 
-    # Track cumulative validation and holdout metrics
-    cumulative_val_regret = 0.0
-    cumulative_val_reward = 0.0
+    # Track cumulative holdout metrics (only for non-online datasets like nfl_logged)
     cumulative_holdout_regret = 0.0
     cumulative_holdout_reward = 0.0
 
     # Determine log interval for wandb (every N rounds to avoid too many logs)
     wandb_log_interval = config.get('wandb', {}).get('log_interval', 10)
 
-    # Check if env supports holdout evaluation
-    has_holdout = hasattr(env, 'evaluate_on_holdout')
+    # Check if env supports holdout evaluation (only relevant for non-online datasets)
+    has_holdout = hasattr(env, 'evaluate_on_holdout') and not is_online
 
     X = env.reset()
 
@@ -92,27 +90,7 @@ def run_with_pruning(
 
         should_eval = (t + 1) % eval_interval == 0 or t == n_rounds - 1
         if should_eval:
-            # Get detailed validation metrics (regret + reward)
-            val_details = validator.get_details(agent)
-            val_regret = val_details['regret']
-            val_reward = val_details.get('total_reward', val_details.get('reward', 0.0))
-            validation_regrets.append(val_regret)
-
-            # Update cumulative validation metrics
-            cumulative_val_regret += val_regret
-            cumulative_val_reward += val_reward if val_reward else 0.0
-
-            # Log validation metrics to wandb
-            if wandb_logger is not None:
-                wandb_logger.log_validation(
-                    round_num=t,
-                    validation_regret=val_regret,
-                    cumulative_validation_regret=cumulative_val_regret,
-                    validation_reward=val_reward,
-                    cumulative_validation_reward=cumulative_val_reward,
-                )
-
-            # Evaluate on holdout at each eval interval (online setting - each step matters)
+            # For holdout datasets (nfl_logged), evaluate on holdout
             if has_holdout:
                 holdout_result = env.evaluate_on_holdout(agent)
                 if holdout_result:
@@ -136,26 +114,32 @@ def run_with_pruning(
             if trial is not None:
                 # Offset step by seed index to avoid "step already reported" warnings
                 unique_step = seed_idx * n_rounds + t
-                trial.report(val_regret, step=unique_step)
+
+                # For online datasets: use cumulative training regret for pruning
+                # For holdout datasets: use cumulative holdout regret for pruning
+                if is_online:
+                    pruning_metric = cumulative_regret
+                else:
+                    pruning_metric = cumulative_holdout_regret
+
+                trial.report(pruning_metric, step=unique_step)
 
                 if trial.should_prune():
                     return ExperimentResult(
-                        final_validation_regret=val_regret,
+                        final_validation_regret=cumulative_regret,  # Use training regret
                         final_train_regret=cumulative_regret,
-                        validation_regrets=validation_regrets,
+                        validation_regrets=[],  # No validation for online
                         train_regrets=[sum(regrets[:i+1]) for i in range(len(regrets))],
                         rewards=rewards,
                         optimal_rewards=optimal_rewards,
                         pruned=True,
                         pruned_at_round=t,
                         total_rounds=t + 1,
-                        cumulative_validation_regret=cumulative_val_regret,
+                        cumulative_validation_regret=0.0,  # Not used for online
                         cumulative_holdout_regret=cumulative_holdout_regret if has_holdout else None,
                     )
 
-    final_val_regret = validation_regrets[-1] if validation_regrets else validator.evaluate(agent)
-
-    # Get final holdout regret for the result
+    # Get final holdout regret for the result (only for holdout datasets)
     holdout_regret = None
     if has_holdout:
         holdout_result = env.evaluate_on_holdout(agent)
@@ -163,9 +147,9 @@ def run_with_pruning(
             holdout_regret = holdout_result['regret']
 
     return ExperimentResult(
-        final_validation_regret=final_val_regret,
+        final_validation_regret=cumulative_regret,  # Use training regret (no validation for online)
         final_train_regret=cumulative_regret,
-        validation_regrets=validation_regrets,
+        validation_regrets=[],  # No validation for online datasets
         train_regrets=[sum(regrets[:i+1]) for i in range(len(regrets))],
         rewards=rewards,
         optimal_rewards=optimal_rewards,
@@ -173,7 +157,7 @@ def run_with_pruning(
         pruned_at_round=None,
         total_rounds=n_rounds,
         holdout_regret=holdout_regret,
-        cumulative_validation_regret=cumulative_val_regret,
+        cumulative_validation_regret=0.0,  # Not used for online
         cumulative_holdout_regret=cumulative_holdout_regret if has_holdout else None,
     )
 
@@ -183,7 +167,7 @@ def run_without_pruning(
     agent,
     n_rounds: int,
     eval_interval: int,
-    validator: BaseValidator,
+    validator: Optional[BaseValidator],
     config: Dict[str, Any],
     full_feedback: bool,
     lr: float,
@@ -191,6 +175,7 @@ def run_without_pruning(
     seed_idx: int = 0,
     n_seeds: int = 1,
     wandb_logger: Optional['WandbRunLogger'] = None,
+    is_online: bool = True,
 ) -> ExperimentResult:
     return run_with_pruning(
         env=env,
@@ -206,6 +191,7 @@ def run_without_pruning(
         seed_idx=seed_idx,
         n_seeds=n_seeds,
         wandb_logger=wandb_logger,
+        is_online=is_online,
     )
 
 
