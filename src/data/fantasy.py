@@ -14,13 +14,15 @@ class FantasyData:
         season: int = 2020,
         seed: int = 42,
         min_appearances: int = 3,  # Minimum weeks a player must appear in
-        holdout_weeks: int = 0,  # Last N weeks held out for evaluation
+        validation_weeks: int = 0,  # N weeks for HP validation (before holdout)
+        holdout_weeks: int = 0,  # Last N weeks held out for final test
         verbose: bool = False,
     ):
         self._n_players_requested = n_players
         self.min_appearances = min_appearances
         self.context_dim = context_dim
         self.season = season
+        self.validation_weeks = validation_weeks
         self.holdout_weeks = holdout_weeks
         self.verbose = verbose
         self.rng = np.random.default_rng(seed)
@@ -42,32 +44,8 @@ class FantasyData:
 
         df = pd.read_parquet(parquet_file)
 
-        # Compute position-specific opponent strength
-        # How many points does each opponent allow to each position?
-        self.opp_pos_strength = {}
-        for pos in ['QB', 'RB', 'WR', 'TE', 'DST']:
-            pos_df = df[df['position'] == pos]
-            if len(pos_df) > 0:
-                opp_avg = pos_df.groupby('opponent')['fantasy_points'].mean()
-                opp_mean = opp_avg.mean()
-                opp_std = opp_avg.std() if opp_avg.std() > 0 else 1.0
-                self.opp_pos_strength[pos] = (opp_avg - opp_mean) / opp_std
-            else:
-                self.opp_pos_strength[pos] = pd.Series(dtype=float)
-
-        # Also keep aggregate for fallback
-        self.opp_strength = df.groupby('opponent')['fantasy_points'].mean()
-        opp_mean = self.opp_strength.mean()
-        opp_std = self.opp_strength.std()
-        self.opp_strength_normalized = (self.opp_strength - opp_mean) / opp_std
-
-        # Compute team offensive strength (normalized)
-        team_off = df.groupby('team')['fantasy_points'].mean()
-        team_off_mean = team_off.mean()
-        team_off_std = team_off.std() if team_off.std() > 0 else 1.0
-        self.team_off_strength = (team_off - team_off_mean) / team_off_std
-
         # Compute pts_trend: last_1 - last_3 (positive = improving)
+        # This must be done before splitting to maintain time ordering
         df = df.sort_values(['player_id', 'week'])
         df['last_1_pts'] = df.groupby('player_id')['fantasy_points'].shift(1)
         df['last_3_pts'] = df.groupby('player_id')['fantasy_points'].transform(
@@ -100,19 +78,42 @@ class FantasyData:
 
         all_weeks = sorted(df['week'].unique())
 
-        # Split into train and holdout
-        if self.holdout_weeks > 0:
-            self.weeks = all_weeks[:-self.holdout_weeks]  # Train weeks
-            self.holdout_week_list = all_weeks[-self.holdout_weeks:]  # Holdout weeks
+        # Three-way split: train / validation / holdout (test)
+        # Temporal split: train is earliest, validation is middle, holdout is latest
+        total_held_out = self.validation_weeks + self.holdout_weeks
+        if total_held_out > 0:
+            if total_held_out >= len(all_weeks):
+                raise ValueError(
+                    f"validation_weeks ({self.validation_weeks}) + holdout_weeks ({self.holdout_weeks}) "
+                    f"must be less than total weeks ({len(all_weeks)})"
+                )
+            self.weeks = all_weeks[:-total_held_out]  # Train weeks
+            if self.validation_weeks > 0 and self.holdout_weeks > 0:
+                self.validation_week_list = all_weeks[-total_held_out:-self.holdout_weeks]
+                self.holdout_week_list = all_weeks[-self.holdout_weeks:]
+            elif self.validation_weeks > 0:
+                self.validation_week_list = all_weeks[-self.validation_weeks:]
+                self.holdout_week_list = []
+            else:
+                self.validation_week_list = []
+                self.holdout_week_list = all_weeks[-self.holdout_weeks:]
         else:
             self.weeks = all_weeks
+            self.validation_week_list = []
             self.holdout_week_list = []
 
         self.n_weeks = len(self.weeks)
+        self.n_validation_weeks = len(self.validation_week_list)
         self.n_holdout_weeks = len(self.holdout_week_list)
+
+        # CRITICAL: Compute statistics on TRAIN weeks only to prevent data leakage
+        train_df = df[df['week'].isin(self.weeks)]
+        self._compute_statistics_on_train(train_df)
 
         # Store full df for context extraction
         self._df = df
+
+        all_weeks = self.weeks + self.validation_week_list + self.holdout_week_list
 
         self.week_data = {}
         for week in all_weeks:  # Load all weeks (train + holdout)
@@ -177,10 +178,37 @@ class FantasyData:
         self._sequential_idx = 0  # For sequential sampling
 
         if self.verbose:
+            val_info = f", val weeks {self.validation_week_list}" if self.validation_weeks > 0 else ""
             holdout_info = f", holdout weeks {self.holdout_week_list}" if self.holdout_weeks > 0 else ""
             print(f"Loaded Fantasy {self.season}: {self.n_players} players, "
-                  f"{self.n_weeks} train weeks{holdout_info}, "
+                  f"{self.n_weeks} train weeks{val_info}{holdout_info}, "
                   f"salaries ${self.base_salaries.min():.0f}-${self.base_salaries.max():.0f}")
+
+    def _compute_statistics_on_train(self, train_df: pd.DataFrame):
+        # Compute position-specific opponent strength
+        # How many points does each opponent allow to each position?
+        self.opp_pos_strength = {}
+        for pos in ['QB', 'RB', 'WR', 'TE', 'DST']:
+            pos_df = train_df[train_df['position'] == pos]
+            if len(pos_df) > 0:
+                opp_avg = pos_df.groupby('opponent')['fantasy_points'].mean()
+                opp_mean = opp_avg.mean()
+                opp_std = opp_avg.std() if opp_avg.std() > 0 else 1.0
+                self.opp_pos_strength[pos] = (opp_avg - opp_mean) / opp_std
+            else:
+                self.opp_pos_strength[pos] = pd.Series(dtype=float)
+
+        # Also keep aggregate for fallback
+        self.opp_strength = train_df.groupby('opponent')['fantasy_points'].mean()
+        opp_mean = self.opp_strength.mean()
+        opp_std = self.opp_strength.std() if self.opp_strength.std() > 0 else 1.0
+        self.opp_strength_normalized = (self.opp_strength - opp_mean) / opp_std
+
+        # Compute team offensive strength (normalized)
+        team_off = train_df.groupby('team')['fantasy_points'].mean()
+        team_off_mean = team_off.mean()
+        team_off_std = team_off.std() if team_off.std() > 0 else 1.0
+        self.team_off_strength = (team_off - team_off_mean) / team_off_std
 
     def _get_raw_context_dim(self) -> int:
         return 14  # 12 base + pts_trend + team_off_strength
@@ -289,6 +317,21 @@ class FantasyData:
             holdout_samples.append((contexts, values))
 
         return holdout_samples
+
+    def get_validation_set(self) -> List[Tuple[np.ndarray, np.ndarray]]:
+        if not self.validation_week_list:
+            return []
+
+        validation_samples = []
+        for week in self.validation_week_list:
+            data = self.get_week(week)
+            contexts = data['contexts'].copy()
+            values = data['points'].copy()
+            available = data['available']
+            values[~available] = 0.0
+            validation_samples.append((contexts, values))
+
+        return validation_samples
 
     def sample_with_details(self) -> Dict:
         week = self.rng.choice(self.weeks)

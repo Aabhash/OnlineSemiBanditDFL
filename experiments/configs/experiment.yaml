@@ -1,0 +1,195 @@
+experiment:
+  name: "bandit_hp_tuning"
+  output_dir: "results/tuning"
+
+tuning:
+  n_trials: 50
+  n_seeds: 10
+  n_rounds: 2000
+  timeout_per_trial: 3600
+  sampler_seed: 42
+  default_lr: 0.01
+
+early_stopping:
+  method: "ASHA"
+  min_resource: 50
+  max_resource: 2000
+  reduction_factor: 3
+
+validation:
+  eval_interval: 25
+  # For synthetic envs: generate validation set for monitoring (not HP selection)
+  n_val_samples: 100
+  seed: 42
+
+compute:
+  use_gpu: false
+  track_time: true
+  max_parallel_trials: 1
+
+wandb:
+  enabled: true
+  project: "constrained-bandits"
+  entity: null
+  log_interval: 10  # Log training metrics every N rounds
+  tags: ["hp-tuning"]
+
+storage:
+  database: "sqlite:///results/tuning/optuna.db"
+  results_dir: "results/tuning/trials"
+
+seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+analysis:
+  bootstrap:
+    n_bootstrap: 10000
+    confidence: 0.95
+    seed: 42
+  significance:
+    alpha: 0.05
+
+datasets:
+  synthetic:
+    n_items: 32
+    context_dim: 5
+    capacity: 20.0
+    env_type: shared_context
+
+  # NFL Fantasy variants
+  # nfl_logged: Many rounds with data repetition, evaluate on holdout
+  nfl_logged:
+    n_players: 494
+    salary_cap: 50000
+    context_dim: 14
+    holdout_weeks: 5       # Last 5 weeks for evaluation
+    env_type: per_arm_context
+    n_rounds: 1000         # Train with repetition over 12 weeks
+    eval_metric: holdout   # Report holdout cumulative regret
+
+  # nfl_online: True online setting, 17 rounds (one per week)
+  nfl_online:
+    n_players: 494
+    salary_cap: 50000
+    context_dim: 14
+    holdout_weeks: 0       # No holdout - use all 17 weeks
+    env_type: per_arm_context
+    n_rounds: 17           # One round per week, no repetition
+    eval_metric: training  # Report cumulative training regret directly
+
+  cn_linear:
+    n_arms: 20
+    context_dim: 80
+    K: 4
+    env_type: per_arm_context
+
+  cn_quadratic:
+    n_arms: 20
+    context_dim: 80
+    K: 4
+    env_type: per_arm_context
+
+  cn_cosine:
+    n_arms: 20
+    context_dim: 80
+    K: 4
+    env_type: per_arm_context
+
+  shortest_path_5:
+    grid_size: 5
+    data_type: synthetic
+    context_dim: 10
+    env_type: shared_context
+
+  shortest_path_8:
+    grid_size: 8
+    data_type: synthetic
+    context_dim: 20
+    env_type: shared_context
+
+  criteo_ads:
+    n_campaigns: 100
+    n_select: 10
+    context_dim: 50
+    env_type: shared_context
+
+feedback_types:
+  - semi_bandit
+  - full
+
+evaluation:
+  quick:
+    n_rounds: 300
+    n_seeds: 3
+  full:
+    n_rounds: 2000
+    n_seeds: 10
+  output_dir: "results/eval"
+
+agent_defaults:
+  lr: 0.01
+  hidden_dim: 64
+  hidden_dim_small: 32
+  lambda_reg: 1.0
+  alpha: 1.0
+  beta: 1.0
+  gamma: 1.0
+  nu: 1.0
+  epsilon: 0.1
+  decay_epsilon: true
+
+ablations:
+  observation_rate:
+    player_counts: [30, 50, 75, 100, 150, 200, 300, 494]
+    player_counts_full: [30, 40, 50, 75, 100, 125, 150, 200, 250, 300, 400, 494]
+    player_counts_quick: [50, 100, 200, 494]
+    n_rounds: 200
+    n_rounds_full: 500
+    n_rounds_quick: 100
+    n_seeds: 3
+    n_seeds_full: 5
+    n_seeds_quick: 2
+    ntk_methods: ["CN-UCB", "CN-TS", "PerArmNeuralUCB"]
+    bayesian_methods: ["PerArmBayesianSPO", "PerArmLinUCB", "PerArmTS"]
+    output_dir: "results/ablations/obs_rate"
+  imputation:
+    n_rounds: 200
+    n_seeds: 3
+    output_dir: "results/ablations/imputation"
+  uncertainty:
+    n_rounds: 200
+    n_seeds: 3
+    output_dir: "results/ablations/uncertainty"
+  training_paradigm:
+    n_rounds: 200
+    n_seeds: 3
+    output_dir: "results/ablations/training_paradigm"
+
+plotting:
+  colors:
+    Random: "gray"
+    UCB-Bayesian: "blue"
+    ThompsonSampling: "green"
+    LinUCB: "orange"
+    NeuralUCB: "red"
+    BayesianSPO: "purple"
+    FullSPO: "pink"
+    DecisionUCB: "cyan"
+    CN-UCB: "magenta"
+    CN-TS: "darkblue"
+    EpsilonGreedy: "gold"
+    MSENeural: "coral"
+    PerArmBayesianSPO: "purple"
+    PerArmFullSPO: "pink"
+    PerArmLinUCB: "orange"
+    PerArmUCB: "blue"
+    PerArmTS: "green"
+    PerArmNeuralUCB: "red"
+    PerArmMSENeural: "coral"
+    PerArmEpsilonGreedy: "gold"
+    PerArmRandom: "gray"
+    PerArmGreedy: "darkgray"
+  figsize:
+    default: [10, 6]
+    wide: [14, 6]
+    tall: [10, 10]
+    grid_2x2: [14, 10]

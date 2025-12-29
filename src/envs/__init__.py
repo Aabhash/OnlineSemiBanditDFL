@@ -40,13 +40,18 @@ def create_env(env_type: str, seed: int = 42, **kwargs):
         )
     elif env_type.startswith('criteo'):
         return CriteoEnv(seed=seed, **kwargs)
-    elif env_type.startswith('fantasy'):
-        return FantasyEnv(seed=seed, **kwargs)
+    elif env_type.startswith('fantasy') or env_type.startswith('nfl_'):
+        # nfl_logged and nfl_online are variants of fantasy with different configs
+        # Remove n_rounds and eval_metric as they're not FantasyEnv parameters
+        kwargs_copy = kwargs.copy()
+        kwargs_copy.pop('n_rounds', None)
+        kwargs_copy.pop('eval_metric', None)
+        return FantasyEnv(seed=seed, **kwargs_copy)
     elif env_type.startswith('fpl'):
         return FPLEnv(seed=seed, **kwargs)
     else:
         raise ValueError(
             f"Unknown environment type: {env_type}. "
             f"Available: synthetic, cn_linear, cn_quadratic, cn_cosine, "
-            f"shortest_path_5, shortest_path_8, criteo_ads, fantasy, fpl"
+            f"shortest_path_5, shortest_path_8, criteo_ads, fantasy, nfl_logged, nfl_online, fpl"
         )

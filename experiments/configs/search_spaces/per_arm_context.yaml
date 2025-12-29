@@ -1,0 +1,248 @@
+agents:
+  PerArmBayesianSPO:
+    tune_lr: true
+    lr:
+      type: float
+      low: 0.0001
+      high: 0.1
+      log: true
+    beta_start:
+      type: float
+      low: 0.1
+      high: 5.0
+      log: true
+    beta_end:
+      type: float
+      low: 0.01
+      high: 1.0
+      log: true
+    hidden_dim:
+      type: categorical
+      choices: [32, 64, 128]
+    lambda_reg:
+      type: float
+      low: 0.01
+      high: 10.0
+      log: true
+
+  PerArmFullSPO:
+    tune_lr: true
+    lr:
+      type: float
+      low: 0.0001
+      high: 0.1
+      log: true
+    beta_start:
+      type: float
+      low: 0.1
+      high: 5.0
+      log: true
+    beta_end:
+      type: float
+      low: 0.01
+      high: 1.0
+      log: true
+    hidden_dim:
+      type: categorical
+      choices: [32, 64, 128]
+
+  PerArmNTKSPO:
+    tune_lr: true
+    lr:
+      type: float
+      low: 0.0001
+      high: 0.1
+      log: true
+    gamma_start:
+      type: float
+      low: 0.5
+      high: 5.0
+      log: true
+    gamma_end:
+      type: float
+      low: 0.01
+      high: 0.5
+      log: true
+    lambda_ntk:
+      type: float
+      low: 0.01
+      high: 10.0
+      log: true
+    lambda_reg:
+      type: float
+      low: 0.01
+      high: 10.0
+      log: true
+    hidden_dim:
+      type: categorical
+      choices: [32, 64, 128]
+
+  PerArmNTKDecisionUCB:
+    tune_lr: true
+    lr:
+      type: float
+      low: 0.0001
+      high: 0.1
+      log: true
+    gamma_start:
+      type: float
+      low: 0.5
+      high: 5.0
+      log: true
+    gamma_end:
+      type: float
+      low: 0.01
+      high: 0.5
+      log: true
+    beta_decision:
+      type: float
+      low: 0.1
+      high: 3.0
+      log: true
+    lambda_ntk:
+      type: float
+      low: 0.01
+      high: 10.0
+      log: true
+    hidden_dim:
+      type: categorical
+      choices: [32, 64, 128]
+
+  CN-UCB:
+    tune_lr: true
+    lr:
+      type: float
+      low: 0.0001
+      high: 0.1
+      log: true
+    gamma:
+      type: float
+      low: 0.1
+      high: 5.0
+      log: true
+    lambda_reg:
+      type: float
+      low: 0.01
+      high: 10.0
+      log: true
+    hidden_dim:
+      type: categorical
+      choices: [32, 64, 128]
+    train_interval:
+      type: int
+      low: 1
+      high: 20
+    train_epochs:
+      type: int
+      low: 5
+      high: 100
+
+  CN-TS:
+    tune_lr: true
+    lr:
+      type: float
+      low: 0.0001
+      high: 0.1
+      log: true
+    nu:
+      type: float
+      low: 0.1
+      high: 5.0
+      log: true
+    lambda_reg:
+      type: float
+      low: 0.01
+      high: 10.0
+      log: true
+    hidden_dim:
+      type: categorical
+      choices: [32, 64, 128]
+    train_interval:
+      type: int
+      low: 1
+      high: 20
+    train_epochs:
+      type: int
+      low: 5
+      high: 100
+
+  PerArmLinUCB:
+    tune_lr: false
+    alpha:
+      type: float
+      low: 0.1
+      high: 5.0
+      log: true
+    lambda_reg:
+      type: float
+      low: 0.01
+      high: 10.0
+      log: true
+
+  PerArmNeuralUCB:
+    tune_lr: true
+    lr:
+      type: float
+      low: 0.0001
+      high: 0.1
+      log: true
+    alpha:
+      type: float
+      low: 0.1
+      high: 5.0
+      log: true
+    lambda_reg:
+      type: float
+      low: 0.01
+      high: 10.0
+      log: true
+    hidden_dim:
+      type: categorical
+      choices: [32, 64, 128]
+
+  PerArmThompsonSampling:
+    tune_lr: false
+    # No hyperparameters to tune
+
+  PerArmMSENeural:
+    tune_lr: true
+    lr:
+      type: float
+      low: 0.0001
+      high: 0.1
+      log: true
+    beta:
+      type: float
+      low: 0.1
+      high: 5.0
+      log: true
+    hidden_dim:
+      type: categorical
+      choices: [32, 64, 128]
+    lambda_reg:
+      type: float
+      low: 0.01
+      high: 10.0
+      log: true
+
+  PerArmEpsilonGreedy:
+    tune_lr: true
+    lr:
+      type: float
+      low: 0.0001
+      high: 0.1
+      log: true
+    epsilon:
+      type: float
+      low: 0.01
+      high: 0.3
+      log: true
+    decay_epsilon:
+      type: categorical
+      choices: [true, false]
+    hidden_dim:
+      type: categorical
+      choices: [32, 64, 128]
+
+  PerArmRandom:
+    tune_lr: false

@@ -1,6 +1,7 @@
 import argparse
 import numpy as np
 import sys
+import yaml
 from datetime import datetime
 
 sys.path.insert(0, '.')
@@ -11,41 +12,44 @@ from src.agents.per_arm_context import CNUCBAgent, PerArmBayesianSPOAgent, PerAr
 from experiments.ablations.agents import CNUCBOnlineAgent, PerArmBayesianSPOBatchAgent
 
 
-DATASETS = {
-    'fantasy': {
-        'n_players': None,
-        'salary_cap': 50000,
-        'context_dim': 14,
-        'season': 2020,
-        'use_position_constraint': False,
-        'holdout_weeks': 5,
-    },
-}
+DEFAULT_CONFIG_PATH = 'experiments/configs/experiment.yaml'
 
 
-def get_agents(env, seed, lr=0.01, n_rounds=300, hidden_dim=32):
+def load_config(config_path: str = DEFAULT_CONFIG_PATH):
+    with open(config_path) as f:
+        return yaml.safe_load(f)
+
+
+def get_agents(env, seed, config, n_rounds):
+    defaults = config['agent_defaults']
+    lr = defaults['lr']
+    hidden_dim = defaults['hidden_dim_small']
+    lambda_reg = defaults['lambda_reg']
+    beta = defaults['beta']
+    gamma = defaults['gamma']
+
     solver = env.solve
 
     return {
         'SPO-Online': PerArmBayesianSPOAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, beta=1.0, alpha=0.0, lambda_reg=1.0,
+            hidden_dim=hidden_dim, beta=beta, alpha=0.0, lambda_reg=lambda_reg,
             lr=lr, decay_rounds=n_rounds, solver=solver, seed=seed
         ),
         'CN-UCB-Batch': CNUCBAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, lambda_reg=1.0, gamma=1.0, lr=lr,
+            hidden_dim=hidden_dim, lambda_reg=lambda_reg, gamma=gamma, lr=lr,
             per_arm_context=True, solver=solver, seed=seed
         ),
         'SPO-Batch': PerArmBayesianSPOBatchAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, beta=1.0, alpha=0.0, lambda_reg=1.0,
+            hidden_dim=hidden_dim, beta=beta, alpha=0.0, lambda_reg=lambda_reg,
             lr=lr, decay_rounds=n_rounds, train_interval=1, train_epochs=10,
             batch_size=64, solver=solver, seed=seed
         ),
         'CN-UCB-Online': CNUCBOnlineAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, lambda_reg=1.0, gamma=1.0, lr=lr,
+            hidden_dim=hidden_dim, lambda_reg=lambda_reg, gamma=gamma, lr=lr,
             per_arm_context=True, solver=solver, seed=seed
         ),
         'Random': PerArmRandomAgent(
@@ -55,14 +59,18 @@ def get_agents(env, seed, lr=0.01, n_rounds=300, hidden_dim=32):
 
 
 def run_ablation(
-    dataset: str = 'fantasy',
-    n_rounds: int = 200,
-    n_seeds: int = 3,
-    lr: float = 0.01,
-    hidden_dim: int = 32,
+    dataset: str,
+    n_rounds: int,
+    n_seeds: int,
+    config: dict,
     verbose: bool = True,
 ):
-    dataset_config = DATASETS.get(dataset, DATASETS['fantasy']).copy()
+    dataset_config = config['datasets'][dataset].copy()
+    dataset_config.pop('env_type', None)
+
+    defaults = config['agent_defaults']
+    lr = defaults['lr']
+
     results = {}
 
     if verbose:
@@ -77,7 +85,7 @@ def run_ablation(
 
         env = create_env(dataset, seed=seed, **dataset_config)
         test_set = env.generate_test_set(100)
-        agents = get_agents(env, seed, lr, n_rounds, hidden_dim)
+        agents = get_agents(env, seed, config, n_rounds)
 
         seed_results = {}
         for agent_name, agent in agents.items():
@@ -126,14 +134,19 @@ def print_results(results):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Training paradigm ablation')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', type=str, default=DEFAULT_CONFIG_PATH)
     parser.add_argument('--dataset', type=str, default='fantasy')
-    parser.add_argument('--n_rounds', type=int, default=200)
-    parser.add_argument('--n_seeds', type=int, default=3)
-    parser.add_argument('--lr', type=float, default=0.01)
-    parser.add_argument('--hidden_dim', type=int, default=32)
+    parser.add_argument('--n_rounds', type=int, default=None)
+    parser.add_argument('--n_seeds', type=int, default=None)
 
     args = parser.parse_args()
+
+    config = load_config(args.config)
+    ablation_config = config['ablations']['training_paradigm']
+
+    n_rounds = args.n_rounds or ablation_config['n_rounds']
+    n_seeds = args.n_seeds or ablation_config['n_seeds']
 
     print('=' * 60)
     print('TRAINING PARADIGM ABLATION')
@@ -142,10 +155,9 @@ def main():
 
     results = run_ablation(
         dataset=args.dataset,
-        n_rounds=args.n_rounds,
-        n_seeds=args.n_seeds,
-        lr=args.lr,
-        hidden_dim=args.hidden_dim,
+        n_rounds=n_rounds,
+        n_seeds=n_seeds,
+        config=config,
     )
 
     print_results(results)

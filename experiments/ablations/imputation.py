@@ -1,6 +1,7 @@
 import argparse
 import numpy as np
 import sys
+import yaml
 from datetime import datetime
 
 sys.path.insert(0, '.')
@@ -18,46 +19,43 @@ from experiments.ablations.agents import (
 )
 
 
-DATASETS = {
-    'fantasy': {
-        'n_players': None,
-        'salary_cap': 50000,
-        'context_dim': 14,
-        'season': 2020,
-        'use_position_constraint': False,
-        'holdout_weeks': 5,
-    },
-    'synthetic': {
-        'n_items': 32,
-        'context_dim': 5,
-        'capacity': 20.0,
-    },
-}
+DEFAULT_CONFIG_PATH = 'experiments/configs/experiment.yaml'
 
 
-def get_per_arm_agents(env, seed, lr=0.01, n_rounds=300, hidden_dim=32):
+def load_config(config_path: str = DEFAULT_CONFIG_PATH):
+    with open(config_path) as f:
+        return yaml.safe_load(f)
+
+
+def get_per_arm_agents(env, seed, config, n_rounds):
+    defaults = config['agent_defaults']
+    lr = defaults['lr']
+    hidden_dim = defaults['hidden_dim_small']
+    lambda_reg = defaults['lambda_reg']
+    beta = defaults['beta']
+
     solver = env.solve
 
     return {
         'SPO-UCB': PerArmBayesianSPOAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, beta=1.0, alpha=0.0, lambda_reg=1.0,
+            hidden_dim=hidden_dim, beta=beta, alpha=0.0, lambda_reg=lambda_reg,
             lr=lr, decay_rounds=n_rounds, solver=solver, seed=seed
         ),
         'SPO-Pred': PerArmFullSPOAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, beta_start=1.0, beta_end=1.0,
-            decay_rounds=n_rounds, lambda_reg=1.0, lr=lr,
+            hidden_dim=hidden_dim, beta_start=beta, beta_end=beta,
+            decay_rounds=n_rounds, lambda_reg=lambda_reg, lr=lr,
             solver=solver, seed=seed
         ),
         'IERM-DM': PerArmBayesianIERMDMAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, beta=1.0, alpha=0.0, lambda_reg=1.0,
+            hidden_dim=hidden_dim, beta=beta, alpha=0.0, lambda_reg=lambda_reg,
             lr=lr, decay_rounds=n_rounds, solver=solver, seed=seed
         ),
         'IERM-DR': PerArmBayesianIERMDRAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, beta=1.0, alpha=0.0, lambda_reg=1.0,
+            hidden_dim=hidden_dim, beta=beta, alpha=0.0, lambda_reg=lambda_reg,
             lr=lr, decay_rounds=n_rounds, solver=solver, seed=seed
         ),
         'Random': PerArmRandomAgent(
@@ -66,19 +64,25 @@ def get_per_arm_agents(env, seed, lr=0.01, n_rounds=300, hidden_dim=32):
     }
 
 
-def get_shared_agents(env, seed, lr=0.01, n_rounds=300, hidden_dim=32):
+def get_shared_agents(env, seed, config, n_rounds):
+    defaults = config['agent_defaults']
+    lr = defaults['lr']
+    hidden_dim = defaults['hidden_dim_small']
+    lambda_reg = defaults['lambda_reg']
+    beta = defaults['beta']
+
     solver = env.solve
 
     return {
         'SPO-UCB': BayesianSPOAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, beta=1.0, decay_rounds=n_rounds,
-            alpha=0.0, lambda_reg=1.0, solver=solver, seed=seed
+            hidden_dim=hidden_dim, beta=beta, decay_rounds=n_rounds,
+            alpha=0.0, lambda_reg=lambda_reg, solver=solver, seed=seed
         ),
         'SPO-Pred': FullSPOAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, beta_start=1.0, beta_end=1.0,
-            decay_rounds=n_rounds, lambda_reg=1.0, lr=lr,
+            hidden_dim=hidden_dim, beta_start=beta, beta_end=beta,
+            decay_rounds=n_rounds, lambda_reg=lambda_reg, lr=lr,
             solver=solver, seed=seed
         ),
         'Random': RandomAgent(
@@ -88,14 +92,17 @@ def get_shared_agents(env, seed, lr=0.01, n_rounds=300, hidden_dim=32):
 
 
 def run_ablation(
-    dataset: str = 'fantasy',
-    n_rounds: int = 200,
-    n_seeds: int = 3,
-    lr: float = 0.01,
-    hidden_dim: int = 32,
+    dataset: str,
+    n_rounds: int,
+    n_seeds: int,
+    config: dict,
     verbose: bool = True,
 ):
-    dataset_config = DATASETS.get(dataset, DATASETS['fantasy']).copy()
+    dataset_config = config['datasets'][dataset].copy()
+    dataset_config.pop('env_type', None)
+
+    defaults = config['agent_defaults']
+    lr = defaults['lr']
 
     results = {}
 
@@ -118,9 +125,9 @@ def run_ablation(
         test_set = env.generate_test_set(100)
 
         if env.per_arm_context:
-            agents = get_per_arm_agents(env, seed, lr, n_rounds, hidden_dim)
+            agents = get_per_arm_agents(env, seed, config, n_rounds)
         else:
-            agents = get_shared_agents(env, seed, lr, n_rounds, hidden_dim)
+            agents = get_shared_agents(env, seed, config, n_rounds)
 
         seed_results = {}
         for agent_name, agent in agents.items():
@@ -192,19 +199,19 @@ def print_results(results):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Imputation strategy ablation')
-    parser.add_argument('--dataset', type=str, default='fantasy',
-                        help='Dataset to use')
-    parser.add_argument('--n_rounds', type=int, default=200,
-                        help='Number of rounds')
-    parser.add_argument('--n_seeds', type=int, default=3,
-                        help='Number of seeds')
-    parser.add_argument('--lr', type=float, default=0.01,
-                        help='Learning rate')
-    parser.add_argument('--hidden_dim', type=int, default=32,
-                        help='Hidden dimension')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', type=str, default=DEFAULT_CONFIG_PATH)
+    parser.add_argument('--dataset', type=str, default='fantasy')
+    parser.add_argument('--n_rounds', type=int, default=None)
+    parser.add_argument('--n_seeds', type=int, default=None)
 
     args = parser.parse_args()
+
+    config = load_config(args.config)
+    ablation_config = config['ablations']['imputation']
+
+    n_rounds = args.n_rounds or ablation_config['n_rounds']
+    n_seeds = args.n_seeds or ablation_config['n_seeds']
 
     print('=' * 60)
     print('IMPUTATION STRATEGY ABLATION')
@@ -213,10 +220,9 @@ def main():
 
     results = run_ablation(
         dataset=args.dataset,
-        n_rounds=args.n_rounds,
-        n_seeds=args.n_seeds,
-        lr=args.lr,
-        hidden_dim=args.hidden_dim,
+        n_rounds=n_rounds,
+        n_seeds=n_seeds,
+        config=config,
     )
 
     print_results(results)

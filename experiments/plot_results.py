@@ -3,46 +3,26 @@ import pickle
 import json
 import numpy as np
 import matplotlib.pyplot as plt
+import yaml
 from pathlib import Path
 from typing import Dict, Optional
 from scipy import stats
 
 
-COLOR_MAP = {
-    'Random': 'gray',
-    'UCB-Bayesian': 'blue',
-    'ThompsonSampling': 'green',
-    'LinUCB': 'orange',
-    'NeuralUCB': 'red',
-    'BayesianSPO': 'purple',
-    'FullSPO': 'pink',
-    'DecisionUCB': 'cyan',
-    'SimplePKL': 'brown',
-    'IRM': 'olive',
-    'ConservativeUnified': 'teal',
-    'CN-UCB': 'magenta',
-    'CN-TS': 'darkblue',
-    'CombLinUCB': 'darkgreen',
-    'CombLinTS': 'darkred',
-    'EpsilonGreedy': 'gold',
-    'MSENeural': 'coral',
-    'PerArmBayesianSPO': 'purple',
-    'PerArmFullSPO': 'pink',
-    'PerArmDecisionUCB': 'cyan',
-    'PerArmNTKSPO': 'darkviolet',
-    'PerArmNTKDecisionUCB': 'mediumorchid',
-    'PerArmLinUCB': 'orange',
-    'PerArmUCB': 'blue',
-    'PerArmTS': 'green',
-    'PerArmNeuralUCB': 'red',
-    'PerArmMSENeural': 'coral',
-    'PerArmEpsilonGreedy': 'gold',
-    'PerArmBayesianIERM-DM': 'forestgreen',
-    'PerArmBayesianIERM-DR': 'limegreen',
-}
+DEFAULT_CONFIG_PATH = 'experiments/configs/experiment.yaml'
 
 
-def compute_significance(results_dict, alpha=0.05):
+def load_config(config_path: str = DEFAULT_CONFIG_PATH):
+    with open(config_path) as f:
+        return yaml.safe_load(f)
+
+
+def get_color_map(config: dict) -> Dict[str, str]:
+    return config['plotting']['colors']
+
+
+def compute_significance(results_dict, config):
+    alpha = config['analysis']['significance']['alpha']
     agents = list(results_dict.keys())
     n_agents = len(agents)
 
@@ -72,7 +52,7 @@ def compute_significance(results_dict, alpha=0.05):
             except Exception:
                 p_values[(a1, a2)] = 1.0
 
-    summary_lines = ["Pairwise Significance Tests (Wilcoxon, alpha=0.05):", "-" * 50]
+    summary_lines = [f"Pairwise Significance Tests (Wilcoxon, alpha={alpha}):", "-" * 50]
 
     if significant_pairs:
         summary_lines.append("\nSignificant differences:")
@@ -88,8 +68,9 @@ def compute_significance(results_dict, alpha=0.05):
     }
 
 
-def compute_confidence_intervals(results_dict, confidence=0.95):
-    z = stats.norm.ppf((1 + confidence) / 2)  # z-score for confidence level
+def compute_confidence_intervals(results_dict, config):
+    confidence = config['analysis']['bootstrap']['confidence']
+    z = stats.norm.ppf((1 + confidence) / 2)
 
     intervals = {}
     for agent, regrets in results_dict.items():
@@ -108,7 +89,7 @@ def compute_confidence_intervals(results_dict, confidence=0.95):
     return intervals
 
 
-def print_significance_report(results, dataset, feedback_mode, output_file=None):
+def print_significance_report(results, dataset, feedback_mode, config, output_file=None):
     if results is None or dataset not in results:
         return
 
@@ -116,15 +97,16 @@ def print_significance_report(results, dataset, feedback_mode, output_file=None)
         return
 
     agent_regrets = results[dataset][feedback_mode]
+    confidence = config['analysis']['bootstrap']['confidence']
 
-    sig_results = compute_significance(agent_regrets)
-    ci_results = compute_confidence_intervals(agent_regrets)
+    sig_results = compute_significance(agent_regrets, config)
+    ci_results = compute_confidence_intervals(agent_regrets, config)
 
     lines = [
         f"\n{'=' * 60}",
         f"STATISTICAL ANALYSIS: {dataset.upper()} - {feedback_mode.replace('_', ' ').title()}",
         f"{'=' * 60}",
-        "\nFinal Regret (Mean +/- 95% CI):",
+        f"\nFinal Regret (Mean +/- {int(confidence * 100)}% CI):",
         "-" * 40,
     ]
 
@@ -194,7 +176,7 @@ def extract_holdout_curves(trajectories, dataset, feedback_mode):
     return agents
 
 
-def plot_with_ci(ax, agents, title, ylabel):
+def plot_with_ci(ax, agents, title, ylabel, color_map):
     for agent_name, curves in sorted(agents.items()):
         if len(curves) == 0:
             continue
@@ -211,7 +193,7 @@ def plot_with_ci(ax, agents, title, ylabel):
         std = np.std(curves_arr, axis=0)
 
         x = np.arange(len(mean))
-        color = COLOR_MAP.get(agent_name, 'black')
+        color = color_map.get(agent_name, 'black')
 
         ax.plot(x, mean, label=agent_name, color=color, linewidth=1.5)
         ax.fill_between(x, mean - std, mean + std, color=color, alpha=0.2)
@@ -223,7 +205,7 @@ def plot_with_ci(ax, agents, title, ylabel):
     ax.grid(True, alpha=0.3)
 
 
-def plot_holdout_curves(ax, agents, title):
+def plot_holdout_curves(ax, agents, title, color_map):
     for agent_name, curves in sorted(agents.items(), key=lambda x: np.mean([c['regrets'][-1] for c in x[1]])):
         if len(curves) == 0:
             continue
@@ -234,7 +216,7 @@ def plot_holdout_curves(ax, agents, title):
         mean_regret = np.mean(all_regrets, axis=0)
         std_regret = np.std(all_regrets, axis=0)
 
-        color = COLOR_MAP.get(agent_name, 'black')
+        color = color_map.get(agent_name, 'black')
 
         ax.plot(rounds, mean_regret, 'o-', label=agent_name, color=color, linewidth=1.5, markersize=4)
         ax.fill_between(rounds, mean_regret - std_regret, mean_regret + std_regret, color=color, alpha=0.2)
@@ -246,27 +228,29 @@ def plot_holdout_curves(ax, agents, title):
     ax.grid(True, alpha=0.3)
 
 
-def plot_learning_curves(trajectories, dataset, output_dir):
+def plot_learning_curves(trajectories, dataset, output_dir, config):
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
+
+    color_map = get_color_map(config)
 
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
 
     agents = extract_curves(trajectories, dataset, 'semi_bandit', 'cumulative_regret')
     if agents:
-        plot_with_ci(axes[0, 0], agents, 'Semi-Bandit: Cumulative Regret', 'Cumulative Regret')
+        plot_with_ci(axes[0, 0], agents, 'Semi-Bandit: Cumulative Regret', 'Cumulative Regret', color_map)
 
     agents = extract_curves(trajectories, dataset, 'full', 'cumulative_regret')
     if agents:
-        plot_with_ci(axes[0, 1], agents, 'Full Feedback: Cumulative Regret', 'Cumulative Regret')
+        plot_with_ci(axes[0, 1], agents, 'Full Feedback: Cumulative Regret', 'Cumulative Regret', color_map)
 
     agents = extract_curves(trajectories, dataset, 'semi_bandit', 'regrets')
     if agents:
-        plot_with_ci(axes[1, 0], agents, 'Semi-Bandit: Per-Round Regret', 'Per-Round Regret')
+        plot_with_ci(axes[1, 0], agents, 'Semi-Bandit: Per-Round Regret', 'Per-Round Regret', color_map)
 
     agents = extract_curves(trajectories, dataset, 'full', 'regrets')
     if agents:
-        plot_with_ci(axes[1, 1], agents, 'Full Feedback: Per-Round Regret', 'Per-Round Regret')
+        plot_with_ci(axes[1, 1], agents, 'Full Feedback: Per-Round Regret', 'Per-Round Regret', color_map)
 
     fig.suptitle(f'{dataset.title()} - Learning Curves', fontsize=12, fontweight='bold')
     plt.tight_layout()
@@ -276,14 +260,15 @@ def plot_learning_curves(trajectories, dataset, output_dir):
     plt.close()
 
 
-def plot_holdout_performance(trajectories, dataset, output_dir):
+def plot_holdout_performance(trajectories, dataset, output_dir, config):
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
-    # Check if holdout data exists
+    color_map = get_color_map(config)
+
     holdout_agents = extract_holdout_curves(trajectories, dataset, 'semi_bandit')
     if not holdout_agents:
-        return  # No holdout data for this dataset
+        return
 
     fig = plt.figure(figsize=(14, 10))
     gs = fig.add_gridspec(2, 2, height_ratios=[1, 1], hspace=0.3, wspace=0.25)
@@ -302,7 +287,7 @@ def plot_holdout_performance(trajectories, dataset, output_dir):
         data = holdout_cumulative[agent_name]
         mean_regret = data['regrets'].mean(axis=0)
         std_regret = data['regrets'].std(axis=0)
-        color = COLOR_MAP.get(agent_name, 'black')
+        color = color_map.get(agent_name, 'black')
         ax1.plot(data['rounds'], mean_regret, 'o-', label=agent_name, color=color, markersize=4, linewidth=1.5)
         ax1.fill_between(data['rounds'], mean_regret - std_regret, mean_regret + std_regret, color=color, alpha=0.2)
     ax1.set_xlabel('Training Round', fontsize=9)
@@ -312,7 +297,7 @@ def plot_holdout_performance(trajectories, dataset, output_dir):
     ax1.grid(True, alpha=0.3)
 
     ax2 = fig.add_subplot(gs[0, 1])
-    plot_holdout_curves(ax2, holdout_agents, 'Per-Week Holdout Regret')
+    plot_holdout_curves(ax2, holdout_agents, 'Per-Week Holdout Regret', color_map)
 
     ax3 = fig.add_subplot(gs[1, :])
 
@@ -342,7 +327,7 @@ def plot_holdout_performance(trajectories, dataset, output_dir):
             mean_rewards = rewards.mean(axis=0)
             std_rewards = rewards.std(axis=0)
 
-            color = COLOR_MAP.get(agent_name, 'black')
+            color = color_map.get(agent_name, 'black')
             ax3.plot(rounds, mean_rewards, 'o-', label=agent_name, color=color, markersize=4, linewidth=1.5)
             ax3.fill_between(rounds, mean_rewards - std_rewards, mean_rewards + std_rewards, color=color, alpha=0.2)
 
@@ -363,9 +348,14 @@ def plot_holdout_performance(trajectories, dataset, output_dir):
     plt.close()
 
 
-def plot_trajectories(trajectories, dataset, output_dir, feedback_mode='semi_bandit'):
+def plot_trajectories(trajectories, dataset, output_dir, feedback_mode='semi_bandit', config=None):
+    if config is None:
+        config = load_config()
+
     output_path = Path(output_dir) / 'plots'
     output_path.mkdir(parents=True, exist_ok=True)
+
+    color_map = get_color_map(config)
 
     agent_data = {}
     for (agent_name, ds, mode, seed), data in trajectories.items():
@@ -398,7 +388,7 @@ def plot_trajectories(trajectories, dataset, output_dir, feedback_mode='semi_ban
         mean_regret = regrets.mean(axis=0)
         std_regret = regrets.std(axis=0)
         x = np.arange(len(mean_regret))
-        color = COLOR_MAP.get(agent_name, 'black')
+        color = color_map.get(agent_name, 'black')
         ax1.plot(x, mean_regret, label=agent_name, color=color, linewidth=1.5)
         ax1.fill_between(x, mean_regret - std_regret, mean_regret + std_regret, color=color, alpha=0.2)
     ax1.set_xlabel('Round', fontsize=9)
@@ -413,7 +403,7 @@ def plot_trajectories(trajectories, dataset, output_dir, feedback_mode='semi_ban
         mean_regret = regrets.mean(axis=0)
         std_regret = regrets.std(axis=0)
         x = np.arange(len(mean_regret))
-        color = COLOR_MAP.get(agent_name, 'black')
+        color = color_map.get(agent_name, 'black')
         ax2.plot(x, mean_regret, label=agent_name, color=color, linewidth=1.5)
         ax2.fill_between(x, mean_regret - std_regret, mean_regret + std_regret, color=color, alpha=0.2)
     ax2.set_xlabel('Round', fontsize=9)
@@ -430,7 +420,7 @@ def plot_trajectories(trajectories, dataset, output_dir, feedback_mode='semi_ban
         mean_rewards = rewards.mean(axis=0)
         std_rewards = rewards.std(axis=0)
         x = np.arange(len(mean_rewards))
-        color = COLOR_MAP.get(agent_name, 'black')
+        color = color_map.get(agent_name, 'black')
         ax3.plot(x, mean_rewards, label=agent_name, color=color, linewidth=1.5)
         ax3.fill_between(x, mean_rewards - std_rewards, mean_rewards + std_rewards, color=color, alpha=0.2)
     if optimal_data is not None:
@@ -481,7 +471,7 @@ def plot_trajectories(trajectories, dataset, output_dir, feedback_mode='semi_ban
             data = holdout_cumulative[agent_name]
             mean_regret = data['regrets'].mean(axis=0)
             std_regret = data['regrets'].std(axis=0)
-            color = COLOR_MAP.get(agent_name, 'black')
+            color = color_map.get(agent_name, 'black')
             ax1.plot(data['rounds'], mean_regret, 'o-', label=agent_name, color=color, markersize=4, linewidth=1.5)
             ax1.fill_between(data['rounds'], mean_regret - std_regret, mean_regret + std_regret, color=color, alpha=0.2)
         ax1.set_xlabel('Training Round', fontsize=9)
@@ -495,7 +485,7 @@ def plot_trajectories(trajectories, dataset, output_dir, feedback_mode='semi_ban
             data = holdout_per_week[agent_name]
             mean_regret = data['regrets'].mean(axis=0)
             std_regret = data['regrets'].std(axis=0)
-            color = COLOR_MAP.get(agent_name, 'black')
+            color = color_map.get(agent_name, 'black')
             ax2.plot(data['rounds'], mean_regret, 'o-', label=agent_name, color=color, markersize=4, linewidth=1.5)
             ax2.fill_between(data['rounds'], mean_regret - std_regret, mean_regret + std_regret, color=color, alpha=0.2)
         ax2.set_xlabel('Training Round', fontsize=9)
@@ -529,7 +519,7 @@ def plot_trajectories(trajectories, dataset, output_dir, feedback_mode='semi_ban
                 optimal = np.array(all_optimal)
                 mean_rewards = rewards.mean(axis=0)
                 std_rewards = rewards.std(axis=0)
-                color = COLOR_MAP.get(agent_name, 'black')
+                color = color_map.get(agent_name, 'black')
                 ax3.plot(rounds, mean_rewards, 'o-', label=agent_name, color=color, markersize=4, linewidth=1.5)
                 ax3.fill_between(rounds, mean_rewards - std_rewards, mean_rewards + std_rewards, color=color, alpha=0.2)
                 optimal_data = {'rounds': rounds, 'optimal': optimal}
@@ -550,9 +540,11 @@ def plot_trajectories(trajectories, dataset, output_dir, feedback_mode='semi_ban
         plt.close()
 
 
-def plot_generalization_comparison(trajectories, dataset, output_dir):
+def plot_generalization_comparison(trajectories, dataset, output_dir, config):
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
+
+    color_map = get_color_map(config)
 
     agent_data = {}
     for (agent_name, ds, mode, seed), data in trajectories.items():
@@ -597,7 +589,7 @@ def plot_generalization_comparison(trajectories, dataset, output_dir):
                 holdout_regret_per_week.append(seed_vals)
         holdout_regret_per_week = np.array(holdout_regret_per_week)
 
-        color = COLOR_MAP.get(agent_name, 'black')
+        color = color_map.get(agent_name, 'black')
 
         mean_train = train_regret_per_round.mean(axis=0)
         std_train = train_regret_per_round.std(axis=0)
@@ -625,9 +617,11 @@ def plot_generalization_comparison(trajectories, dataset, output_dir):
     plt.close()
 
 
-def plot_points_per_round(trajectories, dataset, output_dir):
+def plot_points_per_round(trajectories, dataset, output_dir, config):
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
+
+    color_map = get_color_map(config)
 
     agents = {}
     for key, data in trajectories.items():
@@ -655,7 +649,7 @@ def plot_points_per_round(trajectories, dataset, output_dir):
         std_rewards = rewards.std(axis=0)
 
         x = np.arange(len(mean_rewards))
-        color = COLOR_MAP.get(agent_name, 'black')
+        color = color_map.get(agent_name, 'black')
         ax.plot(x, mean_rewards, label=agent_name, color=color, linewidth=1.5)
         ax.fill_between(x, mean_rewards - std_rewards, mean_rewards + std_rewards, color=color, alpha=0.2)
 
@@ -675,9 +669,11 @@ def plot_points_per_round(trajectories, dataset, output_dir):
     plt.close()
 
 
-def plot_final_regret_bars(results, output_dir):
+def plot_final_regret_bars(results, output_dir, config):
     if results is None:
         return
+
+    color_map = get_color_map(config)
 
     datasets = list(results.keys())
     n_datasets = len(datasets)
@@ -700,7 +696,7 @@ def plot_final_regret_bars(results, output_dir):
         agents = list(agent_means.keys())
         means = list(agent_means.values())
 
-        colors = [COLOR_MAP.get(a.split(' (')[0], 'gray') for a in agents]
+        colors = [color_map.get(a.split(' (')[0], 'gray') for a in agents]
 
         x = np.arange(len(agents))
         ax.bar(x, means, color=colors, alpha=0.7)
@@ -719,9 +715,11 @@ def plot_final_regret_bars(results, output_dir):
     plt.close()
 
 
-def plot_feedback_comparison(results, dataset, output_dir):
+def plot_feedback_comparison(results, dataset, output_dir, config):
     if results is None or dataset not in results:
         return
+
+    color_map = get_color_map(config)
 
     agent_data = {}
     for feedback in ['semi_bandit', 'full']:
@@ -761,7 +759,7 @@ def plot_feedback_comparison(results, dataset, output_dir):
     plt.close()
 
 
-def plot_ranking_heatmap(results, output_dir):
+def plot_ranking_heatmap(results, output_dir, config):
     if results is None:
         return
 
@@ -816,7 +814,7 @@ def plot_ranking_heatmap(results, output_dir):
     plt.close()
 
 
-def plot_all(trajectories, results, output_dir, include_stats=True):
+def plot_all(trajectories, results, output_dir, config, include_stats=True):
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
@@ -829,14 +827,14 @@ def plot_all(trajectories, results, output_dir, include_stats=True):
 
     for dataset in sorted(datasets):
         print(f"\n{dataset.title()}:")
-        plot_learning_curves(trajectories, dataset, output_dir)
-        plot_trajectories(trajectories, dataset, output_dir, 'semi_bandit')
-        plot_generalization_comparison(trajectories, dataset, output_dir)
-        plot_feedback_comparison(results, dataset, output_dir)
+        plot_learning_curves(trajectories, dataset, output_dir, config)
+        plot_trajectories(trajectories, dataset, output_dir, 'semi_bandit', config)
+        plot_generalization_comparison(trajectories, dataset, output_dir, config)
+        plot_feedback_comparison(results, dataset, output_dir, config)
 
     print(f"\nAll datasets:")
-    plot_final_regret_bars(results, output_dir)
-    plot_ranking_heatmap(results, output_dir)
+    plot_final_regret_bars(results, output_dir, config)
+    plot_ranking_heatmap(results, output_dir, config)
 
     if include_stats:
         stats_file = output_path / 'statistical_analysis.txt'
@@ -846,24 +844,23 @@ def plot_all(trajectories, results, output_dir, include_stats=True):
         print("\nStatistical Analysis:")
         for dataset in sorted(datasets):
             for feedback in ['semi_bandit', 'full']:
-                print_significance_report(results, dataset, feedback, stats_file)
+                print_significance_report(results, dataset, feedback, config, stats_file)
 
         print(f"\n  Saved: statistical_analysis.txt")
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Generate comprehensive plots from experiment results')
-    parser.add_argument('--input', type=str, default='results/eval',
-                        help='Input directory with metrics/ folder')
-    parser.add_argument('--output', type=str, default=None,
-                        help='Output directory for plots (default: input/plots)')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', type=str, default=DEFAULT_CONFIG_PATH)
+    parser.add_argument('--input', type=str, default='results/eval')
+    parser.add_argument('--output', type=str, default=None)
     parser.add_argument('--type', type=str, default='all',
-                        choices=['all', 'curves', 'bars', 'comparison', 'heatmap', 'stats'],
-                        help='Type of plot to generate')
-    parser.add_argument('--no-stats', action='store_true',
-                        help='Skip statistical analysis when using --type all')
+                        choices=['all', 'curves', 'bars', 'comparison', 'heatmap', 'stats'])
+    parser.add_argument('--no-stats', action='store_true')
 
     args = parser.parse_args()
+
+    config = load_config(args.config)
 
     if args.output is None:
         args.output = Path(args.input) / 'plots'
@@ -882,23 +879,23 @@ def main():
     output_path.mkdir(parents=True, exist_ok=True)
 
     if args.type == 'all':
-        plot_all(trajectories, results, args.output, include_stats=not args.no_stats)
+        plot_all(trajectories, results, args.output, config, include_stats=not args.no_stats)
     elif args.type == 'curves':
         print("\nGenerating learning curves:")
         for dataset in sorted(datasets):
             print(f"  {dataset.title()}:")
-            plot_learning_curves(trajectories, dataset, args.output)
+            plot_learning_curves(trajectories, dataset, args.output, config)
     elif args.type == 'bars':
         print("\nGenerating bar charts:")
-        plot_final_regret_bars(results, args.output)
+        plot_final_regret_bars(results, args.output, config)
     elif args.type == 'comparison':
         print("\nGenerating feedback comparisons:")
         for dataset in sorted(datasets):
             print(f"  {dataset.title()}:")
-            plot_feedback_comparison(results, dataset, args.output)
+            plot_feedback_comparison(results, dataset, args.output, config)
     elif args.type == 'heatmap':
         print("\nGenerating ranking heatmap:")
-        plot_ranking_heatmap(results, args.output)
+        plot_ranking_heatmap(results, args.output, config)
     elif args.type == 'stats':
         print("\nStatistical Analysis:")
         stats_file = output_path / 'statistical_analysis.txt'
@@ -906,7 +903,7 @@ def main():
             stats_file.unlink()
         for dataset in sorted(datasets):
             for feedback in ['semi_bandit', 'full']:
-                print_significance_report(results, dataset, feedback, stats_file)
+                print_significance_report(results, dataset, feedback, config, stats_file)
         print(f"\n  Saved: statistical_analysis.txt")
 
     print(f"\nDone! Plots saved to {args.output}")

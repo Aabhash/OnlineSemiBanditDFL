@@ -2,6 +2,7 @@ import argparse
 import numpy as np
 import sys
 import os
+import yaml
 from datetime import datetime
 
 sys.path.insert(0, '.')
@@ -31,51 +32,25 @@ from src.agents.per_arm_context import (
 from src.models import BayesianLinearModel
 
 
-
-DATASETS = {
-    'synthetic': {
-        'n_items': 32,
-        'context_dim': 5,
-        'capacity': 20.0,
-    },
-    'shortest_path_5': {
-        'grid_size': 5,
-        'data_type': 'synthetic',
-        'context_dim': 10,
-    },
-    'shortest_path_8': {
-        'grid_size': 8,
-        'data_type': 'synthetic',
-        'context_dim': 20,
-    },
-    'criteo_ads': {
-        'n_campaigns': 100,
-        'n_select': 10,
-        'context_dim': 50,
-        'subsample_rate': 0.1,
-        'env_fraction': 0.8,
-        'noise_std': 0.05,
-    },
-    'fantasy': {
-        'n_players': None,
-        'salary_cap': 50000,
-        'context_dim': 14,
-        'season': 2020,
-        'use_position_constraint': False,
-        'holdout_weeks': 5,
-    },
-}
-
-SHARED_CONTEXT_DATASETS = ['synthetic', 'shortest_path_5', 'shortest_path_8', 'criteo_ads']
-PER_ARM_CONTEXT_DATASETS = ['fantasy']
+DEFAULT_CONFIG_PATH = 'experiments/configs/experiment.yaml'
 
 
-def get_agents(env, seed, lr=0.01, n_rounds=300, hidden_dim=None):
-    if hidden_dim is None:
-        hidden_dim = 64 if env.context_dim > 20 else 32
+def load_config(config_path: str = DEFAULT_CONFIG_PATH):
+    with open(config_path) as f:
+        return yaml.safe_load(f)
+
+
+def get_agents(env, seed, config, n_rounds):
+    defaults = config['agent_defaults']
+    lr = defaults['lr']
+    hidden_dim = defaults['hidden_dim'] if env.context_dim > 20 else defaults['hidden_dim_small']
+    lambda_reg = defaults['lambda_reg']
+    alpha = defaults['alpha']
+    beta = defaults['beta']
+    epsilon = defaults['epsilon']
+    decay_epsilon = defaults['decay_epsilon']
 
     solver = env.solve
-
     minimize = getattr(env, 'minimize', False)
 
     return {
@@ -84,12 +59,12 @@ def get_agents(env, seed, lr=0.01, n_rounds=300, hidden_dim=None):
         ),
         'EpsilonGreedy': EpsilonGreedyAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, epsilon=0.1, decay_epsilon=True,
+            hidden_dim=hidden_dim, epsilon=epsilon, decay_epsilon=decay_epsilon,
             decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed
         ),
         'UCB-Bayesian': UCBAgent(
             BayesianLinearModel(env.context_dim, env.n_arms),
-            env.weights, env.capacity, beta=1.0, minimize=minimize, solver=solver
+            env.weights, env.capacity, beta=beta, minimize=minimize, solver=solver
         ),
         'TS': ThompsonSamplingAgent(
             BayesianLinearModel(env.context_dim, env.n_arms),
@@ -97,24 +72,32 @@ def get_agents(env, seed, lr=0.01, n_rounds=300, hidden_dim=None):
         ),
         'LinUCB': LinUCBAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            alpha=1.0, lambda_reg=1.0, minimize=minimize, solver=solver
+            alpha=alpha, lambda_reg=lambda_reg, minimize=minimize, solver=solver
         ),
         'NeuralUCB': NeuralUCBAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, alpha=1.0, lambda_reg=1.0, lr=lr,
+            hidden_dim=hidden_dim, alpha=alpha, lambda_reg=lambda_reg, lr=lr,
             minimize=minimize, solver=solver, seed=seed
         ),
         'BayesianSPO': BayesianSPOAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, beta=1.0, decay_rounds=n_rounds,
-            alpha=0.0, lambda_reg=1.0, solver=solver, seed=seed
+            hidden_dim=hidden_dim, beta=beta, decay_rounds=n_rounds,
+            alpha=0.0, lambda_reg=lambda_reg, solver=solver, seed=seed
         ),
     }
 
 
-def get_per_arm_agents(env, seed, lr=0.01, n_rounds=300, hidden_dim=None):
-    if hidden_dim is None:
-        hidden_dim = 64 if env.context_dim > 20 else 32
+def get_per_arm_agents(env, seed, config, n_rounds):
+    defaults = config['agent_defaults']
+    lr = defaults['lr']
+    hidden_dim = defaults['hidden_dim'] if env.context_dim > 20 else defaults['hidden_dim_small']
+    lambda_reg = defaults['lambda_reg']
+    alpha = defaults['alpha']
+    beta = defaults['beta']
+    gamma = defaults['gamma']
+    nu = defaults['nu']
+    epsilon = defaults['epsilon']
+    decay_epsilon = defaults['decay_epsilon']
 
     solver = env.solve
 
@@ -129,51 +112,51 @@ def get_per_arm_agents(env, seed, lr=0.01, n_rounds=300, hidden_dim=None):
         ),
         'PerArmLinUCB': PerArmLinUCBAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            alpha=1.0, lambda_reg=1.0, solver=solver
+            alpha=alpha, lambda_reg=lambda_reg, solver=solver
         ),
         'PerArmTS': PerArmThompsonSamplingAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            lambda_reg=1.0, sigma=1.0, solver=solver, seed=seed
+            lambda_reg=lambda_reg, sigma=1.0, solver=solver, seed=seed
         ),
         'CN-UCB': CNUCBAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, lambda_reg=1.0, gamma=1.0, lr=lr,
+            hidden_dim=hidden_dim, lambda_reg=lambda_reg, gamma=gamma, lr=lr,
             per_arm_context=True, solver=solver, seed=seed
         ),
         'CN-TS': CNTSAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, lambda_reg=1.0, nu=1.0, lr=lr,
+            hidden_dim=hidden_dim, lambda_reg=lambda_reg, nu=nu, lr=lr,
             per_arm_context=True, solver=solver, seed=seed
         ),
         'PerArmBayesianSPO': PerArmBayesianSPOAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, beta=1.0, alpha=0.0, lambda_reg=1.0,
+            hidden_dim=hidden_dim, beta=beta, alpha=0.0, lambda_reg=lambda_reg,
             lr=lr, decay_rounds=n_rounds, solver=solver, seed=seed
         ),
         'PerArmMSENeural': PerArmMSENeuralAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, beta=1.0, lambda_reg=1.0,
+            hidden_dim=hidden_dim, beta=beta, lambda_reg=lambda_reg,
             decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed
         ),
         'PerArmEpsilonGreedy': PerArmEpsilonGreedyAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, epsilon=0.1, decay_epsilon=True,
+            hidden_dim=hidden_dim, epsilon=epsilon, decay_epsilon=decay_epsilon,
             decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed
         ),
     }
 
 
 def run_evaluation(
-    dataset: str = 'synthetic',
-    n_rounds: int = 300,
-    n_seeds: int = 5,
-    lr: float = 0.01,
-    hidden_dim: int = None,
-    output_dir: str = 'results',
+    dataset: str,
+    n_rounds: int,
+    n_seeds: int,
+    config: dict,
+    output_dir: str,
     noise: float = 0.0,
     verbose: bool = True,
 ):
-    dataset_config = DATASETS.get(dataset, DATASETS['synthetic']).copy()
+    dataset_config = config['datasets'][dataset].copy()
+    dataset_config.pop('env_type', None)
 
     if dataset == 'synthetic' and noise != 0.0:
         dataset_config['noise_width'] = noise
@@ -186,7 +169,7 @@ def run_evaluation(
         print(f'DATASET: {dataset.upper()}')
         print(f'{"=" * 60}')
         noise_info = f', Noise: {dataset_config.get("noise_width", 0.0)}' if dataset == 'synthetic' else ''
-        print(f'Rounds: {n_rounds}, Seeds: {n_seeds}, LR: {lr}{noise_info}')
+        print(f'Rounds: {n_rounds}, Seeds: {n_seeds}{noise_info}')
 
     for feedback_mode, full_feedback in [('semi_bandit', False), ('full', True)]:
         if verbose:
@@ -200,15 +183,16 @@ def run_evaluation(
             test_set = env_base.generate_test_set(100)
 
             if env_base.per_arm_context:
-                agents = get_per_arm_agents(env_base, seed, lr, n_rounds, hidden_dim)
+                agents = get_per_arm_agents(env_base, seed, config, n_rounds)
             else:
-                agents = get_agents(env_base, seed, lr, n_rounds, hidden_dim)
+                agents = get_agents(env_base, seed, config, n_rounds)
 
             for agent_name, agent in agents.items():
                 if verbose:
                     print(f'  {agent_name}...', end=' ', flush=True)
 
                 env = create_env(dataset, seed=seed, **dataset_config)
+                lr = config['agent_defaults']['lr']
 
                 result = run_experiment(
                     env, agent, n_rounds,
@@ -242,7 +226,7 @@ def run_evaluation(
     return results, trajectories
 
 
-def print_summary(results, dataset='synthetic', trajectories=None):
+def print_summary(results, dataset, trajectories=None):
     print(f'\n{"=" * 70}')
     print(f'RESULTS SUMMARY - {dataset.upper()}')
     print(f'{"=" * 70}')
@@ -335,45 +319,38 @@ def save_results(results, trajectories, output_dir):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Evaluate constrained bandits agents')
-    parser.add_argument('--quick', action='store_true',
-                        help='Quick evaluation (300 rounds, 3 seeds)')
-    parser.add_argument('--full', action='store_true',
-                        help='Full evaluation (500 rounds, 5 seeds)')
-    parser.add_argument('--n_rounds', type=int, default=None,
-                        help='Number of rounds (overrides --quick/--full)')
-    parser.add_argument('--n_seeds', type=int, default=None,
-                        help='Number of seeds (overrides --quick/--full)')
-    parser.add_argument('--lr', type=float, default=0.01,
-                        help='Learning rate')
-    parser.add_argument('--output_dir', type=str, default='results/eval',
-                        help='Output directory')
-    parser.add_argument('--no_save', action='store_true',
-                        help='Do not save results')
-    parser.add_argument('--datasets', type=str, default='synthetic',
-                        help='Comma-separated list of datasets (synthetic,portfolio,assortment)')
-    parser.add_argument('--noise', type=float, default=0.0,
-                        help='Noise width for synthetic dataset (default: 0.0)')
-    parser.add_argument('--hidden_dim', type=int, default=None,
-                        help='Hidden dimension for neural networks (default: auto based on context_dim)')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', type=str, default=DEFAULT_CONFIG_PATH)
+    parser.add_argument('--quick', action='store_true')
+    parser.add_argument('--full', action='store_true')
+    parser.add_argument('--n_rounds', type=int, default=None)
+    parser.add_argument('--n_seeds', type=int, default=None)
+    parser.add_argument('--output_dir', type=str, default=None)
+    parser.add_argument('--no_save', action='store_true')
+    parser.add_argument('--datasets', type=str, default='synthetic')
+    parser.add_argument('--noise', type=float, default=0.0)
 
     args = parser.parse_args()
 
+    config = load_config(args.config)
+
     datasets = [d.strip() for d in args.datasets.split(',')]
     for d in datasets:
-        if d not in DATASETS:
-            print(f"Unknown dataset: {d}. Available: {list(DATASETS.keys())}")
-            return
+        if d not in config['datasets']:
+            raise ValueError(f"Unknown dataset: {d}. Available: {list(config['datasets'].keys())}")
 
+    eval_config = config['evaluation']
     if args.quick:
-        n_rounds = args.n_rounds or 300
-        n_seeds = args.n_seeds or 3
+        n_rounds = args.n_rounds or eval_config['quick']['n_rounds']
+        n_seeds = args.n_seeds or eval_config['quick']['n_seeds']
     elif args.full:
-        n_rounds = args.n_rounds or 2000
-        n_seeds = args.n_seeds or 10
+        n_rounds = args.n_rounds or eval_config['full']['n_rounds']
+        n_seeds = args.n_seeds or eval_config['full']['n_seeds']
     else:
-        n_rounds = args.n_rounds or 300
-        n_seeds = args.n_seeds or 3
+        n_rounds = args.n_rounds or eval_config['quick']['n_rounds']
+        n_seeds = args.n_seeds or eval_config['quick']['n_seeds']
+
+    output_dir = args.output_dir or eval_config['output_dir']
 
     print('=' * 70)
     print('CONSTRAINED BANDITS EVALUATION')
@@ -382,10 +359,8 @@ def main():
     print(f'Datasets: {datasets}')
     print(f'Rounds: {n_rounds}')
     print(f'Seeds: {n_seeds}')
-    print(f'Learning rate: {args.lr}')
-    print(f'Hidden dim: {args.hidden_dim or "auto"}')
     print(f'Noise: {args.noise}')
-    print(f'Output: {args.output_dir}')
+    print(f'Output: {output_dir}')
     print(f'Started: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
 
     all_results = {}
@@ -396,9 +371,8 @@ def main():
             dataset=dataset,
             n_rounds=n_rounds,
             n_seeds=n_seeds,
-            lr=args.lr,
-            hidden_dim=args.hidden_dim,
-            output_dir=args.output_dir,
+            config=config,
+            output_dir=output_dir,
             noise=args.noise,
         )
 
@@ -408,10 +382,10 @@ def main():
         all_trajectories.update(trajectories)
 
     if not args.no_save:
-        save_results(all_results, all_trajectories, args.output_dir)
+        save_results(all_results, all_trajectories, output_dir)
 
         for dataset in datasets:
-            plot_trajectories(all_trajectories, dataset, args.output_dir, 'semi_bandit')
+            plot_trajectories(all_trajectories, dataset, output_dir, 'semi_bandit')
 
     print(f'\nCompleted: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
 
