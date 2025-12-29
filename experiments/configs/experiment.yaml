@@ -4,8 +4,8 @@ experiment:
 
 tuning:
   n_trials: 50
-  n_seeds: 10
-  n_rounds: 2000
+  n_seeds: 5
+  n_rounds: 10000
   timeout_per_trial: 3600
   sampler_seed: 42
   default_lr: 0.01
@@ -53,6 +53,27 @@ datasets:
     n_items: 32
     context_dim: 5
     capacity: 20.0
+    env_type: shared_context
+
+  synthetic_no_noise:
+    n_items: 32
+    context_dim: 5
+    capacity: 20.0
+    noise_width: 0.0
+    env_type: shared_context
+
+  synthetic_low_noise:
+    n_items: 32
+    context_dim: 5
+    capacity: 20.0
+    noise_width: 0.25
+    env_type: shared_context
+
+  synthetic_high_noise:
+    n_items: 32
+    context_dim: 5
+    capacity: 20.0
+    noise_width: 0.5
     env_type: shared_context
 
   # NFL Fantasy variants

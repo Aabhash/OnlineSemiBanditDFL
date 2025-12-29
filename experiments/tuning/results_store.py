@@ -118,6 +118,7 @@ class ResultsStore:
         agent_name: str,
         dataset: str,
         feedback_type: str,
+        use_holdout: bool = False,
     ) -> Dict[str, Any]:
         trials = self.load_all_trials(agent_name, dataset, feedback_type)
         if not trials:
@@ -131,7 +132,12 @@ class ResultsStore:
             if key not in param_metrics:
                 param_metrics[key] = []
                 param_map[key] = trial.params
-            param_metrics[key].append(trial.final_validation_regret)
+
+            # Use the appropriate metric based on use_holdout flag
+            if use_holdout and trial.cumulative_holdout_regret is not None:
+                param_metrics[key].append(trial.cumulative_holdout_regret)
+            else:
+                param_metrics[key].append(trial.final_train_regret)
 
         best_key = min(param_metrics, key=lambda k: np.mean(param_metrics[k]))
         return param_map[best_key]
@@ -151,12 +157,13 @@ class ResultsStore:
         agent_name: str,
         dataset: str,
         feedback_type: str,
+        use_holdout: bool = False,
     ) -> AgentSummary:
         trials = self.load_all_trials(agent_name, dataset, feedback_type)
         if not trials:
             raise ValueError(f"No trials found for {agent_name} on {dataset}")
 
-        best_params = self.get_best_params(agent_name, dataset, feedback_type)
+        best_params = self.get_best_params(agent_name, dataset, feedback_type, use_holdout=use_holdout)
         best_trials = self.get_results_for_params(agent_name, dataset, best_params, feedback_type)
 
         val_regrets = [t.final_validation_regret for t in best_trials]
@@ -195,11 +202,12 @@ class ResultsStore:
         agents: List[str],
         dataset: str,
         feedback_type: str,
+        use_holdout: bool = False,
     ) -> Dict[str, Dict[str, Any]]:
         best_params = {}
         for agent in agents:
-            params = self.get_best_params(agent, dataset, feedback_type)
-            summary = self.compute_agent_summary(agent, dataset, feedback_type)
+            params = self.get_best_params(agent, dataset, feedback_type, use_holdout=use_holdout)
+            summary = self.compute_agent_summary(agent, dataset, feedback_type, use_holdout=use_holdout)
             best_params[agent] = {
                 'params': params,
                 'mean_validation_regret': summary.mean_validation_regret,

@@ -8,7 +8,7 @@ from pathlib import Path
 sys.path.insert(0, '.')
 
 from experiments.tuning import BanditHyperparameterTuner
-from experiments.tuning.objectives import load_search_spaces, get_n_rounds_for_dataset
+from experiments.tuning.objectives import load_search_spaces, get_n_rounds_for_dataset, uses_holdout_for_selection
 from experiments.tuning.optuna_tuner import load_config
 from experiments.tuning.results_store import ResultsStore
 from experiments.analysis.bootstrap import compute_all_confidence_intervals, print_ci_table
@@ -49,6 +49,9 @@ def run_analysis(
 
     bootstrap_config = config['analysis']['bootstrap']
     significance_config = config['analysis']['significance']
+    use_holdout = uses_holdout_for_selection(config, dataset)
+
+    print(f"Selection metric: {'holdout regret' if use_holdout else 'training regret'}")
 
     print("\n1. Computing bootstrap confidence intervals...")
     all_cis = compute_all_confidence_intervals(
@@ -56,7 +59,8 @@ def run_analysis(
         n_bootstrap=bootstrap_config['n_bootstrap'],
         confidence=bootstrap_config['confidence'],
         seed=bootstrap_config['seed'],
-        output_path=str(analysis_dir / f'bootstrap_ci_{dataset}.json')
+        output_path=str(analysis_dir / f'bootstrap_ci_{dataset}.json'),
+        use_holdout=use_holdout
     )
     print_ci_table(all_cis)
 
@@ -64,7 +68,8 @@ def run_analysis(
     report = generate_significance_report(
         results_store, agents, dataset, feedback_type,
         alpha=significance_config['alpha'],
-        output_dir=str(analysis_dir)
+        output_dir=str(analysis_dir),
+        use_holdout=use_holdout
     )
     print(report)
 

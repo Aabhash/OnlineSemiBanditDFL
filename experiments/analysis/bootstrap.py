@@ -95,8 +95,9 @@ def compute_agent_ci(
     confidence: float,
     seed: int,
     use_bca: bool = False,
+    use_holdout: bool = False,
 ) -> Dict[str, Tuple[float, float, float]]:
-    best_params = results_store.get_best_params(agent_name, dataset, feedback_type)
+    best_params = results_store.get_best_params(agent_name, dataset, feedback_type, use_holdout=use_holdout)
 
     trials = results_store.get_results_for_params(
         agent_name, dataset, best_params, feedback_type
@@ -131,13 +132,14 @@ def compute_all_confidence_intervals(
     confidence: float,
     seed: int,
     output_path: Optional[str] = None,
+    use_holdout: bool = False,
 ) -> Dict[str, Dict[str, Tuple[float, float, float]]]:
     all_cis = {}
 
     for agent_name in agents:
         cis = compute_agent_ci(
             results_store, agent_name, dataset, feedback_type,
-            n_bootstrap, confidence, seed
+            n_bootstrap, confidence, seed, use_holdout=use_holdout
         )
         all_cis[agent_name] = cis
 

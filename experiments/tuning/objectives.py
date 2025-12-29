@@ -220,6 +220,11 @@ def get_n_rounds_for_dataset(config: Dict[str, Any], dataset: str) -> int:
     return config['tuning']['n_rounds']
 
 
+def uses_holdout_for_selection(config: Dict[str, Any], dataset: str) -> bool:
+    dataset_config = config['datasets'].get(dataset, {})
+    return dataset_config.get('eval_metric') == 'holdout'
+
+
 class ObjectiveFactory:
 
     @staticmethod
@@ -239,6 +244,7 @@ class ObjectiveFactory:
         default_lr = config['tuning']['default_lr']
         uses_lr = search_space.get('tune_lr', False) or 'lr' in search_space
         wandb_enabled = config.get('wandb', {}).get('enabled', False)
+        use_holdout = uses_holdout_for_selection(config, dataset)
 
         def objective(trial: 'optuna.Trial') -> float:
             params = sample_hyperparameters(trial, search_space)
@@ -260,9 +266,10 @@ class ObjectiveFactory:
                     params=params,
                 )
 
-            # Track cumulative training regret for HP selection
-            # (standard in online bandit literature)
-            cumulative_train_regrets = []
+            # Track regrets for HP selection
+            # Use holdout regret for datasets with eval_metric: holdout (e.g., nfl_logged)
+            # Use cumulative training regret for others (standard in online bandit literature)
+            selection_regrets = []
             all_pruned = True
             total_wall_time = 0.0
             n_pruned = 0
@@ -336,8 +343,11 @@ class ObjectiveFactory:
                     )
                     results_store.save_trial(trial_result)
 
-                    # Collect cumulative training regret for HP selection
-                    cumulative_train_regrets.append(result.final_train_regret)
+                    # Collect regret for HP selection based on dataset config
+                    if use_holdout and result.cumulative_holdout_regret is not None:
+                        selection_regrets.append(result.cumulative_holdout_regret)
+                    else:
+                        selection_regrets.append(result.final_train_regret)
 
                     if result.pruned:
                         n_pruned += 1
@@ -352,9 +362,10 @@ class ObjectiveFactory:
             if all_pruned:
                 raise optuna.TrialPruned()
 
-            # HP selection based on cumulative training regret
-            # (standard in online bandit literature)
-            return float(np.mean(cumulative_train_regrets))
+            # HP selection based on average regret across seeds
+            # Uses holdout regret for datasets with eval_metric: holdout (e.g., nfl_logged)
+            # Uses cumulative training regret for others (standard in online bandit literature)
+            return float(np.mean(selection_regrets))
 
         return objective
 
@@ -374,6 +385,7 @@ class ObjectiveFactory:
         default_lr = config['tuning']['default_lr']
         uses_lr = search_space.get('tune_lr', False) or 'lr' in search_space
         wandb_enabled = config.get('wandb', {}).get('enabled', False)
+        use_holdout = uses_holdout_for_selection(config, dataset)
 
         def objective(trial: 'optuna.Trial') -> float:
             params = sample_hyperparameters(trial, search_space)
@@ -391,7 +403,7 @@ class ObjectiveFactory:
                     params=params,
                 )
 
-            cumulative_train_regrets = []
+            selection_regrets = []
             n_seeds = len(seeds)
 
             for seed_idx, seed in enumerate(seeds):
@@ -437,14 +449,18 @@ class ObjectiveFactory:
                     if result.pruned:
                         raise optuna.TrialPruned()
 
-                    cumulative_train_regrets.append(result.final_train_regret)
+                    # Collect regret for HP selection based on dataset config
+                    if use_holdout and result.cumulative_holdout_regret is not None:
+                        selection_regrets.append(result.cumulative_holdout_regret)
+                    else:
+                        selection_regrets.append(result.final_train_regret)
 
                 except Exception as e:
                     if seed_logger is not None:
                         seed_logger.finish(status='failed')
                     raise
 
-            # HP selection based on cumulative training regret
-            return float(np.mean(cumulative_train_regrets))
+            # HP selection based on average regret across seeds
+            return float(np.mean(selection_regrets))
 
         return objective

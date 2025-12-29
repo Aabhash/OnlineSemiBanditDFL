@@ -19,9 +19,10 @@ def wilcoxon_test_agents(
     feedback_type: str,
     alpha: float,
     alternative: str = 'two-sided',
+    use_holdout: bool = False,
 ) -> Dict[str, Any]:
-    params1 = results_store.get_best_params(agent1, dataset, feedback_type)
-    params2 = results_store.get_best_params(agent2, dataset, feedback_type)
+    params1 = results_store.get_best_params(agent1, dataset, feedback_type, use_holdout=use_holdout)
+    params2 = results_store.get_best_params(agent2, dataset, feedback_type, use_holdout=use_holdout)
 
     trials1 = results_store.get_results_for_params(agent1, dataset, params1, feedback_type)
     trials2 = results_store.get_results_for_params(agent2, dataset, params2, feedback_type)
@@ -73,6 +74,7 @@ def pairwise_significance_matrix(
     dataset: str,
     feedback_type: str,
     alpha: float,
+    use_holdout: bool = False,
 ) -> Tuple[Dict[Tuple[str, str], Dict[str, Any]], 'pd.DataFrame']:
     results = {}
     n_agents = len(agents)
@@ -83,7 +85,8 @@ def pairwise_significance_matrix(
                 continue
 
             result = wilcoxon_test_agents(
-                results_store, agent1, agent2, dataset, feedback_type, alpha
+                results_store, agent1, agent2, dataset, feedback_type, alpha,
+                use_holdout=use_holdout
             )
             results[(agent1, agent2)] = result
 
@@ -160,9 +163,10 @@ def rank_agents(
     dataset: str,
     feedback_type: str,
     alpha: float,
+    use_holdout: bool = False,
 ) -> List[Tuple[str, float, int]]:
     results, _ = pairwise_significance_matrix(
-        results_store, agents, dataset, feedback_type, alpha
+        results_store, agents, dataset, feedback_type, alpha, use_holdout=use_holdout
     )
 
     win_counts = {agent: 0 for agent in agents}
@@ -173,7 +177,7 @@ def rank_agents(
 
     mean_regrets = {}
     for agent in agents:
-        summary = results_store.compute_agent_summary(agent, dataset, feedback_type)
+        summary = results_store.compute_agent_summary(agent, dataset, feedback_type, use_holdout=use_holdout)
         mean_regrets[agent] = summary.mean_validation_regret
 
     ranking = [
@@ -191,6 +195,7 @@ def generate_significance_report(
     feedback_type: str,
     alpha: float,
     output_dir: Optional[str] = None,
+    use_holdout: bool = False,
 ) -> str:
     lines = []
     lines.append("=" * 70)
@@ -199,15 +204,16 @@ def generate_significance_report(
     lines.append(f"Dataset: {dataset}")
     lines.append(f"Feedback: {feedback_type}")
     lines.append(f"Agents: {len(agents)}")
+    lines.append(f"Selection metric: {'holdout regret' if use_holdout else 'training regret'}")
     lines.append("")
 
     results, p_matrix = pairwise_significance_matrix(
-        results_store, agents, dataset, feedback_type, alpha
+        results_store, agents, dataset, feedback_type, alpha, use_holdout=use_holdout
     )
 
     lines.append("AGENT RANKING (by validation regret)")
     lines.append("-" * 70)
-    ranking = rank_agents(results_store, agents, dataset, feedback_type, alpha)
+    ranking = rank_agents(results_store, agents, dataset, feedback_type, alpha, use_holdout=use_holdout)
 
     lines.append(f"{'Rank':<6} {'Agent':<25} {'Mean Regret':>12} {'Wins':>8}")
     for i, (agent, regret, wins) in enumerate(ranking):

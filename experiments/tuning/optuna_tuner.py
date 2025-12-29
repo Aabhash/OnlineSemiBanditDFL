@@ -12,6 +12,7 @@ from .objectives import (
     create_agent_from_params,
     create_env_for_tuning,
     get_n_rounds_for_dataset,
+    uses_holdout_for_selection,
 )
 from .results_store import ResultsStore
 from .timing import ComputeTimer
@@ -197,8 +198,9 @@ class BanditHyperparameterTuner:
         feedback_type: str,
         agents: List[str],
     ):
+        use_holdout = uses_holdout_for_selection(self.config, dataset)
         best_params = self.results_store.save_best_hyperparams(
-            agents, dataset, feedback_type
+            agents, dataset, feedback_type, use_holdout=use_holdout
         )
 
         compute_summary = self.results_store.save_compute_summary()
@@ -237,7 +239,8 @@ class BanditHyperparameterTuner:
         dataset: str,
         feedback_type: str,
     ) -> Dict[str, Any]:
-        return self.results_store.get_best_params(agent_name, dataset, feedback_type)
+        use_holdout = uses_holdout_for_selection(self.config, dataset)
+        return self.results_store.get_best_params(agent_name, dataset, feedback_type, use_holdout=use_holdout)
 
     def load_study(
         self,
