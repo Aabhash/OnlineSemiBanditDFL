@@ -1,25 +1,18 @@
 from src.agents.shared_context.bayesian_spo import BayesianSPOAgent
-from src.agents.shared_context.full_spo import FullSPOAgent
-from src.agents.shared_context.decision_ucb import DecisionUCBAgent
-from src.agents.shared_context.ucb import LinUCBAgent, NeuralUCBAgent
-from src.agents.shared_context.bayesian import ThompsonSamplingAgent, UCBAgent
-from src.agents.shared_context.baselines import (
-    RandomAgent,
-    GreedyAgent,
-    EpsilonGreedyAgent,
-    MSENeuralAgent,
-)
+from src.agents.shared_context.ucb_agents import LinUCBAgent, NeuralUCBAgent, UCBAgent
+from src.agents.shared_context.ts_agents import ThompsonSamplingAgent
+from src.agents.shared_context.greedy_agents import GreedyAgent, EpsilonGreedyAgent
+from src.agents.shared_context.neural_agents import MSENeuralAgent
+from src.agents.shared_context.baselines import RandomAgent
 
 __all__ = [
     'BayesianSPOAgent',
-    'FullSPOAgent',
-    'DecisionUCBAgent',
     'LinUCBAgent',
     'NeuralUCBAgent',
-    'ThompsonSamplingAgent',
     'UCBAgent',
-    'RandomAgent',
+    'ThompsonSamplingAgent',
     'GreedyAgent',
     'EpsilonGreedyAgent',
     'MSENeuralAgent',
+    'RandomAgent',
 ]

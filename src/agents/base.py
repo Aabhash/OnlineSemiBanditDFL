@@ -142,7 +142,7 @@ def run_experiment(
     solver = getattr(env, 'solve', None)
     has_holdout = hasattr(env, 'evaluate_on_holdout') and hasattr(env, 'holdout_weeks') and env.holdout_weeks > 0
     X = env.reset()
-    eval_interval = max(1, n_rounds // 20)
+    eval_interval = 5  # Evaluate holdout every 5 rounds
 
     for t in range(n_rounds):
         selection = agent.act(X)

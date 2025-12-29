@@ -9,7 +9,7 @@ class FantasyData:
     def __init__(
         self,
         n_players: Optional[int] = None,  # None = all players
-        context_dim: int = 12,  # Actual feature dim (no random projection)
+        context_dim: int = 14,  # Actual feature dim (no random projection)
         data_dir: Optional[str] = None,
         season: int = 2020,
         seed: int = 42,
@@ -60,6 +60,24 @@ class FantasyData:
         opp_mean = self.opp_strength.mean()
         opp_std = self.opp_strength.std()
         self.opp_strength_normalized = (self.opp_strength - opp_mean) / opp_std
+
+        # Compute team offensive strength (normalized)
+        team_off = df.groupby('team')['fantasy_points'].mean()
+        team_off_mean = team_off.mean()
+        team_off_std = team_off.std() if team_off.std() > 0 else 1.0
+        self.team_off_strength = (team_off - team_off_mean) / team_off_std
+
+        # Compute pts_trend: last_1 - last_3 (positive = improving)
+        df = df.sort_values(['player_id', 'week'])
+        df['last_1_pts'] = df.groupby('player_id')['fantasy_points'].shift(1)
+        df['last_3_pts'] = df.groupby('player_id')['fantasy_points'].transform(
+            lambda x: x.shift(1).rolling(3, min_periods=1).mean()
+        )
+        df['pts_trend'] = (df['last_1_pts'] - df['last_3_pts']).fillna(0)
+        # Normalize pts_trend
+        pts_trend_std = df['pts_trend'].std()
+        if pts_trend_std > 0:
+            df['pts_trend'] = df['pts_trend'] / pts_trend_std
 
         # Filter to players with enough appearances
         player_counts = df.groupby('player_id').size()
@@ -165,18 +183,22 @@ class FantasyData:
                   f"salaries ${self.base_salaries.min():.0f}-${self.base_salaries.max():.0f}")
 
     def _get_raw_context_dim(self) -> int:
-        return 12  # Added opponent strength
+        return 14  # 12 base + pts_trend + team_off_strength
 
     def _extract_context(self, row: pd.Series) -> np.ndarray:
         # Get position-specific opponent strength (much more predictive!)
         opp = row.get('opponent', '')
         pos = row.get('position', '')
+        team = row.get('team', '')
 
         # Use position-specific if available, else aggregate
         if pos in self.opp_pos_strength and opp in self.opp_pos_strength[pos].index:
             opp_strength = self.opp_pos_strength[pos].get(opp, 0.0)
         else:
             opp_strength = self.opp_strength_normalized.get(opp, 0.0)
+
+        # Team offensive strength
+        team_off = self.team_off_strength.get(team, 0.0)
 
         context = np.array([
             row.get('prev_avg_points', 0) / 20.0,
@@ -191,6 +213,8 @@ class FantasyData:
             int(row.get('position') == 'DST'),
             row.get('week_sin', 0),
             row.get('week_cos', 1),
+            row.get('pts_trend', 0),  # Recent form trend (last_1 - last_3)
+            team_off,  # Team offensive strength
         ])
         return context
 

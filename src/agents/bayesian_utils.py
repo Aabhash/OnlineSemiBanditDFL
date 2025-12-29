@@ -169,3 +169,5 @@ def update_shared_bayesian_stats(
         h = H_obs[i]
         A_inv_new = sherman_morrison_update(A_inv_new, h)
     return A_new, b_new, A_inv_new
+
+

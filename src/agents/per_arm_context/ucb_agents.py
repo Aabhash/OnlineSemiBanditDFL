@@ -1,270 +1,170 @@
 import jax
 import jax.numpy as jnp
 import numpy as np
-import optax
 from src.agents.bayesian_utils import (
     init_shared_regression,
     compute_shared_ucb_values,
-    compute_shared_predictions,
     update_shared_bayesian_stats,
 )
 
 
-class PerArmMSENeuralAgent:
+class PerArmLinUCBAgent:
 
     def __init__(
         self,
         context_dim: int,
         n_arms: int,
-        weights,
+        weights: np.ndarray,
+        capacity: float,
+        alpha: float = 1.0,
+        lambda_reg: float = 1.0,
+        minimize: bool = False,
+        solver=None,
+    ):
+        self.context_dim = context_dim
+        self.n_arms = n_arms
+        self.weights = weights
+        self.capacity = capacity
+        self.alpha = alpha
+        self.lambda_reg = lambda_reg
+        self.minimize = minimize
+
+        if solver is None:
+            from src.solver import solve_knapsack
+            self.solver = lambda v: solve_knapsack(np.asarray(v), weights, capacity)
+        else:
+            self.solver = solver
+
+        self.A, self.b, self.A_inv = init_shared_regression(context_dim, lambda_reg)
+
+    def act(self, X: np.ndarray) -> np.ndarray:
+        H = jnp.asarray(X)
+        ucb_values = compute_shared_ucb_values(H, self.A_inv, self.b, self.alpha, self.minimize)
+        return self.solver(np.asarray(ucb_values))
+
+    def update(self, X: np.ndarray, selection: np.ndarray, rewards: np.ndarray,
+               full_feedback: bool = False):
+        H = jnp.asarray(X)
+        rewards_jax = jnp.asarray(rewards)
+
+        if full_feedback:
+            mask = jnp.ones(self.n_arms, dtype=bool)
+        else:
+            mask = jnp.asarray(selection) > 0.5
+
+        self.A, self.b, self.A_inv = update_shared_bayesian_stats(
+            self.A, self.b, self.A_inv, H, rewards_jax, mask
+        )
+
+
+class PerArmUCBAgent:
+
+    def __init__(
+        self,
+        context_dim: int,
+        n_arms: int,
+        weights: np.ndarray,
+        capacity: float,
+        beta: float = 1.0,
+        lambda_reg: float = 1.0,
+        minimize: bool = False,
+        solver=None,
+    ):
+        self.context_dim = context_dim
+        self.n_arms = n_arms
+        self.weights = weights
+        self.capacity = capacity
+        self.beta = beta
+        self.lambda_reg = lambda_reg
+        self.minimize = minimize
+
+        if solver is None:
+            from src.solver import solve_knapsack
+            self.solver = lambda v: solve_knapsack(np.asarray(v), weights, capacity)
+        else:
+            self.solver = solver
+
+        self.A, self.b, self.A_inv = init_shared_regression(context_dim, lambda_reg)
+
+    def act(self, X: np.ndarray) -> np.ndarray:
+        H = jnp.asarray(X)
+        ucb_values = compute_shared_ucb_values(H, self.A_inv, self.b, self.beta, self.minimize)
+        return self.solver(np.asarray(ucb_values))
+
+    def update(self, X: np.ndarray, selection: np.ndarray, rewards: np.ndarray,
+               full_feedback: bool = False):
+        H = jnp.asarray(X)
+        rewards_jax = jnp.asarray(rewards)
+
+        if full_feedback:
+            mask = jnp.ones(self.n_arms, dtype=bool)
+        else:
+            mask = jnp.asarray(selection) > 0.5
+
+        self.A, self.b, self.A_inv = update_shared_bayesian_stats(
+            self.A, self.b, self.A_inv, H, rewards_jax, mask
+        )
+
+
+class PerArmNeuralLinUCBAgent:
+
+    def __init__(
+        self,
+        context_dim: int,
+        n_arms: int,
+        weights: np.ndarray,
         capacity: float,
         hidden_dim: int = 32,
-        beta: float = 1.0,
-        beta_start: float = None,
-        beta_end: float = None,
+        alpha: float = 1.0,
         lambda_reg: float = 1.0,
-        lr: float = 0.01,
-        decay_rounds: int = 300,
-        max_grad_norm: float = 5.0,
-        min_lr_ratio: float = 0.1,
+        minimize: bool = False,
         solver=None,
         seed: int = None,
     ):
         self.context_dim = context_dim
         self.n_arms = n_arms
-        self.weights = jnp.asarray(weights)
-        self.weights_np = np.asarray(weights)
+        self.weights = weights
         self.capacity = capacity
         self.hidden_dim = hidden_dim
+        self.alpha = alpha
+        self.lambda_reg = lambda_reg
+        self.minimize = minimize
 
         if solver is None:
             from src.solver import solve_knapsack
-            self.solver = lambda v: solve_knapsack(np.asarray(v), self.weights_np, capacity)
+            self.solver = lambda v: solve_knapsack(np.asarray(v), weights, capacity)
         else:
             self.solver = solver
 
-        self.lambda_reg = lambda_reg
-        self.decay_rounds = decay_rounds
-        self.t = 0
-
-        if beta_start is not None and beta_end is not None:
-            self.beta_start = beta_start
-            self.beta_end = beta_end
-            self.beta = beta_start
-        else:
-            self.beta_start = beta
-            self.beta_end = beta
-            self.beta = beta
-
         key = jax.random.PRNGKey(seed if seed else 0)
-        self.W1 = jax.random.normal(key, (context_dim, hidden_dim)) * 0.1
+        self.W1 = jax.random.normal(key, (context_dim, hidden_dim)) / np.sqrt(context_dim)
         self.b1 = jnp.zeros(hidden_dim)
-
-        if decay_rounds > 0:
-            schedule = optax.cosine_decay_schedule(lr, decay_rounds, alpha=min_lr_ratio)
-            self.optimizer = optax.chain(
-                optax.clip_by_global_norm(max_grad_norm),
-                optax.adam(learning_rate=schedule)
-            )
-        else:
-            self.optimizer = optax.chain(
-                optax.clip_by_global_norm(max_grad_norm),
-                optax.adam(learning_rate=lr)
-            )
-        self.opt_state = self.optimizer.init({'W1': self.W1, 'b1': self.b1})
-        self.A, self.b_bayes, self.A_inv = init_shared_regression(hidden_dim, lambda_reg)
+        self.A, self.b, self.A_inv = init_shared_regression(hidden_dim, lambda_reg)
 
     def _features(self, X):
         X = jnp.asarray(X)
         Z1 = X @ self.W1 + self.b1
         H = jnp.maximum(0, Z1)
-        return H, Z1
+        return H
 
-    def predict_mean(self, X):
-        H, _ = self._features(X)
-        return compute_shared_predictions(H, self.A_inv, self.b_bayes)
-
-    def act(self, X):
-        self.t += 1
-
-        if self.beta_start != self.beta_end:
-            progress = min(self.t / self.decay_rounds, 1.0)
-            self.beta = self.beta_start + (self.beta_end - self.beta_start) * progress
-
-        H, _ = self._features(X)
-        ucb_values = compute_shared_ucb_values(H, self.A_inv, self.b_bayes, self.beta)
+    def act(self, X: np.ndarray) -> np.ndarray:
+        H = self._features(X)
+        ucb_values = compute_shared_ucb_values(H, self.A_inv, self.b, self.alpha, self.minimize)
         return self.solver(np.asarray(ucb_values))
 
-    def update(self, X, selection, rewards, lr=None, full_feedback=False):
-        X = jnp.asarray(X)
-        selection = jnp.asarray(selection)
-        rewards = jnp.asarray(rewards)
-
-        H, Z1 = self._features(X)
-
-        mask = jnp.ones(self.n_arms, dtype=bool) if full_feedback else (selection > 0.5)
-        self.A, self.b_bayes, self.A_inv = update_shared_bayesian_stats(
-            self.A, self.b_bayes, self.A_inv, H, rewards, mask
-        )
-
-        pred = compute_shared_predictions(H, self.A_inv, self.b_bayes)
+    def update(self, X: np.ndarray, selection: np.ndarray, rewards: np.ndarray,
+               full_feedback: bool = False):
+        H = self._features(X)
+        rewards_jax = jnp.asarray(rewards)
 
         if full_feedback:
-            Y_target = rewards
+            mask = jnp.ones(self.n_arms, dtype=bool)
         else:
-            ucb_values = compute_shared_ucb_values(H, self.A_inv, self.b_bayes, self.beta)
-            Y_target = jnp.where(selection > 0.5, rewards, ucb_values)
+            mask = jnp.asarray(selection) > 0.5
 
-        mse_grad = 2 * (pred - Y_target) / self.n_arms
-
-        theta = self.A_inv @ self.b_bayes
-        grad_H = jnp.outer(mse_grad, theta)
-        grad_Z1 = grad_H * (Z1 > 0)
-
-        grad_W1 = X.T @ grad_Z1
-        grad_b1 = jnp.sum(grad_Z1, axis=0)
-
-        grads = {'W1': grad_W1, 'b1': grad_b1}
-        updates, self.opt_state = self.optimizer.update(
-            grads, self.opt_state, {'W1': self.W1, 'b1': self.b1}
+        self.A, self.b, self.A_inv = update_shared_bayesian_stats(
+            self.A, self.b, self.A_inv, H, rewards_jax, mask
         )
-        params = optax.apply_updates({'W1': self.W1, 'b1': self.b1}, updates)
-        self.W1 = jnp.clip(params['W1'], -10, 10)
-        self.b1 = params['b1']
-
-
-class PerArmEpsilonGreedyAgent:
-
-    def __init__(
-        self,
-        context_dim: int,
-        n_arms: int,
-        weights,
-        capacity: float,
-        hidden_dim: int = 32,
-        epsilon: float = 0.1,
-        decay_epsilon: bool = True,
-        decay_rounds: int = 300,
-        lr: float = 0.01,
-        max_grad_norm: float = 5.0,
-        min_lr_ratio: float = 0.1,
-        solver=None,
-        seed: int = None,
-    ):
-        self.context_dim = context_dim
-        self.n_arms = n_arms
-        self.weights = jnp.asarray(weights)
-        self.weights_np = np.asarray(weights)
-        self.capacity = capacity
-        self.hidden_dim = hidden_dim
-
-        if solver is None:
-            from src.solver import solve_knapsack
-            self.solver = lambda v: solve_knapsack(np.asarray(v), self.weights_np, capacity)
-        else:
-            self.solver = solver
-
-        self.epsilon = epsilon
-        self.decay_epsilon = decay_epsilon
-        self.decay_rounds = decay_rounds
-        self.t = 0
-
-        self.rng = np.random.default_rng(seed if seed else 0)
-
-        key = jax.random.PRNGKey(seed if seed else 0)
-        k1, k2 = jax.random.split(key)
-        self.W1 = jax.random.normal(k1, (context_dim, hidden_dim)) * 0.1
-        self.b1 = jnp.zeros(hidden_dim)
-        self.W2 = jax.random.normal(k2, (hidden_dim, 1)) * 0.1
-        self.b2 = jnp.zeros(1)
-
-        if decay_rounds > 0:
-            schedule = optax.cosine_decay_schedule(lr, decay_rounds, alpha=min_lr_ratio)
-            self.optimizer = optax.chain(
-                optax.clip_by_global_norm(max_grad_norm),
-                optax.adam(learning_rate=schedule)
-            )
-        else:
-            self.optimizer = optax.chain(
-                optax.clip_by_global_norm(max_grad_norm),
-                optax.adam(learning_rate=lr)
-            )
-        self.opt_state = self.optimizer.init({
-            'W1': self.W1, 'b1': self.b1, 'W2': self.W2, 'b2': self.b2
-        })
-
-    def _forward(self, X):
-        X = jnp.asarray(X)
-        Z1 = X @ self.W1 + self.b1
-        H = jnp.maximum(0, Z1)
-        out = (H @ self.W2 + self.b2).squeeze(-1)
-        return out, Z1, H
-
-    def _random_knapsack(self):
-        order = self.rng.permutation(self.n_arms)
-        selection = np.zeros(self.n_arms)
-        remaining = self.capacity
-
-        for i in order:
-            if self.weights_np[i] <= remaining:
-                selection[i] = 1
-                remaining -= self.weights_np[i]
-
-        return selection
-
-    def act(self, X):
-        self.t += 1
-
-        if self.decay_epsilon:
-            current_eps = self.epsilon * max(0, 1 - self.t / self.decay_rounds)
-        else:
-            current_eps = self.epsilon
-
-        if self.rng.random() < current_eps:
-            return self._random_knapsack()
-        else:
-            pred, _, _ = self._forward(X)
-            return self.solver(np.asarray(pred))
-
-    def update(self, X, selection, rewards, lr=None, full_feedback=False):
-        X = jnp.asarray(X)
-        selection = jnp.asarray(selection)
-        rewards = jnp.asarray(rewards)
-
-        pred, Z1, H = self._forward(X)
-
-        if full_feedback:
-            mask = jnp.ones(self.n_arms)
-            Y_target = rewards
-        else:
-            mask = (selection > 0.5).astype(float)
-            Y_target = jnp.where(selection > 0.5, rewards, pred)
-
-        error = (pred - Y_target) * mask
-        n_obs = jnp.maximum(jnp.sum(mask), 1.0)
-        grad_out = 2 * error / n_obs
-
-        grad_W2 = H.T @ grad_out[:, None]
-        grad_b2 = jnp.sum(grad_out, keepdims=True)
-
-        grad_H = jnp.outer(grad_out, self.W2.squeeze())
-        grad_Z1 = grad_H * (Z1 > 0)
-
-        grad_W1 = X.T @ grad_Z1
-        grad_b1 = jnp.sum(grad_Z1, axis=0)
-
-        grads = {'W1': grad_W1, 'b1': grad_b1, 'W2': grad_W2, 'b2': grad_b2}
-        updates, self.opt_state = self.optimizer.update(
-            grads, self.opt_state,
-            {'W1': self.W1, 'b1': self.b1, 'W2': self.W2, 'b2': self.b2}
-        )
-        params = optax.apply_updates(
-            {'W1': self.W1, 'b1': self.b1, 'W2': self.W2, 'b2': self.b2}, updates
-        )
-        self.W1 = jnp.clip(params['W1'], -10, 10)
-        self.b1 = params['b1']
-        self.W2 = jnp.clip(params['W2'], -10, 10)
-        self.b2 = params['b2']
 
 
 class PerArmNeuralUCBAgent:
@@ -327,8 +227,6 @@ class PerArmNeuralUCBAgent:
         self.history_mask = []
         self.rng = np.random.default_rng(seed if seed else 0)
 
-        # Output scaling to handle target scale mismatch
-        # Network outputs ~N(0,1), we learn scale/bias to match targets
         self.output_scale = 1.0
         self.output_bias = 0.0
         self.target_mean = 0.0
@@ -336,7 +234,6 @@ class PerArmNeuralUCBAgent:
         self.target_count = 0
 
     def _forward(self, X):
-        """Raw network output before scaling."""
         X = jnp.asarray(X)
         Z1 = X @ self.W1 + self.b1
         H = jnp.maximum(0, Z1)
@@ -344,7 +241,6 @@ class PerArmNeuralUCBAgent:
         return out
 
     def predict(self, X):
-        """Scaled predictions matching target distribution."""
         raw = self._forward(X)
         return raw * self.output_scale + self.output_bias
 
@@ -386,7 +282,6 @@ class PerArmNeuralUCBAgent:
         predictions = self.predict(X)
         g_features = self._compute_gradient_features(X)
         uncertainties = self._compute_uncertainties(g_features)
-        # Scale uncertainties by output_scale to match prediction scale
         scaled_uncertainties = uncertainties * self.output_scale
 
         self._cached_g_features = g_features
@@ -460,7 +355,6 @@ class PerArmNeuralUCBAgent:
         if len(observed) == 0:
             return
 
-        # Online update of target mean and std (Welford's algorithm)
         for y in observed:
             self.target_count += 1
             delta = y - self.target_mean
@@ -471,7 +365,6 @@ class PerArmNeuralUCBAgent:
         if self.target_count > 1:
             variance = self.target_std / (self.target_count - 1)
             std = np.sqrt(max(variance, 1e-6))
-            # Network outputs ~N(0,1), scale to match target ~N(mean, std)
             self.output_scale = std
             self.output_bias = self.target_mean
 
@@ -487,13 +380,10 @@ class PerArmNeuralUCBAgent:
         selection = jnp.asarray(selection)
         rewards = jnp.asarray(rewards)
 
-        if full_feedback:
-            mask = jnp.ones(self.n_arms, dtype=bool)
-        else:
-            mask = selection > 0.5
+        obs_mask_scaling = jnp.ones(self.n_arms, dtype=bool) if full_feedback else (selection > 0.5)
+        self._update_output_scaling(rewards, obs_mask_scaling)
 
-        # Update output scaling from observed rewards FIRST
-        self._update_output_scaling(rewards, mask)
+        selection_mask = selection > 0.5
 
         if hasattr(self, '_cached_g_features'):
             g_features = self._cached_g_features
@@ -501,26 +391,25 @@ class PerArmNeuralUCBAgent:
         else:
             g_features = self._compute_gradient_features(X)
 
-        self._update_information_matrix(g_features, mask)
+        self._update_information_matrix(g_features, selection_mask)
 
-        # Get raw predictions (in normalized space) for imputation
         raw_predictions = np.asarray(self._forward(X))
         rewards_np = np.asarray(rewards)
-        mask_np = np.asarray(mask)
+        selection_np = np.asarray(selection) > 0.5
 
         if full_feedback:
-            # Normalize all rewards for training
-            Y_target = self._normalize_targets(rewards_np)
-            obs_mask = np.ones(self.n_arms)
-        else:
-            # For unobserved arms, use raw prediction (already in normalized space)
-            # For observed arms, normalize the observed reward
             Y_target = np.where(
-                mask_np,
+                selection_np,
                 self._normalize_targets(rewards_np),
                 raw_predictions
             )
-            obs_mask = mask_np.astype(float)
+        else:
+            Y_target = np.where(
+                selection_np,
+                self._normalize_targets(rewards_np),
+                raw_predictions
+            )
+        obs_mask = selection_np.astype(float)
 
         self.history_X.append(X_np)
         self.history_Y.append(Y_target)

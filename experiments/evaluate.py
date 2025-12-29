@@ -9,21 +9,25 @@ sys.path.insert(0, '.')
 from src.envs import create_env
 from src.agents import run_experiment
 
-from src.agents.shared_context.ucb import LinUCBAgent, NeuralUCBAgent
-from src.agents.shared_context.bayesian import ThompsonSamplingAgent, UCBAgent
-from src.agents.shared_context.baselines import RandomAgent, EpsilonGreedyAgent, MSENeuralAgent
-from src.agents.shared_context.bayesian_spo import BayesianSPOAgent
-from src.agents.shared_context.full_spo import FullSPOAgent
-from src.agents.shared_context.decision_ucb import DecisionUCBAgent
-
-from src.agents.per_arm_context.cn_ucb import CNUCBAgent, CNTSAgent
-from src.agents.per_arm_context.per_arm_bayesian_spo import PerArmBayesianSPOAgent
-from src.agents.per_arm_context.per_arm_spo import PerArmFullSPOAgent, PerArmDecisionUCBAgent
-from src.agents.per_arm_context.per_arm_baselines import PerArmMSENeuralAgent, PerArmEpsilonGreedyAgent, PerArmNeuralUCBAgent
-from src.agents.per_arm_context.per_arm_bayesian import PerArmThompsonSamplingAgent, PerArmLinUCBAgent, PerArmNeuralLinUCBAgent
-from src.agents.per_arm_context.per_arm_ntk_spo import PerArmNTKSPOAgent, PerArmNTKDecisionUCBAgent
-from src.agents.per_arm_context.per_arm_bayesian_ierm import PerArmBayesianIERMAgent, PerArmBayesianIERMDMAgent, PerArmBayesianIERMDRAgent
-
+from src.agents.shared_context import (
+    BayesianSPOAgent,
+    LinUCBAgent,
+    NeuralUCBAgent,
+    ThompsonSamplingAgent,
+    UCBAgent,
+    EpsilonGreedyAgent,
+    RandomAgent,
+)
+from src.agents.per_arm_context import (
+    PerArmBayesianSPOAgent,
+    CNUCBAgent,
+    CNTSAgent,
+    PerArmLinUCBAgent,
+    PerArmThompsonSamplingAgent,
+    PerArmMSENeuralAgent,
+    PerArmEpsilonGreedyAgent,
+    PerArmRandomAgent,
+)
 from src.models import BayesianLinearModel
 
 
@@ -52,50 +56,18 @@ DATASETS = {
         'env_fraction': 0.8,
         'noise_std': 0.05,
     },
-
-    # === PER-ARM CONTEXT DATASETS ===
-    # Each arm has its own context vector
-
     'fantasy': {
-        'n_players': None,  # All players (494)
+        'n_players': None,
         'salary_cap': 50000,
-        'context_dim': 12,  # Actual features, no random projection
+        'context_dim': 14,
         'season': 2020,
         'use_position_constraint': False,
-        'holdout_weeks': 5,  # Last 5 weeks for evaluation
-    },
-    'fpl': {
-        'n_players': None,  # All players
-        'budget': 100.0,  # 100m budget
-        'context_dim': 8,
-        'seasons': '2023_24',  # Single season (most recent with xP)
-        'min_appearances': 3,
-    },
-    'cn_linear': {
-        'n_arms': 20,
-        'context_dim': 80,
-        'K': 4,
-        'use_knapsack': True,  # Varied weights + knapsack constraint
-        'weight_range': (1.0, 5.0),
-    },
-    'cn_quadratic': {
-        'n_arms': 20,
-        'context_dim': 80,
-        'K': 4,
-        'use_knapsack': True,
-        'weight_range': (1.0, 5.0),
-    },
-    'cn_cosine': {
-        'n_arms': 20,
-        'context_dim': 80,
-        'K': 4,
-        'use_knapsack': True,
-        'weight_range': (1.0, 5.0),
+        'holdout_weeks': 5,
     },
 }
 
 SHARED_CONTEXT_DATASETS = ['synthetic', 'shortest_path_5', 'shortest_path_8', 'criteo_ads']
-PER_ARM_CONTEXT_DATASETS = ['fantasy', 'fpl', 'cn_linear', 'cn_quadratic', 'cn_cosine']
+PER_ARM_CONTEXT_DATASETS = ['fantasy']
 
 
 def get_agents(env, seed, lr=0.01, n_rounds=300, hidden_dim=None):
@@ -119,64 +91,23 @@ def get_agents(env, seed, lr=0.01, n_rounds=300, hidden_dim=None):
             env.context_dim, env.n_arms, env.weights, env.capacity,
             alpha=1.0, lambda_reg=1.0, minimize=minimize, solver=solver
         ),
-        # 'NeuralUCB': NeuralUCBAgent(
-        #     env.context_dim, env.n_arms, env.weights, env.capacity,
-        #     hidden_dim=hidden_dim, alpha=1.0, lambda_reg=1.0, lr=lr,
-        #     minimize=minimize, solver=solver, seed=seed
-        # ),
+        'NeuralUCB': NeuralUCBAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            hidden_dim=hidden_dim, alpha=1.0, lambda_reg=1.0, lr=lr,
+            minimize=minimize, solver=solver, seed=seed
+        ),
         'BayesianSPO': BayesianSPOAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             hidden_dim=hidden_dim, beta=1.0, decay_rounds=n_rounds,
             alpha=0.0, lambda_reg=1.0, solver=solver, seed=seed
         ),
-        # 'FullSPO': FullSPOAgent(
-        #     env.context_dim, env.n_arms, env.weights, env.capacity,
-        #     hidden_dim=hidden_dim, beta_start=1.0, beta_end=1.0, decay_rounds=n_rounds,
-        #     lambda_reg=1.0, solver=solver, seed=seed
-        # ),
-        # 'DecisionUCB': DecisionUCBAgent(
-        #     env.context_dim, env.n_arms, env.weights, env.capacity,
-        #     hidden_dim=hidden_dim, beta_pred_start=1.0, beta_pred_end=1.0,
-        #     beta_decision=1.0, decay_rounds=n_rounds,
-        #     alpha=0.0, lambda_reg=1.0, solver=solver, seed=seed
-        # ),
-        # 'SimplePKL': SimplePKLAgent(
-        #     env.context_dim, env.n_arms, env.weights, env.capacity,
-        #     hidden_dim=hidden_dim, beta=1.0, temperature=0.1,
-        #     n_perturbations=10, lambda_reg=1.0, solver=solver, seed=seed
-        # ),
-        # 'IRM': InverseRegretAgent(
-        #     env.context_dim, env.n_arms, env.weights, env.capacity,
-        #     hidden_dim=hidden_dim, beta=1.0, bound_weight=1.0, mse_weight=1.0,
-        #     lambda_reg=1.0, solver=solver, seed=seed
-        # ),
-        # 'ConservativeUnified': ConservativeUnifiedAgent(
-        #     env.context_dim, env.n_arms, env.weights, env.capacity,
-        #     hidden_dim=hidden_dim, beta=1.0, diversity_threshold=1.0,
-        #     temperature=0.1, n_perturbations=10, lambda_reg=1.0,
-        #     solver=solver, seed=seed
-        # ),
-
-        # 'CN-UCB': CNUCBAgent(
-        #     env.context_dim, env.n_arms, env.weights, env.capacity,
-        #     hidden_dim=hidden_dim, lambda_reg=1.0, gamma=1.0, lr=lr,
-        #     constraint_type='knapsack', per_arm_context=False,
-        #     solver=solver, seed=seed
-        # ),
-
-        # IERM (Hu & Kallus, 2024) is NOT included - it's an offline method
-        # See docs/why_not_ierm.md for details
-
-        # Baselines
         'EpsilonGreedy': EpsilonGreedyAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             hidden_dim=hidden_dim, epsilon=0.1, decay_epsilon=True,
             decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed
         ),
-        'MSENeural': MSENeuralAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, beta=1.0, lambda_reg=1.0,
-            decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed
+        'Random': RandomAgent(
+            env.n_arms, env.weights, env.capacity, seed=seed
         ),
     }
 
@@ -193,51 +124,15 @@ def get_per_arm_agents(env, seed, lr=0.01, n_rounds=300, hidden_dim=None):
             hidden_dim=hidden_dim, beta=1.0, alpha=0.0, lambda_reg=1.0,
             lr=lr, decay_rounds=n_rounds, solver=solver, seed=seed
         ),
-        # 'PerArmFullSPO': PerArmFullSPOAgent(
-        #     env.context_dim, env.n_arms, env.weights, env.capacity,
-        #     hidden_dim=hidden_dim, beta_start=2.0, beta_end=0.1,
-        #     decay_rounds=n_rounds, lambda_reg=1.0, lr=lr,
-        #     solver=solver, seed=seed
-        # ),
-        # 'PerArmDecisionUCB': PerArmDecisionUCBAgent(
-        #     env.context_dim, env.n_arms, env.weights, env.capacity,
-        #     hidden_dim=hidden_dim, beta_pred_start=2.0, beta_pred_end=0.1,
-        #     beta_decision=1.0, decay_rounds=n_rounds, alpha=0.0,
-        #     lambda_reg=1.0, lr=lr, solver=solver, seed=seed
-        # ),
-
-        # 'PerArmNTKSPO': PerArmNTKSPOAgent(
-        #     env.context_dim, env.n_arms, env.weights, env.capacity,
-        #     hidden_dim=hidden_dim, gamma=1.0,
-        #     lambda_reg=1.0, lambda_ntk=1.0,
-        #     lr=lr, solver=solver, seed=seed
-        # ),
-        # 'PerArmNTKDecisionUCB': PerArmNTKDecisionUCBAgent(
-        #     env.context_dim, env.n_arms, env.weights, env.capacity,
-        #     hidden_dim=hidden_dim, gamma=1.0,
-        #     beta_decision=1.0, lambda_reg=1.0,
-        #     lambda_ntk=1.0, lr=lr, solver=solver, seed=seed
-        # ),
-
         'PerArmLinUCB': PerArmLinUCBAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             alpha=1.0, lambda_reg=1.0, solver=solver
-        ),
-        'PerArmNeuralLinUCB': PerArmNeuralLinUCBAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, alpha=1.0, lambda_reg=1.0,
-            solver=solver, seed=seed
         ),
         'PerArmTS': PerArmThompsonSamplingAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             lambda_reg=1.0, sigma=1.0, solver=solver, seed=seed
         ),
 
-        'PerArmNeuralUCB': PerArmNeuralUCBAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, alpha=1.0, lambda_reg=1.0, lr=lr,
-            solver=solver, seed=seed
-        ),
         'CN-UCB': CNUCBAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             hidden_dim=hidden_dim, lambda_reg=1.0, gamma=1.0, lr=lr,
@@ -248,7 +143,6 @@ def get_per_arm_agents(env, seed, lr=0.01, n_rounds=300, hidden_dim=None):
             hidden_dim=hidden_dim, lambda_reg=1.0, nu=1.0, lr=lr,
             per_arm_context=True, solver=solver, seed=seed
         ),
-
         'PerArmMSENeural': PerArmMSENeuralAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             hidden_dim=hidden_dim, beta=1.0, lambda_reg=1.0,
@@ -259,16 +153,13 @@ def get_per_arm_agents(env, seed, lr=0.01, n_rounds=300, hidden_dim=None):
             hidden_dim=hidden_dim, epsilon=0.1, decay_epsilon=True,
             decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed
         ),
-
-        'PerArmBayesianIERM-DM': PerArmBayesianIERMDMAgent(
+        'PerArmGreedy': PerArmEpsilonGreedyAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, beta=1.0, alpha=0.0, lambda_reg=1.0,
-            lr=lr, decay_rounds=n_rounds, solver=solver, seed=seed
+            hidden_dim=hidden_dim, epsilon=0.0, decay_epsilon=False,
+            decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed
         ),
-        'PerArmBayesianIERM-DR': PerArmBayesianIERMDRAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, beta=1.0, alpha=0.0, lambda_reg=1.0,
-            lr=lr, decay_rounds=n_rounds, solver=solver, seed=seed
+        'PerArmRandom': PerArmRandomAgent(
+            env.n_arms, env.weights, env.capacity, seed=seed
         ),
     }
 
@@ -309,7 +200,6 @@ def run_evaluation(
             env_base = create_env(dataset, seed=seed, **dataset_config)
             test_set = env_base.generate_test_set(100)
 
-            # Use per-arm agents for per-arm context environments (e.g., Fantasy)
             if env_base.per_arm_context:
                 agents = get_per_arm_agents(env_base, seed, lr, n_rounds, hidden_dim)
             else:
@@ -342,7 +232,6 @@ def run_evaluation(
                 }
 
                 if verbose:
-                    # Print cumulative regret and holdout regret
                     holdout_evals = result.get('holdout_evals', [])
                     if holdout_evals:
                         final_holdout = holdout_evals[-1][1]
@@ -359,7 +248,6 @@ def print_summary(results, dataset='synthetic', trajectories=None):
     print(f'RESULTS SUMMARY - {dataset.upper()}')
     print(f'{"=" * 70}')
 
-    # Check if holdout data is available
     has_holdout = False
     if trajectories:
         for key, data in trajectories.items():
@@ -380,7 +268,6 @@ def print_summary(results, dataset='synthetic', trajectories=None):
         agents = results[feedback_mode]
         sorted_agents = sorted(agents.items(), key=lambda x: np.mean(x[1]))
 
-        # Collect holdout regret per agent
         holdout_data = {}
         if trajectories and has_holdout and feedback_mode == 'semi_bandit':
             for key, data in trajectories.items():
@@ -414,7 +301,6 @@ def print_summary(results, dataset='synthetic', trajectories=None):
 
 
 def plot_trajectories(trajectories, dataset, output_dir, feedback_mode='semi_bandit'):
-    """Plot training and holdout curves. Delegates to plot_results module."""
     from experiments.plot_results import plot_trajectories as _plot_trajectories
     _plot_trajectories(trajectories, dataset, output_dir, feedback_mode)
 
@@ -484,8 +370,8 @@ def main():
         n_rounds = args.n_rounds or 300
         n_seeds = args.n_seeds or 3
     elif args.full:
-        n_rounds = args.n_rounds or 2000  # Paper-scale: 2000 rounds
-        n_seeds = args.n_seeds or 10      # Paper-scale: 10 seeds
+        n_rounds = args.n_rounds or 2000
+        n_seeds = args.n_seeds or 10
     else:
         n_rounds = args.n_rounds or 300
         n_seeds = args.n_seeds or 3
@@ -525,7 +411,6 @@ def main():
     if not args.no_save:
         save_results(all_results, all_trajectories, args.output_dir)
 
-        # Generate plots for each dataset
         for dataset in datasets:
             plot_trajectories(all_trajectories, dataset, args.output_dir, 'semi_bandit')
 

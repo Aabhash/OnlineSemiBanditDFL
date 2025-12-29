@@ -15,7 +15,6 @@ class SyntheticKnapsackData:
         seed: int = 42,
     ):
         self.n_items = n_items
-        # Support both n_features and context_dim (context_dim takes precedence)
         if context_dim is not None:
             self.n_features = context_dim
         elif n_features is not None:

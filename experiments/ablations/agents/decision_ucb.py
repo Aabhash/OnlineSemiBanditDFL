@@ -92,9 +92,9 @@ class DecisionUCBAgent:
 
         _, h, z1 = mlp_forward(X, self.model.W1, self.model.b1, self.model.W2, self.model.b2)
 
-        mask = jnp.ones(self.n_arms, dtype=bool) if full_feedback else (selection > 0.5)
+        selection_mask = selection > 0.5
         self.A, self.b, self.A_inv = update_bayesian_stats(
-            self.A, self.b, self.A_inv, h, rewards, mask
+            self.A, self.b, self.A_inv, h, rewards, selection_mask
         )
 
         if full_feedback:

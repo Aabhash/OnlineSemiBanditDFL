@@ -2,13 +2,12 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import optax
-from functools import partial
 from src.solver import solve_top_k
 
-TRAIN_INTERVAL = 10
-TRAIN_EPOCHS = 100
-BATCH_SIZE = 100
-GRAD_CLIP = 1.0
+DEFAULT_TRAIN_INTERVAL = 1
+DEFAULT_TRAIN_EPOCHS = 10
+DEFAULT_BATCH_SIZE = 64
+DEFAULT_GRAD_CLIP = 5.0
 
 
 def _flatten_params(params):
@@ -18,35 +17,11 @@ def _flatten_params(params):
     return jnp.concatenate(flat)
 
 
-def _unflatten_params(flat, shapes):
-    params = {}
-    idx = 0
-    for key, shape in shapes.items():
-        size = int(np.prod(shape))
-        params[key] = flat[idx:idx + size].reshape(shape)
-        idx += size
-    return params
-
-
 @jax.jit
 def _forward(X, W1, b1, W2, b2):
     z1 = X @ W1 + b1
     h = jnp.maximum(0, z1)
     out = h @ W2 + b2
-    return out.squeeze()
-
-
-def _forward_single_arm(params, X, arm_idx, n_arms, hidden_dim):
-    z1 = X @ params['W1'] + params['b1']
-    h = jnp.maximum(0, z1)
-    out = h @ params['W2'] + params['b2']
-    return out[arm_idx]
-
-
-def _forward_params(params, X):
-    z1 = X @ params['W1'] + params['b1']
-    h = jnp.maximum(0, z1)
-    out = h @ params['W2'] + params['b2']
     return out.squeeze()
 
 
@@ -76,13 +51,14 @@ def _compute_all_gradients(params, X, n_arms, total_params):
 
 
 class CNUCBAgent:
+
     def __init__(
         self,
         context_dim: int,
         n_arms: int,
         weights,
         capacity: float,
-        hidden_dim: int = 100,
+        hidden_dim: int = 64,
         lambda_reg: float = 1.0,
         gamma: float = 1.0,
         lr: float = 0.01,
@@ -90,9 +66,9 @@ class CNUCBAgent:
         K: int = None,
         solver=None,
         seed: int = None,
-        train_interval: int = TRAIN_INTERVAL,
-        train_epochs: int = TRAIN_EPOCHS,
-        batch_size: int = BATCH_SIZE,
+        train_interval: int = None,
+        train_epochs: int = None,
+        batch_size: int = None,
         per_arm_context: bool = True,
     ):
         self.context_dim = context_dim
@@ -115,9 +91,9 @@ class CNUCBAgent:
         self.t = 0
         self.per_arm_context = per_arm_context
 
-        self.train_interval = train_interval
-        self.train_epochs = train_epochs
-        self.batch_size = batch_size
+        self.train_interval = train_interval if train_interval is not None else DEFAULT_TRAIN_INTERVAL
+        self.train_epochs = train_epochs if train_epochs is not None else DEFAULT_TRAIN_EPOCHS
+        self.batch_size = batch_size if batch_size is not None else DEFAULT_BATCH_SIZE
 
         key = jax.random.PRNGKey(seed if seed else 0)
         k1, k2 = jax.random.split(key)
@@ -150,15 +126,13 @@ class CNUCBAgent:
         self.Z_diag = lambda_reg * jnp.ones(self.total_params)
 
         self.optimizer = optax.chain(
-            optax.clip_by_global_norm(GRAD_CLIP),
-            optax.sgd(learning_rate=lr)
+            optax.clip_by_global_norm(DEFAULT_GRAD_CLIP),
+            optax.adam(learning_rate=lr)
         )
         self.opt_state = self.optimizer.init({
             'W1': self.W1, 'b1': self.b1,
             'W2': self.W2, 'b2': self.b2
         })
-
-        self._grad_fn = jax.grad(_forward_single_arm, argnums=0)
 
         self.history_X = []
         self.history_Y = []
@@ -166,8 +140,6 @@ class CNUCBAgent:
 
         self.rng = np.random.default_rng(seed if seed else 0)
 
-        # Output scaling to handle target scale mismatch
-        # Network outputs ~N(0,1), we learn scale/bias to match targets
         self.output_scale = 1.0
         self.output_bias = 0.0
         self.target_mean = 0.0
@@ -187,12 +159,10 @@ class CNUCBAgent:
         return uncertainties
 
     def _raw_predict(self, X):
-        """Raw network output before scaling."""
         X = jnp.asarray(X)
         return _forward(X, self.W1, self.b1, self.W2, self.b2)
 
     def predict(self, X):
-        """Scaled predictions matching target distribution."""
         raw = self._raw_predict(X)
         return raw * self.output_scale + self.output_bias
 
@@ -204,7 +174,6 @@ class CNUCBAgent:
 
         g_features = self._compute_gradient_features(X)
         uncertainties = self._compute_uncertainties(g_features)
-        # Scale uncertainties by output_scale to match prediction scale
         scaled_uncertainties = uncertainties * self.output_scale
 
         ucb_values = predictions + self.gamma * scaled_uncertainties
@@ -291,7 +260,6 @@ class CNUCBAgent:
         if self.target_count > 1:
             variance = self.target_std / (self.target_count - 1)
             std = np.sqrt(max(variance, 1e-6))
-            # Network outputs ~N(0,1), scale to match target ~N(mean, std)
             self.output_scale = std
             self.output_bias = self.target_mean
 
@@ -306,31 +274,31 @@ class CNUCBAgent:
         selection = jnp.asarray(selection)
         rewards = jnp.asarray(rewards)
 
-        # Update output scaling from observed rewards FIRST
-        mask = jnp.ones(self.n_arms, dtype=bool) if full_feedback else (selection > 0.5)
-        self._update_output_scaling(rewards, mask)
+        obs_mask = jnp.ones(self.n_arms, dtype=bool) if full_feedback else (selection > 0.5)
+        self._update_output_scaling(rewards, obs_mask)
 
+        selection_mask = selection > 0.5
         g_features = self._compute_gradient_features(X)
-        self._update_gram_matrix(g_features, mask)
+        self._update_gram_matrix(g_features, selection_mask)
 
-        # Get raw predictions (in normalized space) for imputation
         raw_predictions = np.asarray(self._raw_predict(X))
 
+        rewards_np = np.asarray(rewards)
+        selection_np = np.asarray(selection) > 0.5
+
         if full_feedback:
-            # Normalize all rewards for training
-            Y_target = self._normalize_targets(rewards)
-            obs_mask = np.ones(self.n_arms)
-        else:
-            # For unobserved arms, use raw prediction (already in normalized space)
-            # For observed arms, normalize the observed reward
-            rewards_np = np.asarray(rewards)
-            selection_np = np.asarray(selection) > 0.5
             Y_target = np.where(
                 selection_np,
                 self._normalize_targets(rewards_np),
                 raw_predictions
             )
-            obs_mask = selection_np.astype(float)
+        else:
+            Y_target = np.where(
+                selection_np,
+                self._normalize_targets(rewards_np),
+                raw_predictions
+            )
+        obs_mask = selection_np.astype(float)
 
         self.history_X.append(X_np)
         self.history_Y.append(Y_target)
@@ -348,7 +316,7 @@ class CNTSAgent:
         n_arms: int,
         weights,
         capacity: float,
-        hidden_dim: int = 100,
+        hidden_dim: int = 64,
         lambda_reg: float = 1.0,
         nu: float = 1.0,
         M: int = 10,
@@ -357,9 +325,9 @@ class CNTSAgent:
         K: int = None,
         solver=None,
         seed: int = None,
-        train_interval: int = TRAIN_INTERVAL,
-        train_epochs: int = TRAIN_EPOCHS,
-        batch_size: int = BATCH_SIZE,
+        train_interval: int = None,
+        train_epochs: int = None,
+        batch_size: int = None,
         per_arm_context: bool = True,
     ):
         self.context_dim = context_dim
@@ -383,9 +351,9 @@ class CNTSAgent:
         self.t = 0
         self.per_arm_context = per_arm_context
 
-        self.train_interval = train_interval
-        self.train_epochs = train_epochs
-        self.batch_size = batch_size
+        self.train_interval = train_interval if train_interval is not None else DEFAULT_TRAIN_INTERVAL
+        self.train_epochs = train_epochs if train_epochs is not None else DEFAULT_TRAIN_EPOCHS
+        self.batch_size = batch_size if batch_size is not None else DEFAULT_BATCH_SIZE
 
         self.rng = np.random.default_rng(seed if seed else 0)
 
@@ -420,22 +388,18 @@ class CNTSAgent:
         self.Z_diag = lambda_reg * jnp.ones(self.total_params)
 
         self.optimizer = optax.chain(
-            optax.clip_by_global_norm(GRAD_CLIP),
-            optax.sgd(learning_rate=lr)
+            optax.clip_by_global_norm(DEFAULT_GRAD_CLIP),
+            optax.adam(learning_rate=lr)
         )
         self.opt_state = self.optimizer.init({
             'W1': self.W1, 'b1': self.b1,
             'W2': self.W2, 'b2': self.b2
         })
 
-        self._grad_fn = jax.grad(_forward_single_arm, argnums=0)
-
         self.history_X = []
         self.history_Y = []
         self.history_mask = []
 
-        # Output scaling to handle target scale mismatch
-        # Network outputs ~N(0,1), we learn scale/bias to match targets
         self.output_scale = 1.0
         self.output_bias = 0.0
         self.target_mean = 0.0
@@ -455,12 +419,10 @@ class CNTSAgent:
         return uncertainties
 
     def _raw_predict(self, X):
-        """Raw network output before scaling."""
         X = jnp.asarray(X)
         return _forward(X, self.W1, self.b1, self.W2, self.b2)
 
     def predict(self, X):
-        """Scaled predictions matching target distribution."""
         raw = self._raw_predict(X)
         return raw * self.output_scale + self.output_bias
 
@@ -471,7 +433,6 @@ class CNTSAgent:
         predictions = np.asarray(self.predict(X))
         g_features = self._compute_gradient_features(X)
         uncertainties = np.asarray(self._compute_uncertainties(g_features))
-        # Scale uncertainties by output_scale to match prediction scale
         scaled_uncertainties = uncertainties * self.output_scale
 
         optimistic_values = np.zeros(self.n_arms)
@@ -555,7 +516,6 @@ class CNTSAgent:
         if len(observed) == 0:
             return
 
-        # Online update of target mean and std (Welford's algorithm)
         for y in observed:
             self.target_count += 1
             delta = y - self.target_mean
@@ -566,7 +526,6 @@ class CNTSAgent:
         if self.target_count > 1:
             variance = self.target_std / (self.target_count - 1)
             std = np.sqrt(max(variance, 1e-6))
-            # Network outputs ~N(0,1), scale to match target ~N(mean, std)
             self.output_scale = std
             self.output_bias = self.target_mean
 
@@ -581,31 +540,31 @@ class CNTSAgent:
         selection = jnp.asarray(selection)
         rewards = jnp.asarray(rewards)
 
-        # Update output scaling from observed rewards FIRST
-        mask = jnp.ones(self.n_arms, dtype=bool) if full_feedback else (selection > 0.5)
-        self._update_output_scaling(rewards, mask)
+        obs_mask = jnp.ones(self.n_arms, dtype=bool) if full_feedback else (selection > 0.5)
+        self._update_output_scaling(rewards, obs_mask)
 
+        selection_mask = selection > 0.5
         g_features = self._compute_gradient_features(X)
-        self._update_gram_matrix(g_features, mask)
+        self._update_gram_matrix(g_features, selection_mask)
 
-        # Get raw predictions (in normalized space) for imputation
         raw_predictions = np.asarray(self._raw_predict(X))
 
+        rewards_np = np.asarray(rewards)
+        selection_np = np.asarray(selection) > 0.5
+
         if full_feedback:
-            # Normalize all rewards for training
-            Y_target = self._normalize_targets(rewards)
-            obs_mask = np.ones(self.n_arms)
-        else:
-            # For unobserved arms, use raw prediction (already in normalized space)
-            # For observed arms, normalize the observed reward
-            rewards_np = np.asarray(rewards)
-            selection_np = np.asarray(selection) > 0.5
             Y_target = np.where(
                 selection_np,
                 self._normalize_targets(rewards_np),
                 raw_predictions
             )
-            obs_mask = selection_np.astype(float)
+        else:
+            Y_target = np.where(
+                selection_np,
+                self._normalize_targets(rewards_np),
+                raw_predictions
+            )
+        obs_mask = selection_np.astype(float)
 
         self.history_X.append(X_np)
         self.history_Y.append(Y_target)

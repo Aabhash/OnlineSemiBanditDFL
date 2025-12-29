@@ -104,9 +104,9 @@ class BayesianSPOAgent:
 
         h, z1 = self._features(X)
 
-        mask = jnp.ones(self.n_arms, dtype=bool) if full_feedback else (selection > 0.5)
+        selection_mask = selection > 0.5
         self.A, self.b_bayes, self.A_inv = update_bayesian_stats(
-            self.A, self.b_bayes, self.A_inv, h, rewards, mask
+            self.A, self.b_bayes, self.A_inv, h, rewards, selection_mask
         )
 
         pred = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)

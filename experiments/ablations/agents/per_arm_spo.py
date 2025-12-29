@@ -6,12 +6,14 @@ from src.losses import spo_plus_grad
 from src.solver import solve_knapsack_with_sensitivity
 from src.agents.bayesian_utils import (
     init_shared_regression,
+    compute_shared_ucb_values,
     compute_shared_predictions,
+    compute_shared_uncertainties,
     update_shared_bayesian_stats,
 )
 
 
-class PerArmNTKSPOAgent:
+class PerArmFullSPOAgent:
 
     def __init__(
         self,
@@ -20,13 +22,11 @@ class PerArmNTKSPOAgent:
         weights,
         capacity: float,
         hidden_dim: int = 32,
-        gamma: float = 1.0,
-        gamma_start: float = None,
-        gamma_end: float = None,
-        lambda_reg: float = 1.0,
-        lambda_ntk: float = 1.0,
-        lr: float = 0.01,
+        beta_start: float = 2.0,
+        beta_end: float = 0.1,
         decay_rounds: int = 300,
+        lambda_reg: float = 1.0,
+        lr: float = 0.01,
         max_grad_norm: float = 5.0,
         min_lr_ratio: float = 0.1,
         solver=None,
@@ -37,6 +37,7 @@ class PerArmNTKSPOAgent:
         self.weights = jnp.asarray(weights)
         self.weights_np = np.asarray(weights)
         self.capacity = capacity
+        self.hidden_dim = hidden_dim
 
         if solver is None:
             from src.solver import solve_knapsack
@@ -44,20 +45,12 @@ class PerArmNTKSPOAgent:
         else:
             self.solver = solver
 
-        self.hidden_dim = hidden_dim
+        self.beta_start = beta_start
+        self.beta_end = beta_end
+        self.beta = beta_start
         self.lambda_reg = lambda_reg
-        self.lambda_ntk = lambda_ntk
         self.decay_rounds = decay_rounds
         self.t = 0
-
-        if gamma_start is not None and gamma_end is not None:
-            self.gamma_start = gamma_start
-            self.gamma_end = gamma_end
-            self.gamma = gamma_start
-        else:
-            self.gamma_start = gamma
-            self.gamma_end = gamma
-            self.gamma = gamma
 
         key = jax.random.PRNGKey(seed if seed else 0)
         self.W1 = jax.random.normal(key, (context_dim, hidden_dim)) * 0.1
@@ -78,38 +71,11 @@ class PerArmNTKSPOAgent:
 
         self.A, self.b_bayes, self.A_inv = init_shared_regression(hidden_dim, lambda_reg)
 
-        self.total_params = context_dim * hidden_dim + hidden_dim
-        self.Z_diag = lambda_ntk * jnp.ones(self.total_params)
-
     def _features(self, X):
         X = jnp.asarray(X)
         Z1 = X @ self.W1 + self.b1
         H = jnp.maximum(0, Z1)
         return H, Z1
-
-    def _compute_gradient_features(self, X, Z1=None):
-        X = jnp.asarray(X)
-        if Z1 is None:
-            _, Z1 = self._features(X)
-
-        theta = self.A_inv @ self.b_bayes
-        relu_mask = (Z1 > 0).astype(jnp.float32)
-        grad_Z1 = relu_mask * theta
-
-        g_W1 = jnp.einsum('nd,nh->ndh', X, grad_Z1).reshape(self.n_arms, -1)
-        g_b1 = grad_Z1
-
-        return jnp.concatenate([g_W1, g_b1], axis=1)
-
-    def _compute_ntk_uncertainties(self, g_features):
-        g_scaled = g_features / jnp.sqrt(self.total_params)
-        uncertainties = jnp.sqrt(jnp.sum(g_scaled ** 2 / self.Z_diag, axis=1))
-        return uncertainties
-
-    def _update_ntk_matrix(self, g_features, mask):
-        g_scaled = g_features / jnp.sqrt(self.total_params)
-        masked_g2 = jnp.where(mask[:, None], g_scaled ** 2, 0.0)
-        self.Z_diag = self.Z_diag + jnp.sum(masked_g2, axis=0)
 
     def predict_mean(self, X):
         H, _ = self._features(X)
@@ -117,52 +83,36 @@ class PerArmNTKSPOAgent:
 
     def act(self, X):
         self.t += 1
+        progress = min(self.t / self.decay_rounds, 1.0)
+        self.beta = self.beta_start + (self.beta_end - self.beta_start) * progress
 
-        if self.gamma_start != self.gamma_end:
-            progress = min(self.t / self.decay_rounds, 1.0)
-            self.gamma = self.gamma_start + (self.gamma_end - self.gamma_start) * progress
-
-        X = jnp.asarray(X)
-        H, Z1 = self._features(X)
-
-        predictions = compute_shared_predictions(H, self.A_inv, self.b_bayes)
-
-        g_features = self._compute_gradient_features(X, Z1)
-        uncertainties = self._compute_ntk_uncertainties(g_features)
-
-        ucb_values = predictions + self.gamma * uncertainties
-
+        H, _ = self._features(X)
+        ucb_values = compute_shared_ucb_values(H, self.A_inv, self.b_bayes, self.beta)
         return self.solver(np.asarray(ucb_values))
 
-    def update(self, X, selection, rewards, lr: float = None, full_feedback: bool = False):
+    def update(self, X, selection, rewards, lr=None, full_feedback=False):
         X = jnp.asarray(X)
         selection = jnp.asarray(selection)
         rewards = jnp.asarray(rewards)
 
         H, Z1 = self._features(X)
 
-        mask = jnp.ones(self.n_arms, dtype=bool) if full_feedback else (selection > 0.5)
+        selection_mask = selection > 0.5
         self.A, self.b_bayes, self.A_inv = update_shared_bayesian_stats(
-            self.A, self.b_bayes, self.A_inv, H, rewards, mask
+            self.A, self.b_bayes, self.A_inv, H, rewards, selection_mask
         )
-
-        g_features = self._compute_gradient_features(X, Z1)
-        self._update_ntk_matrix(g_features, mask)
 
         pred = compute_shared_predictions(H, self.A_inv, self.b_bayes)
 
         if full_feedback:
             Y_target = rewards
         else:
-            uncertainties = self._compute_ntk_uncertainties(g_features)
-            ucb_values = pred + self.gamma * uncertainties
-            Y_target = jnp.where(selection > 0.5, rewards, ucb_values)
+            Y_target = jnp.where(selection > 0.5, rewards, pred)
 
         spo_grad_val = spo_plus_grad(pred, Y_target, self.weights, self.capacity)
 
         theta = self.A_inv @ self.b_bayes
         grad_H = jnp.outer(spo_grad_val, theta)
-
         grad_Z1 = grad_H * (Z1 > 0)
 
         grad_W1 = X.T @ grad_Z1
@@ -177,7 +127,7 @@ class PerArmNTKSPOAgent:
         self.b1 = params['b1']
 
 
-class PerArmNTKDecisionUCBAgent:
+class PerArmDecisionUCBAgent:
 
     def __init__(
         self,
@@ -186,14 +136,13 @@ class PerArmNTKDecisionUCBAgent:
         weights,
         capacity: float,
         hidden_dim: int = 32,
-        gamma: float = 1.0,
-        gamma_start: float = None,
-        gamma_end: float = None,
+        beta_pred_start: float = 2.0,
+        beta_pred_end: float = 0.1,
         beta_decision: float = 1.0,
-        lambda_reg: float = 1.0,
-        lambda_ntk: float = 1.0,
-        lr: float = 0.01,
         decay_rounds: int = 300,
+        alpha: float = 0.0,
+        lambda_reg: float = 1.0,
+        lr: float = 0.01,
         max_grad_norm: float = 5.0,
         min_lr_ratio: float = 0.1,
         solver=None,
@@ -204,7 +153,7 @@ class PerArmNTKDecisionUCBAgent:
         self.weights = jnp.asarray(weights)
         self.weights_np = np.asarray(weights)
         self.capacity = capacity
-        self.beta_decision = beta_decision
+        self.hidden_dim = hidden_dim
 
         if solver is None:
             from src.solver import solve_knapsack
@@ -212,20 +161,14 @@ class PerArmNTKDecisionUCBAgent:
         else:
             self.solver = solver
 
-        self.hidden_dim = hidden_dim
-        self.lambda_reg = lambda_reg
-        self.lambda_ntk = lambda_ntk
+        self.beta_pred_start = beta_pred_start
+        self.beta_pred_end = beta_pred_end
+        self.beta_pred = beta_pred_start
+        self.beta_decision = beta_decision
         self.decay_rounds = decay_rounds
+        self.alpha = alpha
+        self.lambda_reg = lambda_reg
         self.t = 0
-
-        if gamma_start is not None and gamma_end is not None:
-            self.gamma_start = gamma_start
-            self.gamma_end = gamma_end
-            self.gamma = gamma_start
-        else:
-            self.gamma_start = gamma
-            self.gamma_end = gamma
-            self.gamma = gamma
 
         key = jax.random.PRNGKey(seed if seed else 0)
         self.W1 = jax.random.normal(key, (context_dim, hidden_dim)) * 0.1
@@ -246,38 +189,11 @@ class PerArmNTKDecisionUCBAgent:
 
         self.A, self.b_bayes, self.A_inv = init_shared_regression(hidden_dim, lambda_reg)
 
-        self.total_params = context_dim * hidden_dim + hidden_dim
-        self.Z_diag = lambda_ntk * jnp.ones(self.total_params)
-
     def _features(self, X):
         X = jnp.asarray(X)
         Z1 = X @ self.W1 + self.b1
         H = jnp.maximum(0, Z1)
         return H, Z1
-
-    def _compute_gradient_features(self, X, Z1=None):
-        X = jnp.asarray(X)
-        if Z1 is None:
-            _, Z1 = self._features(X)
-
-        theta = self.A_inv @ self.b_bayes
-        relu_mask = (Z1 > 0).astype(jnp.float32)
-        grad_Z1 = relu_mask * theta
-
-        g_W1 = jnp.einsum('nd,nh->ndh', X, grad_Z1).reshape(self.n_arms, -1)
-        g_b1 = grad_Z1
-
-        return jnp.concatenate([g_W1, g_b1], axis=1)
-
-    def _compute_ntk_uncertainties(self, g_features):
-        g_scaled = g_features / jnp.sqrt(self.total_params)
-        uncertainties = jnp.sqrt(jnp.sum(g_scaled ** 2 / self.Z_diag, axis=1))
-        return uncertainties
-
-    def _update_ntk_matrix(self, g_features, mask):
-        g_scaled = g_features / jnp.sqrt(self.total_params)
-        masked_g2 = jnp.where(mask[:, None], g_scaled ** 2, 0.0)
-        self.Z_diag = self.Z_diag + jnp.sum(masked_g2, axis=0)
 
     def predict_mean(self, X):
         H, _ = self._features(X)
@@ -285,62 +201,56 @@ class PerArmNTKDecisionUCBAgent:
 
     def act(self, X):
         self.t += 1
+        progress = min(self.t / self.decay_rounds, 1.0)
+        self.beta_pred = self.beta_pred_start + (self.beta_pred_end - self.beta_pred_start) * progress
 
-        if self.gamma_start != self.gamma_end:
-            progress = min(self.t / self.decay_rounds, 1.0)
-            self.gamma = self.gamma_start + (self.gamma_end - self.gamma_start) * progress
+        H, _ = self._features(X)
 
-        X = jnp.asarray(X)
-        H, Z1 = self._features(X)
-
-        predictions = compute_shared_predictions(H, self.A_inv, self.b_bayes)
-
-        g_features = self._compute_gradient_features(X, Z1)
-        ntk_uncertainties = self._compute_ntk_uncertainties(g_features)
+        pred_values = compute_shared_predictions(H, self.A_inv, self.b_bayes)
+        pred_uncertainty = compute_shared_uncertainties(H, self.A_inv)
 
         sensitivity_info = solve_knapsack_with_sensitivity(
-            np.asarray(predictions), self.weights_np, self.capacity
+            np.asarray(pred_values), self.weights_np, self.capacity
         )
         decision_sensitivity = jnp.asarray(sensitivity_info["decision_relevance"])
 
-        ucb_values = (predictions
-                      + self.gamma * ntk_uncertainties
-                      + self.beta_decision * decision_sensitivity)
+        ucb_values = pred_values + self.beta_pred * pred_uncertainty + self.beta_decision * decision_sensitivity
 
         return self.solver(np.asarray(ucb_values))
 
-    def update(self, X, selection, rewards, lr: float = None, full_feedback: bool = False):
+    def update(self, X, selection, rewards, lr=None, full_feedback=False):
         X = jnp.asarray(X)
         selection = jnp.asarray(selection)
         rewards = jnp.asarray(rewards)
 
         H, Z1 = self._features(X)
 
-        mask = jnp.ones(self.n_arms, dtype=bool) if full_feedback else (selection > 0.5)
+        selection_mask = selection > 0.5
         self.A, self.b_bayes, self.A_inv = update_shared_bayesian_stats(
-            self.A, self.b_bayes, self.A_inv, H, rewards, mask
+            self.A, self.b_bayes, self.A_inv, H, rewards, selection_mask
         )
-
-        g_features = self._compute_gradient_features(X, Z1)
-        self._update_ntk_matrix(g_features, mask)
-
-        pred = compute_shared_predictions(H, self.A_inv, self.b_bayes)
 
         if full_feedback:
             Y_target = rewards
         else:
-            ntk_uncertainties = self._compute_ntk_uncertainties(g_features)
+            pred_values = compute_shared_predictions(H, self.A_inv, self.b_bayes)
+            pred_uncertainty = compute_shared_uncertainties(H, self.A_inv)
+
             sensitivity_info = solve_knapsack_with_sensitivity(
-                np.asarray(pred), self.weights_np, self.capacity
+                np.asarray(pred_values), self.weights_np, self.capacity
             )
             decision_sensitivity = jnp.asarray(sensitivity_info["decision_relevance"])
-            ucb_values = pred + self.gamma * ntk_uncertainties + self.beta_decision * decision_sensitivity
+
+            ucb_values = pred_values + self.beta_pred * pred_uncertainty + self.beta_decision * decision_sensitivity
             Y_target = jnp.where(selection > 0.5, rewards, ucb_values)
 
-        spo_grad_val = spo_plus_grad(pred, Y_target, self.weights, self.capacity)
+        Y_pred = compute_shared_predictions(H, self.A_inv, self.b_bayes)
+        mse_grad = 2 * (Y_pred - Y_target) / self.n_arms
+        spo_grad_val = spo_plus_grad(Y_pred, Y_target, self.weights, self.capacity)
+        hybrid_grad = self.alpha * mse_grad + (1 - self.alpha) * spo_grad_val
 
         theta = self.A_inv @ self.b_bayes
-        grad_H = jnp.outer(spo_grad_val, theta)
+        grad_H = jnp.outer(hybrid_grad, theta)
         grad_Z1 = grad_H * (Z1 > 0)
 
         grad_W1 = X.T @ grad_Z1

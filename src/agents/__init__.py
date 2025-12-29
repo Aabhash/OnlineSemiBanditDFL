@@ -1,38 +1,47 @@
 from src.agents.base import run_experiment
 
-from src.agents.shared_context.baselines import RandomAgent, GreedyAgent, EpsilonGreedyAgent, MSENeuralAgent
-from src.agents.shared_context.bayesian import ThompsonSamplingAgent, UCBAgent
-from src.agents.shared_context.ucb import LinUCBAgent, NeuralUCBAgent
 from src.agents.shared_context.bayesian_spo import BayesianSPOAgent
-from src.agents.shared_context.full_spo import FullSPOAgent
-from src.agents.shared_context.decision_ucb import DecisionUCBAgent
 
-from src.agents.per_arm_context.per_arm_bayesian_spo import PerArmBayesianSPOAgent
-from src.agents.per_arm_context.per_arm_spo import PerArmFullSPOAgent
-from src.agents.per_arm_context.per_arm_ntk_spo import PerArmNTKSPOAgent, PerArmNTKDecisionUCBAgent
-from src.agents.per_arm_context.cn_ucb import CNUCBAgent, CNTSAgent
-from src.agents.per_arm_context.per_arm_bayesian import PerArmLinUCBAgent
-from src.agents.per_arm_context.per_arm_baselines import PerArmNeuralUCBAgent
+from src.agents.shared_context.ucb_agents import LinUCBAgent, NeuralUCBAgent, UCBAgent
+from src.agents.shared_context.ts_agents import ThompsonSamplingAgent
+from src.agents.shared_context.greedy_agents import GreedyAgent, EpsilonGreedyAgent
+from src.agents.shared_context.neural_agents import MSENeuralAgent
+from src.agents.shared_context.baselines import RandomAgent
+
+from src.agents.per_arm_context.bayesian_spo import PerArmBayesianSPOAgent
+
+from src.agents.per_arm_context.cn_agents import CNUCBAgent, CNTSAgent
+from src.agents.per_arm_context.ucb_agents import (
+    PerArmLinUCBAgent,
+    PerArmUCBAgent,
+    PerArmNeuralLinUCBAgent,
+    PerArmNeuralUCBAgent,
+)
+from src.agents.per_arm_context.ts_agents import PerArmThompsonSamplingAgent
+from src.agents.per_arm_context.greedy_agents import PerArmEpsilonGreedyAgent
+from src.agents.per_arm_context.neural_agents import PerArmMSENeuralAgent
+from src.agents.per_arm_context.baselines import PerArmRandomAgent
 
 __all__ = [
     'run_experiment',
-    'RandomAgent',
+    'BayesianSPOAgent',
+    'LinUCBAgent',
+    'NeuralUCBAgent',
+    'UCBAgent',
+    'ThompsonSamplingAgent',
     'GreedyAgent',
     'EpsilonGreedyAgent',
     'MSENeuralAgent',
-    'ThompsonSamplingAgent',
-    'UCBAgent',
-    'LinUCBAgent',
-    'NeuralUCBAgent',
-    'BayesianSPOAgent',
-    'FullSPOAgent',
-    'DecisionUCBAgent',
+    'RandomAgent',
     'PerArmBayesianSPOAgent',
-    'PerArmFullSPOAgent',
-    'PerArmNTKSPOAgent',
-    'PerArmNTKDecisionUCBAgent',
     'CNUCBAgent',
     'CNTSAgent',
     'PerArmLinUCBAgent',
+    'PerArmUCBAgent',
+    'PerArmNeuralLinUCBAgent',
     'PerArmNeuralUCBAgent',
+    'PerArmThompsonSamplingAgent',
+    'PerArmEpsilonGreedyAgent',
+    'PerArmMSENeuralAgent',
+    'PerArmRandomAgent',
 ]

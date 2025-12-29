@@ -1,0 +1,188 @@
+import jax
+import jax.numpy as jnp
+import numpy as np
+import optax
+from src.losses import spo_plus_grad
+from src.agents.bayesian_utils import (
+    init_shared_regression,
+    compute_shared_ucb_values,
+    compute_shared_predictions,
+    update_shared_bayesian_stats,
+)
+
+
+class PerArmBayesianSPOBatchAgent:
+
+    def __init__(
+        self,
+        context_dim: int,
+        n_arms: int,
+        weights,
+        capacity: float,
+        hidden_dim: int = 32,
+        beta: float = 1.0,
+        beta_start: float = None,
+        beta_end: float = None,
+        alpha: float = 0.0,
+        lambda_reg: float = 1.0,
+        lr: float = 0.01,
+        decay_rounds: int = 300,
+        max_grad_norm: float = 5.0,
+        min_lr_ratio: float = 0.1,
+        train_interval: int = 1,
+        train_epochs: int = 10,
+        batch_size: int = 64,
+        solver=None,
+        seed: int = None,
+    ):
+        self.context_dim = context_dim
+        self.n_arms = n_arms
+        self.weights = jnp.asarray(weights)
+        self.weights_np = np.asarray(weights)
+        self.capacity = capacity
+
+        if solver is None:
+            from src.solver import solve_knapsack
+            self.solver = lambda v: solve_knapsack(np.asarray(v), self.weights_np, capacity)
+        else:
+            self.solver = solver
+
+        self.hidden_dim = hidden_dim
+        self.alpha = alpha
+        self.lambda_reg = lambda_reg
+        self.decay_rounds = decay_rounds
+        self.t = 0
+
+        self.train_interval = train_interval
+        self.train_epochs = train_epochs
+        self.batch_size = batch_size
+
+        if beta_start is not None and beta_end is not None:
+            self.beta_start = beta_start
+            self.beta_end = beta_end
+            self.beta = beta_start
+        else:
+            self.beta_start = beta
+            self.beta_end = beta
+            self.beta = beta
+
+        self.rng = np.random.default_rng(seed if seed else 0)
+        key = jax.random.PRNGKey(seed if seed else 0)
+        self.W1 = jax.random.normal(key, (context_dim, hidden_dim)) * 0.1
+        self.b1 = jnp.zeros(hidden_dim)
+
+        if decay_rounds > 0:
+            schedule = optax.cosine_decay_schedule(lr, decay_rounds, alpha=min_lr_ratio)
+            self.optimizer = optax.chain(
+                optax.clip_by_global_norm(max_grad_norm),
+                optax.adam(learning_rate=schedule)
+            )
+        else:
+            self.optimizer = optax.chain(
+                optax.clip_by_global_norm(max_grad_norm),
+                optax.adam(learning_rate=lr)
+            )
+        self.opt_state = self.optimizer.init({'W1': self.W1, 'b1': self.b1})
+
+        self.A, self.b_bayes, self.A_inv = init_shared_regression(hidden_dim, lambda_reg)
+
+        self.history_X = []
+        self.history_rewards = []
+        self.history_mask = []
+
+    def _features(self, X):
+        X = jnp.asarray(X)
+        Z1 = X @ self.W1 + self.b1
+        H = jnp.maximum(0, Z1)
+        return H, Z1
+
+    def predict_mean(self, X):
+        H, _ = self._features(X)
+        return compute_shared_predictions(H, self.A_inv, self.b_bayes)
+
+    def act(self, X):
+        self.t += 1
+
+        if self.beta_start != self.beta_end:
+            progress = min(self.t / self.decay_rounds, 1.0)
+            self.beta = self.beta_start + (self.beta_end - self.beta_start) * progress
+
+        H, _ = self._features(X)
+        ucb_values = compute_shared_ucb_values(H, self.A_inv, self.b_bayes, self.beta)
+        return self.solver(np.asarray(ucb_values))
+
+    def _train_batch(self):
+        if len(self.history_X) == 0:
+            return
+
+        n_samples = len(self.history_X)
+
+        for epoch in range(self.train_epochs):
+            if n_samples <= self.batch_size:
+                batch_idx = np.arange(n_samples)
+            else:
+                batch_idx = self.rng.choice(n_samples, size=self.batch_size, replace=False)
+
+            grad_W1_accum = jnp.zeros_like(self.W1)
+            grad_b1_accum = jnp.zeros_like(self.b1)
+
+            for idx in batch_idx:
+                X = jnp.asarray(self.history_X[idx])
+                rewards = jnp.asarray(self.history_rewards[idx])
+                mask = jnp.asarray(self.history_mask[idx])
+
+                H, Z1 = self._features(X)
+                pred = compute_shared_predictions(H, self.A_inv, self.b_bayes)
+
+                ucb_values = compute_shared_ucb_values(H, self.A_inv, self.b_bayes, self.beta)
+                Y_target = jnp.where(mask > 0.5, rewards, ucb_values)
+
+                spo_grad_val = spo_plus_grad(pred, Y_target, self.weights, self.capacity)
+
+                if self.alpha > 0:
+                    mse_grad = 2 * (pred - Y_target) / self.n_arms
+                    hybrid_grad = self.alpha * mse_grad + (1 - self.alpha) * spo_grad_val
+                else:
+                    hybrid_grad = spo_grad_val
+
+                theta = self.A_inv @ self.b_bayes
+                grad_H = jnp.outer(hybrid_grad, theta)
+                grad_Z1 = grad_H * (Z1 > 0)
+                grad_W1 = X.T @ grad_Z1
+                grad_b1 = jnp.sum(grad_Z1, axis=0)
+
+                grad_W1_accum += grad_W1
+                grad_b1_accum += grad_b1
+
+            n_batch = len(batch_idx)
+            grads = {
+                'W1': grad_W1_accum / n_batch,
+                'b1': grad_b1_accum / n_batch
+            }
+
+            updates, self.opt_state = self.optimizer.update(
+                grads, self.opt_state, {'W1': self.W1, 'b1': self.b1}
+            )
+            params = optax.apply_updates({'W1': self.W1, 'b1': self.b1}, updates)
+            self.W1 = jnp.clip(params['W1'], -10, 10)
+            self.b1 = params['b1']
+
+    def update(self, X, selection, rewards, lr: float = None, full_feedback: bool = False):
+        X_np = np.asarray(X)
+        X = jnp.asarray(X)
+        selection = jnp.asarray(selection)
+        rewards = jnp.asarray(rewards)
+
+        H, Z1 = self._features(X)
+
+        selection_mask = selection > 0.5
+        self.A, self.b_bayes, self.A_inv = update_shared_bayesian_stats(
+            self.A, self.b_bayes, self.A_inv, H, rewards, selection_mask
+        )
+
+        self.history_X.append(X_np)
+        self.history_rewards.append(np.asarray(rewards))
+        self.history_mask.append(np.asarray(selection) > 0.5)
+
+        if self.t % self.train_interval == 0:
+            self._train_batch()

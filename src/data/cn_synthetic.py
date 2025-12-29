@@ -3,7 +3,6 @@ from typing import Tuple
 
 
 def sample_uniform_unit_ball(rng: np.random.Generator, dim: int) -> np.ndarray:
-    """Sample uniformly from the unit ball in R^dim."""
     x = rng.standard_normal(dim)
     x = x / np.linalg.norm(x)
     u = rng.uniform(0, 1)
@@ -25,7 +24,6 @@ class CNSyntheticData:
         seed: int = 42,
     ):
         self.n_arms = n_arms
-        # Support both n_features and context_dim (context_dim takes precedence)
         if context_dim is not None:
             self.n_features = context_dim
         elif n_features is not None:
@@ -39,26 +37,20 @@ class CNSyntheticData:
         self.use_knapsack = use_knapsack
         self.rng = np.random.default_rng(seed)
 
-        # Per-arm coefficient vectors (each normalized to unit norm)
         self.coefficients = np.zeros((n_arms, self.n_features))
         for i in range(n_arms):
             a = self.rng.standard_normal(self.n_features)
             self.coefficients[i] = a / np.linalg.norm(a)
 
         if use_knapsack:
-            # Varied weights like Fantasy salaries
             self.weights = self.rng.uniform(weight_range[0], weight_range[1], n_arms)
-            # Capacity allows ~K items on average (avg_weight * K * 1.1 for some slack)
             avg_weight = (weight_range[0] + weight_range[1]) / 2
             self.capacity = avg_weight * K * 1.1
         else:
-            # Original top-K behavior
             self.weights = np.ones(n_arms)
             self.capacity = float(K)
 
     def _compute_scores(self, context: np.ndarray) -> np.ndarray:
-        """Compute reward values for all arms given shared context."""
-        # projections[i] = context^T θ_i
         projections = self.coefficients @ context
 
         if self.score_type == 'linear':
@@ -73,7 +65,6 @@ class CNSyntheticData:
         return scores
 
     def sample(self) -> Tuple[np.ndarray, np.ndarray]:
-        """Sample a shared context and compute rewards for all arms."""
         context = sample_uniform_unit_ball(self.rng, self.n_features)
         values = self._compute_scores(context)
 
@@ -88,9 +79,7 @@ class CNSyntheticData:
         for i in range(self.n_arms):
             contexts[i] = sample_uniform_unit_ball(self.rng, self.n_features)
 
-        # Compute reward for each arm using its own context
-        # projections[i] = contexts[i]^T θ_i
-        projections = np.sum(contexts * self.coefficients, axis=1)  # (n_arms,)
+        projections = np.sum(contexts * self.coefficients, axis=1)
 
         if self.score_type == 'linear':
             values = projections
@@ -167,11 +156,9 @@ class CNSyntheticEnv:
 
     @property
     def per_arm_context(self) -> bool:
-        """If True, context is (n_arms, context_dim) instead of (context_dim,)."""
         return self._use_per_arm_context
 
     def reset(self) -> np.ndarray:
-        """Reset and return initial context."""
         if self._use_per_arm_context:
             self._current_context, self._current_values = self.data.sample_per_arm()
         else:
@@ -179,7 +166,6 @@ class CNSyntheticEnv:
         return self._current_context
 
     def get_context(self) -> np.ndarray:
-        """Sample new context for next round."""
         if self._use_per_arm_context:
             self._current_context, self._current_values = self.data.sample_per_arm()
         else:
@@ -187,7 +173,6 @@ class CNSyntheticEnv:
         return self._current_context
 
     def step(self, selection: np.ndarray, full_feedback: bool = False) -> Tuple:
-        """Execute action and return observations."""
         selection = np.asarray(selection)
 
         true_values = self._current_values
@@ -214,7 +199,6 @@ class CNSyntheticEnv:
         return observed_values, reward, info
 
     def generate_test_set(self, n_samples: int = 100) -> Tuple:
-        """Generate test set for evaluation."""
         X_test = []
         Y_test = []
 
@@ -229,14 +213,11 @@ class CNSyntheticEnv:
         return np.array(X_test), np.array(Y_test)
 
     def solve(self, values: np.ndarray) -> np.ndarray:
-        """Solve for optimal selection."""
         values = np.asarray(values)
         if self.use_knapsack:
-            # Use knapsack solver for varied weights
             from src.solver import solve_knapsack
             return solve_knapsack(values, self.weights, self.capacity)
         else:
-            # Original top-K behavior
             selection = np.zeros(self.n_arms)
             top_k_indices = np.argsort(-values)[:self.K]
             selection[top_k_indices] = 1
