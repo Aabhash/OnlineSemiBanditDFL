@@ -4,7 +4,6 @@ from src.data.cn_synthetic import CNSyntheticEnv
 from src.envs.shortest_path import ShortestPathEnv
 from src.envs.criteo import CriteoEnv
 from src.envs.fantasy import FantasyEnv
-from src.envs.fpl import FPLEnv
 
 __all__ = [
     'ConstrainedBanditEnv',
@@ -13,7 +12,6 @@ __all__ = [
     'ShortestPathEnv',
     'CriteoEnv',
     'FantasyEnv',
-    'FPLEnv',
 ]
 
 
@@ -47,11 +45,9 @@ def create_env(env_type: str, seed: int = 42, **kwargs):
         kwargs_copy.pop('n_rounds', None)
         kwargs_copy.pop('eval_metric', None)
         return FantasyEnv(seed=seed, **kwargs_copy)
-    elif env_type.startswith('fpl'):
-        return FPLEnv(seed=seed, **kwargs)
     else:
         raise ValueError(
             f"Unknown environment type: {env_type}. "
             f"Available: synthetic, cn_linear, cn_quadratic, cn_cosine, "
-            f"shortest_path_5, shortest_path_8, criteo_ads, fantasy, nfl_logged, nfl_online, fpl"
+            f"shortest_path_5, shortest_path_8, criteo_ads, fantasy, nfl_logged, nfl_online"
         )
