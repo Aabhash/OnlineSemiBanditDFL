@@ -4,8 +4,8 @@ import numpy as np
 import optax
 from src.solver import solve_top_k
 
-DEFAULT_TRAIN_INTERVAL = 1
-DEFAULT_TRAIN_EPOCHS = 10
+DEFAULT_TRAIN_INTERVAL = 5
+DEFAULT_TRAIN_EPOCHS = 50
 DEFAULT_BATCH_SIZE = 64
 DEFAULT_GRAD_CLIP = 5.0
 

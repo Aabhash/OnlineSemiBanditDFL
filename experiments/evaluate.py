@@ -79,11 +79,19 @@ def get_agents(env, seed, lr=0.01, n_rounds=300, hidden_dim=None):
     minimize = getattr(env, 'minimize', False)
 
     return {
+        'Random': RandomAgent(
+            env.n_arms, env.weights, env.capacity, seed=seed
+        ),
+        'EpsilonGreedy': EpsilonGreedyAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            hidden_dim=hidden_dim, epsilon=0.1, decay_epsilon=True,
+            decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed
+        ),
         'UCB-Bayesian': UCBAgent(
             BayesianLinearModel(env.context_dim, env.n_arms),
             env.weights, env.capacity, beta=1.0, minimize=minimize, solver=solver
         ),
-        'ThompsonSampling': ThompsonSamplingAgent(
+        'TS': ThompsonSamplingAgent(
             BayesianLinearModel(env.context_dim, env.n_arms),
             env.weights, env.capacity, minimize=minimize, solver=solver
         ),
@@ -101,14 +109,6 @@ def get_agents(env, seed, lr=0.01, n_rounds=300, hidden_dim=None):
             hidden_dim=hidden_dim, beta=1.0, decay_rounds=n_rounds,
             alpha=0.0, lambda_reg=1.0, solver=solver, seed=seed
         ),
-        'EpsilonGreedy': EpsilonGreedyAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, epsilon=0.1, decay_epsilon=True,
-            decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed
-        ),
-        'Random': RandomAgent(
-            env.n_arms, env.weights, env.capacity, seed=seed
-        ),
     }
 
 
@@ -119,10 +119,13 @@ def get_per_arm_agents(env, seed, lr=0.01, n_rounds=300, hidden_dim=None):
     solver = env.solve
 
     return {
-        'PerArmBayesianSPO': PerArmBayesianSPOAgent(
+        'PerArmRandom': PerArmRandomAgent(
+            env.n_arms, env.weights, env.capacity, seed=seed
+        ),
+        'PerArmGreedy': PerArmEpsilonGreedyAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, beta=1.0, alpha=0.0, lambda_reg=1.0,
-            lr=lr, decay_rounds=n_rounds, solver=solver, seed=seed
+            hidden_dim=hidden_dim, epsilon=0.0, decay_epsilon=False,
+            decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed
         ),
         'PerArmLinUCB': PerArmLinUCBAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
@@ -132,7 +135,6 @@ def get_per_arm_agents(env, seed, lr=0.01, n_rounds=300, hidden_dim=None):
             env.context_dim, env.n_arms, env.weights, env.capacity,
             lambda_reg=1.0, sigma=1.0, solver=solver, seed=seed
         ),
-
         'CN-UCB': CNUCBAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             hidden_dim=hidden_dim, lambda_reg=1.0, gamma=1.0, lr=lr,
@@ -143,6 +145,11 @@ def get_per_arm_agents(env, seed, lr=0.01, n_rounds=300, hidden_dim=None):
             hidden_dim=hidden_dim, lambda_reg=1.0, nu=1.0, lr=lr,
             per_arm_context=True, solver=solver, seed=seed
         ),
+        'PerArmBayesianSPO': PerArmBayesianSPOAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            hidden_dim=hidden_dim, beta=1.0, alpha=0.0, lambda_reg=1.0,
+            lr=lr, decay_rounds=n_rounds, solver=solver, seed=seed
+        ),
         'PerArmMSENeural': PerArmMSENeuralAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             hidden_dim=hidden_dim, beta=1.0, lambda_reg=1.0,
@@ -152,14 +159,6 @@ def get_per_arm_agents(env, seed, lr=0.01, n_rounds=300, hidden_dim=None):
             env.context_dim, env.n_arms, env.weights, env.capacity,
             hidden_dim=hidden_dim, epsilon=0.1, decay_epsilon=True,
             decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed
-        ),
-        'PerArmGreedy': PerArmEpsilonGreedyAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, epsilon=0.0, decay_epsilon=False,
-            decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed
-        ),
-        'PerArmRandom': PerArmRandomAgent(
-            env.n_arms, env.weights, env.capacity, seed=seed
         ),
     }
 

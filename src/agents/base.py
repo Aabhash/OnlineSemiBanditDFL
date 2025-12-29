@@ -118,10 +118,10 @@ def run_experiment(
     test_set: tuple = None,
     n_test_samples: int = 100,
 ) -> Dict[str, List[float]]:
-    from src.agents.shared_context.baselines import RandomAgent, GreedyAgent
-    from src.agents.shared_context.bayesian import ThompsonSamplingAgent, UCBAgent
-    from src.agents.shared_context.ucb import LinUCBAgent, NeuralUCBAgent
-    from src.agents.shared_context.full_spo import FullSPOAgent
+    from src.agents.shared_context.baselines import RandomAgent
+    from src.agents.shared_context.greedy_agents import GreedyAgent
+    from src.agents.shared_context.ts_agents import ThompsonSamplingAgent
+    from src.agents.shared_context.ucb_agents import LinUCBAgent, NeuralUCBAgent, UCBAgent
     from src.agents.shared_context.bayesian_spo import BayesianSPOAgent
 
     rewards = []
@@ -175,7 +175,7 @@ def run_experiment(
                               NeuralUCBAgent, RandomAgent)):
             agent.update(X, selection, observed_values, full_feedback=full_feedback)
 
-        elif isinstance(agent, (FullSPOAgent, BayesianSPOAgent)):
+        elif isinstance(agent, BayesianSPOAgent):
             agent.update(X, selection, observed_values, lr, full_feedback=full_feedback)
 
         elif isinstance(agent, GreedyAgent):

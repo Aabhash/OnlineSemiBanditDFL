@@ -10,18 +10,31 @@ sys.path.insert(0, '.')
 
 from src.envs import create_env
 from src.agents import run_experiment
-from src.agents.shared_context.ucb import LinUCBAgent, NeuralUCBAgent
-from src.agents.shared_context.bayesian import ThompsonSamplingAgent, UCBAgent
-from src.agents.shared_context.baselines import EpsilonGreedyAgent, MSENeuralAgent
-from src.agents.shared_context.bayesian_spo import BayesianSPOAgent
-from src.agents.shared_context.full_spo import FullSPOAgent
-from src.agents.shared_context.decision_ucb import DecisionUCBAgent
-from src.agents.per_arm_context.per_arm_bayesian_spo import PerArmBayesianSPOAgent
-from src.agents.per_arm_context.per_arm_spo import PerArmFullSPOAgent
-from src.agents.per_arm_context.per_arm_ntk_spo import PerArmNTKSPOAgent, PerArmNTKDecisionUCBAgent
-from src.agents.per_arm_context.cn_ucb import CNUCBAgent, CNTSAgent
-from src.agents.per_arm_context.per_arm_bayesian import PerArmLinUCBAgent
-from src.agents.per_arm_context.per_arm_baselines import PerArmNeuralUCBAgent
+from src.agents.shared_context import (
+    BayesianSPOAgent,
+    LinUCBAgent,
+    NeuralUCBAgent,
+    ThompsonSamplingAgent,
+    UCBAgent,
+    EpsilonGreedyAgent,
+    MSENeuralAgent,
+)
+from src.agents.per_arm_context import (
+    PerArmBayesianSPOAgent,
+    CNUCBAgent,
+    CNTSAgent,
+    PerArmLinUCBAgent,
+    PerArmThompsonSamplingAgent,
+    PerArmMSENeuralAgent,
+    PerArmNeuralUCBAgent,
+)
+from experiments.ablations.agents import (
+    DecisionUCBAgent,
+    FullSPOAgent,
+    PerArmFullSPOAgent,
+    PerArmNTKSPOAgent,
+    PerArmNTKDecisionUCBAgent,
+)
 from src.models import BayesianLinearModel
 
 
@@ -65,7 +78,6 @@ HYPERPARAMETER_GRIDS = {
         'beta': [0.5, 1.0, 2.0],
     },
     'ThompsonSampling': {},
-    # Per-arm context agents
     'PerArmNTKSPO': {
         'gamma_start': [1.0, 2.0, 3.0],
         'gamma_end': [0.05, 0.1, 0.2],
@@ -89,13 +101,18 @@ HYPERPARAMETER_GRIDS = {
         'hidden_dim': [32, 64],
     },
     'CN-UCB': {
-        'alpha': [0.5, 1.0, 2.0],
+        'gamma': [0.5, 1.0, 2.0],
         'lambda_reg': [0.1, 1.0],
         'hidden_dim': [32, 64],
+        'train_interval': [1, 5],
+        'train_epochs': [5, 10],
     },
     'CN-TS': {
-        'hidden_dim': [32, 64],
+        'nu': [0.5, 1.0, 2.0],
         'lambda_reg': [0.1, 1.0],
+        'hidden_dim': [32, 64],
+        'train_interval': [1, 5],
+        'train_epochs': [5, 10],
     },
     'PerArmLinUCB': {
         'alpha': [0.5, 1.0, 2.0],
@@ -163,11 +180,11 @@ DATASET_CONFIGS = {
         'data_type': 'synthetic',
         'context_dim': 20,
     },
-    # Real-world datasets
     'fantasy': {
         'n_players': 100,
         'salary_cap': 50000,
         'context_dim': 20,
+        'holdout_weeks': 5,
     },
     'criteo_ads': {
         'n_campaigns': 100,
@@ -176,17 +193,13 @@ DATASET_CONFIGS = {
     },
 }
 
-# Shared context datasets (use BayesianSPO, DecisionUCB, etc.)
 SHARED_CONTEXT_DATASETS = ['synthetic', 'shortest_path_5', 'criteo_ads']
 
-# Per-arm context datasets (use NTK-SPO, CN-UCB, etc.)
 PER_ARM_CONTEXT_DATASETS = ['fantasy', 'cn_linear', 'cn_quadratic', 'cn_cosine']
 
-# Shared context agents
 SHARED_CONTEXT_AGENTS = ['BayesianSPO', 'DecisionUCB', 'FullSPO', 'LinUCB', 'NeuralUCB',
                          'MSENeural', 'UCB-Bayesian', 'ThompsonSampling', 'EpsilonGreedy']
 
-# Per-arm context agents
 PER_ARM_CONTEXT_AGENTS = ['PerArmNTKSPO', 'PerArmNTKDecisionUCB', 'PerArmBayesianSPO',
                           'PerArmFullSPO', 'CN-UCB', 'CN-TS', 'PerArmLinUCB', 'PerArmNeuralUCB']
 
@@ -259,7 +272,6 @@ def create_agent(agent_name, env, params, seed, n_rounds, lr):
             BayesianLinearModel(env.context_dim, env.n_arms),
             env.weights, env.capacity, minimize=minimize, solver=solver
         )
-    # Per-arm context agents
     elif agent_name == 'PerArmNTKSPO':
         return PerArmNTKSPOAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
@@ -305,16 +317,21 @@ def create_agent(agent_name, env, params, seed, n_rounds, lr):
     elif agent_name == 'CN-UCB':
         return CNUCBAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            alpha=params.get('alpha', 1.0),
+            gamma=params.get('gamma', 1.0),
             lambda_reg=params.get('lambda_reg', 1.0),
             hidden_dim=params.get('hidden_dim', 64),
+            train_interval=params.get('train_interval', 1),
+            train_epochs=params.get('train_epochs', 10),
             lr=lr, solver=solver, seed=seed
         )
     elif agent_name == 'CN-TS':
         return CNTSAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
+            nu=params.get('nu', 1.0),
             lambda_reg=params.get('lambda_reg', 1.0),
             hidden_dim=params.get('hidden_dim', 64),
+            train_interval=params.get('train_interval', 1),
+            train_epochs=params.get('train_epochs', 10),
             lr=lr, solver=solver, seed=seed
         )
     elif agent_name == 'PerArmLinUCB':
@@ -347,12 +364,16 @@ def run_single_experiment(
     config_idx=0,
     use_wandb=False,
     wandb_project=None,
+    eval_interval=10,
 ):
-    dataset_config = DATASET_CONFIGS.get(dataset, DATASET_CONFIGS['synthetic'])
+    dataset_config = DATASET_CONFIGS.get(dataset, DATASET_CONFIGS['synthetic']).copy()
     feedback_type = 'full' if full_feedback else 'semi_bandit'
 
     env = create_env(dataset, seed=seed, **dataset_config)
+    test_set = env.generate_test_set(100)
     agent = create_agent(agent_name, env, params, seed, n_rounds, lr)
+
+    has_holdout = hasattr(env, 'evaluate_on_holdout') and hasattr(env, 'holdout_weeks') and env.holdout_weeks > 0
 
     run_name = f"{feedback_type}_{dataset}_{agent_name}_c{config_idx}_s{seed}"
 
@@ -364,14 +385,15 @@ def run_single_experiment(
         'seed': seed,
         'n_rounds': n_rounds,
         'lr': lr,
-        'dataset_config': dataset_config,
+        'has_holdout': has_holdout,
+        'dataset_config': {k: v for k, v in dataset_config.items() if not isinstance(v, np.ndarray)},
         **params,
     }
 
-    # Initialize wandb
+    wandb_run = None
     if use_wandb:
         import wandb
-        wandb.init(
+        wandb_run = wandb.init(
             project=wandb_project or 'constrained-bandits-tuning',
             name=run_name,
             config=run_config,
@@ -383,25 +405,53 @@ def run_single_experiment(
     result = run_experiment(
         env, agent, n_rounds,
         lr=lr, full_feedback=full_feedback,
+        test_set=test_set,
     )
 
-    if use_wandb:
+    if use_wandb and wandb_run is not None:
         import wandb
+
         for t in range(len(result['cumulative_regret'])):
             log_dict = {
                 'round': t,
                 'train/cumulative_regret': result['cumulative_regret'][t],
                 'train/instantaneous_regret': result['regrets'][t],
+                'train/reward': result['rewards'][t],
+                'train/optimal_reward': result['optimal_rewards'][t],
             }
-            if 'test_regrets' in result and not np.isnan(result['test_regrets'][t]):
-                log_dict['test/regret'] = result['test_regrets'][t]
+            if 'test_regrets' in result and t < len(result['test_regrets']):
+                if not np.isnan(result['test_regrets'][t]):
+                    log_dict['test/regret'] = result['test_regrets'][t]
             wandb.log(log_dict)
 
+        holdout_evals = result.get('holdout_evals', [])
+        for round_num, holdout_result in holdout_evals:
+            holdout_log = {'round': round_num}
+            if isinstance(holdout_result, dict):
+                for key, value in holdout_result.items():
+                    if isinstance(value, (int, float)) and not np.isnan(value):
+                        holdout_log[f'holdout/{key}'] = value
+            else:
+                holdout_log['holdout/regret'] = holdout_result
+            wandb.log(holdout_log)
+
         wandb.summary['train/final_regret'] = result['final_regret']
+        wandb.summary['train/final_reward'] = result['final_reward']
+        wandb.summary['train/final_optimal'] = result['final_optimal']
+
         if 'test_regrets' in result:
             non_nan = [r for r in result['test_regrets'] if not np.isnan(r)]
             if non_nan:
                 wandb.summary['test/final_regret'] = non_nan[-1]
+
+        if holdout_evals:
+            final_holdout = holdout_evals[-1][1]
+            if isinstance(final_holdout, dict):
+                for key, value in final_holdout.items():
+                    if isinstance(value, (int, float)) and not np.isnan(value):
+                        wandb.summary[f'holdout/final_{key}'] = value
+            else:
+                wandb.summary['holdout/final_regret'] = final_holdout
 
         wandb.finish()
 
@@ -428,6 +478,7 @@ def tune_agent(
         grid = {'_default': [True]}
 
     best_regret = float('inf')
+    best_holdout_regret = float('inf')
     best_params = None
     all_results = []
 
@@ -438,8 +489,11 @@ def tune_agent(
     for i, params in enumerate(param_combinations):
         actual_params = {k: v for k, v in params.items() if k != '_default'}
 
-        regrets = []
+        train_regrets = []
         test_regrets = []
+        holdout_regrets = []
+        holdout_rewards = []
+        seed_details = []
 
         for seed in range(n_seeds):
             result = run_single_experiment(
@@ -455,36 +509,87 @@ def tune_agent(
                 wandb_project=wandb_project,
             )
 
-            regrets.append(result['final_regret'])
+            train_regrets.append(result['final_regret'])
+
+            seed_detail = {
+                'seed': seed,
+                'final_regret': float(result['final_regret']),
+                'final_reward': float(result['final_reward']),
+                'rewards_per_round': [float(r) for r in result['rewards']],
+                'regrets_per_round': [float(r) for r in result['regrets']],
+                'cumulative_regret': [float(r) for r in result['cumulative_regret']],
+            }
+
             if 'test_regrets' in result:
                 non_nan = [r for r in result['test_regrets'] if not np.isnan(r)]
                 if non_nan:
                     test_regrets.append(non_nan[-1])
+                    seed_detail['final_test_regret'] = float(non_nan[-1])
 
-        mean_regret = np.mean(regrets)
-        std_regret = np.std(regrets)
-        mean_test_regret = np.mean(test_regrets) if test_regrets else np.nan
+            holdout_evals = result.get('holdout_evals', [])
+            if holdout_evals:
+                final_holdout = holdout_evals[-1][1]
+                if isinstance(final_holdout, dict):
+                    if 'regret' in final_holdout:
+                        holdout_regrets.append(final_holdout['regret'])
+                    if 'avg_reward' in final_holdout:
+                        holdout_rewards.append(final_holdout['avg_reward'])
+                    elif 'total_reward' in final_holdout:
+                        holdout_rewards.append(final_holdout['total_reward'])
+                    seed_detail['holdout'] = {k: float(v) if isinstance(v, (int, float, np.floating)) else v
+                                              for k, v in final_holdout.items()}
+                else:
+                    holdout_regrets.append(final_holdout)
+                    seed_detail['holdout_regret'] = float(final_holdout)
 
-        all_results.append({
+            seed_details.append(seed_detail)
+
+        mean_train = np.mean(train_regrets)
+        std_train = np.std(train_regrets)
+        mean_test = np.mean(test_regrets) if test_regrets else np.nan
+        mean_holdout_regret = np.mean(holdout_regrets) if holdout_regrets else np.nan
+        std_holdout_regret = np.std(holdout_regrets) if holdout_regrets else np.nan
+        mean_holdout_reward = np.mean(holdout_rewards) if holdout_rewards else np.nan
+
+        result_entry = {
             'params': actual_params,
-            'mean_train_regret': float(mean_regret),
-            'std_train_regret': float(std_regret),
-            'mean_test_regret': float(mean_test_regret) if not np.isnan(mean_test_regret) else None,
-            'train_regrets': [float(r) for r in regrets],
-            'test_regrets': [float(r) for r in test_regrets] if test_regrets else [],
-        })
+            'mean_train_regret': float(mean_train),
+            'std_train_regret': float(std_train),
+            'mean_test_regret': float(mean_test) if not np.isnan(mean_test) else None,
+            'final_train_regrets': [float(r) for r in train_regrets],
+            'final_test_regrets': [float(r) for r in test_regrets] if test_regrets else [],
+            'seed_details': seed_details,
+        }
 
-        if mean_regret < best_regret:
-            best_regret = mean_regret
+        if holdout_regrets:
+            result_entry['mean_holdout_regret'] = float(mean_holdout_regret)
+            result_entry['std_holdout_regret'] = float(std_holdout_regret)
+            result_entry['holdout_regrets'] = [float(r) for r in holdout_regrets]
+        if holdout_rewards:
+            result_entry['mean_holdout_reward'] = float(mean_holdout_reward)
+            result_entry['holdout_rewards'] = [float(r) for r in holdout_rewards]
+
+        all_results.append(result_entry)
+
+        if mean_train < best_regret:
+            best_regret = mean_train
             best_params = actual_params
+        if holdout_regrets and mean_holdout_regret < best_holdout_regret:
+            best_holdout_regret = mean_holdout_regret
 
         if verbose:
-            test_str = f", test={mean_test_regret:.1f}" if not np.isnan(mean_test_regret) else ""
-            print(f"  [{i+1}/{len(param_combinations)}] {actual_params} -> train={mean_regret:.1f}+/-{std_regret:.1f}{test_str}")
+            parts = [f"train={mean_train:.1f}±{std_train:.1f}"]
+            if not np.isnan(mean_test):
+                parts.append(f"test={mean_test:.1f}")
+            if holdout_regrets:
+                parts.append(f"holdout={mean_holdout_regret:.1f}±{std_holdout_regret:.1f}")
+            print(f"  [{i+1}/{len(param_combinations)}] {actual_params} -> {', '.join(parts)}")
 
     if verbose:
         print(f"\nBest params for {agent_name} on {dataset} ({feedback_type}): {best_params}")
         print(f"Best train regret: {best_regret:.1f}")
+        if not np.isinf(best_holdout_regret):
+            print(f"Best holdout regret: {best_holdout_regret:.1f}")
 
     return best_params, best_regret, all_results
 
@@ -500,9 +605,8 @@ def run_full_tuning(
     wandb_project=None,
     output_dir='experiments/tuning/results',
 ):
-    """Run hyperparameter tuning for multiple agents across multiple datasets."""
     if feedback_types is None:
-        feedback_types = [False]  # Default: semi-bandit only
+        feedback_types = [False]
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -539,10 +643,31 @@ def run_full_tuning(
                         'all_results': agent_results,
                     }
 
-                    best_hyperparams[key][agent_name] = {
+                    best_config = None
+                    for result in agent_results:
+                        if result['params'] == best_params:
+                            best_config = result
+                            break
+
+                    best_entry = {
                         'params': best_params,
-                        'train_regret': float(best_regret),
+                        'train_regret_mean': float(best_regret),
+                        'train_regret_std': float(best_config['std_train_regret']) if best_config else 0.0,
+                        'n_rounds': n_rounds,
+                        'n_seeds': n_seeds,
+                        'lr': lr,
                     }
+
+                    if best_config:
+                        if 'mean_holdout_regret' in best_config:
+                            best_entry['holdout_regret_mean'] = best_config['mean_holdout_regret']
+                            best_entry['holdout_regret_std'] = best_config.get('std_holdout_regret', 0.0)
+                        if 'mean_holdout_reward' in best_config:
+                            best_entry['holdout_reward_mean'] = best_config['mean_holdout_reward']
+                        if 'mean_test_regret' in best_config and best_config['mean_test_regret'] is not None:
+                            best_entry['test_regret_mean'] = best_config['mean_test_regret']
+
+                    best_hyperparams[key][agent_name] = best_entry
 
                 except Exception as e:
                     print(f"  ERROR tuning {agent_name} on {dataset}: {e}")
@@ -568,26 +693,37 @@ def run_full_tuning(
 
 
 def print_summary(results, best_hyperparams):
-    """Print a summary table of best hyperparameters."""
-    print('\n' + '=' * 70)
+    print('\n' + '=' * 90)
     print('TUNING SUMMARY - BEST HYPERPARAMETERS')
-    print('=' * 70)
+    print('=' * 90)
 
     for key, agents in best_hyperparams.items():
         print(f"\n{key.upper()}:")
-        print(f"{'Agent':<20} {'Train Regret':>12} {'Best Params'}")
-        print('-' * 70)
+
+        has_holdout = any('holdout_regret_mean' in r for r in agents.values() if isinstance(r, dict))
+
+        if has_holdout:
+            print(f"{'Agent':<20} {'Train':>12} {'Holdout':>12} {'Best Params'}")
+        else:
+            print(f"{'Agent':<20} {'Train Regret':>12} {'Best Params'}")
+        print('-' * 90)
 
         sorted_agents = sorted(
             [(a, r) for a, r in agents.items() if 'params' in r],
-            key=lambda x: x[1]['train_regret']
+            key=lambda x: x[1].get('holdout_regret_mean', x[1]['train_regret_mean'])
         )
 
         for agent_name, result in sorted_agents:
             params_str = ', '.join(f"{k}={v}" for k, v in (result['params'] or {}).items())
-            if len(params_str) > 35:
-                params_str = params_str[:32] + '...'
-            print(f"{agent_name:<20} {result['train_regret']:>12.1f} {params_str}")
+            if len(params_str) > 40:
+                params_str = params_str[:37] + '...'
+
+            train_str = f"{result['train_regret_mean']:.1f}±{result.get('train_regret_std', 0):.1f}"
+            if has_holdout and 'holdout_regret_mean' in result:
+                holdout_str = f"{result['holdout_regret_mean']:.1f}±{result.get('holdout_regret_std', 0):.1f}"
+                print(f"{agent_name:<20} {train_str:>12} {holdout_str:>12} {params_str}")
+            else:
+                print(f"{agent_name:<20} {train_str:>12} {params_str}")
 
 
 def main():
@@ -653,11 +789,11 @@ def main():
         datasets_to_tune = ['synthetic']
 
     if args.both_feedback:
-        feedback_types = [False, True]  # semi-bandit and full
+        feedback_types = [False, True]
     elif args.full_feedback:
         feedback_types = [True]
     else:
-        feedback_types = [False]  # semi-bandit only
+        feedback_types = [False]
 
     feedback_names = ['full' if f else 'semi_bandit' for f in feedback_types]
     print(f'Agents: {agents_to_tune}')
