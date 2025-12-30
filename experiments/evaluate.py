@@ -217,6 +217,8 @@ def run_evaluation(
     tuned_params: Optional[Dict[str, Dict[str, Any]]] = None,
     feedback_types: Optional[list] = None,
     agents_filter: Optional[list] = None,
+    wandb_enabled: bool = False,
+    use_tuned_params_flag: bool = False,
 ):
     dataset_config = config['datasets'][dataset].copy()
     dataset_config.pop('env_type', None)
@@ -308,6 +310,30 @@ def run_evaluation(
                     'mse_losses': result.get('mse_losses', []),
                     'spo_losses': result.get('spo_losses', []),
                 }
+
+                # Log to wandb if enabled
+                if wandb_enabled:
+                    agent_params = tuned_params.get(agent_name, {}) if tuned_params else {}
+                    wandb_logger = EvaluationWandbLogger(
+                        config=config,
+                        agent_name=agent_name,
+                        dataset=dataset,
+                        feedback_type=feedback_mode,
+                        seed=seed,
+                        use_tuned_params=use_tuned_params_flag,
+                        n_rounds=n_rounds,
+                        params=agent_params,
+                    )
+                    wandb_logger.start()
+                    wandb_logger.log_trajectory(result)
+
+                    holdout_regret = None
+                    holdout_evals = result.get('holdout_evals', [])
+                    if holdout_evals:
+                        holdout_regret = holdout_evals[-1][1].get('regret')
+
+                    wandb_logger.log_final_summary(result['final_regret'], holdout_regret)
+                    wandb_logger.finish()
 
                 if verbose:
                     holdout_evals = result.get('holdout_evals', [])
@@ -536,12 +562,28 @@ def run_evaluation_analysis(
 
 
 class EvaluationWandbLogger:
+    """Logger for a single evaluation run (one agent, one seed)."""
 
-    def __init__(self, config: Dict[str, Any], dataset: str, feedback_type: str, use_tuned_params: bool):
+    def __init__(
+        self,
+        config: Dict[str, Any],
+        agent_name: str,
+        dataset: str,
+        feedback_type: str,
+        seed: int,
+        use_tuned_params: bool,
+        n_rounds: int,
+        params: Optional[Dict[str, Any]] = None,
+    ):
         self.config = config
+        self.agent_name = agent_name
         self.dataset = dataset
         self.feedback_type = feedback_type
+        self.seed = seed
         self.use_tuned_params = use_tuned_params
+        self.n_rounds = n_rounds
+        self.params = params or {}
+
         self._wandb = None
         self._run = None
         self._enabled = config.get('wandb', {}).get('enabled', False)
@@ -563,8 +605,125 @@ class EvaluationWandbLogger:
         project = eval_config.get('project', wandb_config.get('project', 'constrained-bandits-eval'))
         base_tags = eval_config.get('tags', wandb_config.get('tags', ['evaluation']))
 
-        run_name = f"{self.dataset}_{self.feedback_type}_eval"
-        tags = base_tags + [self.dataset, self.feedback_type]
+        run_name = f"{self.dataset}_{self.feedback_type}_{self.agent_name}_seed{self.seed}"
+        tags = base_tags + [self.agent_name, self.dataset, self.feedback_type, f'seed_{self.seed}']
+        if self.use_tuned_params:
+            tags.append('tuned-params')
+
+        group = f"{self.dataset}_{self.feedback_type}_{self.agent_name}"
+
+        run_config = {
+            'agent': self.agent_name,
+            'dataset': self.dataset,
+            'feedback_type': self.feedback_type,
+            'seed': self.seed,
+            'n_rounds': self.n_rounds,
+            'use_tuned_params': self.use_tuned_params,
+            **{f'hp/{k}': v for k, v in self.params.items()},
+        }
+
+        self._run = self._wandb.init(
+            project=project,
+            entity=wandb_config.get('entity'),
+            name=run_name,
+            group=group,
+            job_type='evaluation',
+            config=run_config,
+            tags=tags,
+            reinit=True,
+        )
+
+    def log_trajectory(self, result: Dict[str, Any]):
+        """Log full trajectory after experiment completes."""
+        if not self._enabled or not self._run:
+            return
+
+        # Log per-round metrics
+        cumulative_regret = result.get('cumulative_regret', [])
+        regrets = result.get('regrets', [])
+        rewards = result.get('rewards', [])
+        optimal_rewards = result.get('optimal_rewards', [])
+
+        log_interval = self.config.get('wandb', {}).get('log_interval', 10)
+
+        for i in range(len(cumulative_regret)):
+            if i % log_interval == 0 or i == len(cumulative_regret) - 1:
+                metrics = {
+                    'round': i,
+                    'train/cumulative_regret': cumulative_regret[i],
+                }
+                if i < len(regrets):
+                    metrics['train/regret'] = regrets[i]
+                if i < len(rewards):
+                    metrics['train/reward'] = rewards[i]
+                if i < len(optimal_rewards):
+                    metrics['train/optimal_reward'] = optimal_rewards[i]
+
+                self._wandb.log(metrics, step=i)
+
+        # Log holdout metrics if available
+        holdout_evals = result.get('holdout_evals', [])
+        for round_num, holdout_data in holdout_evals:
+            self._wandb.log({
+                'holdout/regret': holdout_data.get('regret', 0),
+                'holdout/cumulative_regret': holdout_data.get('cumulative_regret', holdout_data.get('regret', 0)),
+            }, step=round_num)
+
+    def log_final_summary(self, final_regret: float, holdout_regret: Optional[float] = None):
+        """Log final summary metrics."""
+        if not self._enabled or not self._run:
+            return
+
+        self._wandb.summary['final_regret'] = final_regret
+        if holdout_regret is not None:
+            self._wandb.summary['holdout_regret'] = holdout_regret
+
+    def finish(self):
+        if self._run:
+            self._run.finish()
+            self._run = None
+
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.finish()
+        return False
+
+
+class EvaluationSummaryLogger:
+    """Logger for evaluation summary across all agents and seeds."""
+
+    def __init__(self, config: Dict[str, Any], dataset: str, feedback_type: str, use_tuned_params: bool):
+        self.config = config
+        self.dataset = dataset
+        self.feedback_type = feedback_type
+        self.use_tuned_params = use_tuned_params
+        self._wandb = None
+        self._run = None
+        self._enabled = config.get('wandb', {}).get('enabled', False)
+
+        if self._enabled:
+            try:
+                import wandb
+                self._wandb = wandb
+            except ImportError:
+                self._enabled = False
+
+    def log_summary(self, results: Dict[str, list]):
+        """Log summary table comparing all agents."""
+        if not self._enabled:
+            return
+
+        wandb_config = self.config.get('wandb', {})
+        eval_config = wandb_config.get('evaluation', {})
+
+        project = eval_config.get('project', wandb_config.get('project', 'constrained-bandits-eval'))
+        base_tags = eval_config.get('tags', wandb_config.get('tags', ['evaluation']))
+
+        run_name = f"{self.dataset}_{self.feedback_type}_summary"
+        tags = base_tags + [self.dataset, self.feedback_type, 'summary']
         if self.use_tuned_params:
             tags.append('tuned-params')
 
@@ -572,36 +731,25 @@ class EvaluationWandbLogger:
             project=project,
             entity=wandb_config.get('entity'),
             name=run_name,
+            group=f"{self.dataset}_{self.feedback_type}",
+            job_type='summary',
             config={
                 'dataset': self.dataset,
                 'feedback_type': self.feedback_type,
                 'use_tuned_params': self.use_tuned_params,
+                'type': 'summary',
             },
             tags=tags,
             reinit=True,
         )
 
-    def log_agent_result(self, agent_name: str, regrets: list, seed: int):
-        if not self._enabled or not self._run:
-            return
-
-        self._wandb.log({
-            f'{agent_name}/seed_{seed}/cumulative_regret': regrets[-1] if regrets else 0,
-        })
-
-    def log_summary(self, results: Dict[str, list]):
-        if not self._enabled or not self._run:
-            return
-
-        # Log summary statistics
+        # Log summary statistics for each agent
         for agent_name, regrets in results.items():
             mean_regret = np.mean(regrets)
             std_regret = np.std(regrets)
-            self._wandb.log({
-                f'summary/{agent_name}/mean_regret': mean_regret,
-                f'summary/{agent_name}/std_regret': std_regret,
-                f'summary/{agent_name}/n_seeds': len(regrets),
-            })
+            self._wandb.summary[f'{agent_name}/mean_regret'] = mean_regret
+            self._wandb.summary[f'{agent_name}/std_regret'] = std_regret
+            self._wandb.summary[f'{agent_name}/n_seeds'] = len(regrets)
 
         # Log comparison table
         table_data = [[agent, np.mean(r), np.std(r), len(r)]
@@ -612,9 +760,13 @@ class EvaluationWandbLogger:
         )
         self._wandb.log({'results_table': table})
 
-    def finish(self):
-        if self._run:
-            self._run.finish()
+        # Log best agent
+        best_agent = min(results.items(), key=lambda x: np.mean(x[1]))
+        self._wandb.summary['best_agent'] = best_agent[0]
+        self._wandb.summary['best_mean_regret'] = np.mean(best_agent[1])
+
+        self._run.finish()
+        self._run = None
 
 
 def _generate_comparison_plot(
@@ -803,6 +955,8 @@ Examples:
             tuned_params=tuned_params,
             feedback_types=feedback_types,
             agents_filter=agents_filter,
+            wandb_enabled=wandb_enabled,
+            use_tuned_params_flag=args.use_tuned_params,
         )
 
         print_summary(results, dataset, trajectories)
@@ -810,20 +964,18 @@ Examples:
         all_results[dataset] = results
         all_trajectories.update(trajectories)
 
-        # Log to wandb if enabled
+        # Log summary to wandb if enabled
         if wandb_enabled:
             for ft in feedback_types:
                 if ft in results and results[ft]:
-                    wandb_logger = EvaluationWandbLogger(
+                    summary_logger = EvaluationSummaryLogger(
                         config=config,
                         dataset=dataset,
                         feedback_type=ft,
                         use_tuned_params=args.use_tuned_params,
                     )
-                    wandb_logger.start()
-                    wandb_logger.log_summary(results[ft])
-                    wandb_logger.finish()
-                    print(f'Logged {dataset}/{ft} results to wandb')
+                    summary_logger.log_summary(results[ft])
+                    print(f'Logged {dataset}/{ft} summary to wandb')
 
     if not args.no_save:
         save_results(all_results, all_trajectories, output_dir)
