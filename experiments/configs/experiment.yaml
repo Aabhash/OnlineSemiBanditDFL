@@ -3,9 +3,9 @@ experiment:
   output_dir: "results/tuning"
 
 tuning:
-  n_trials: 50
+  n_trials: 20
   n_seeds: 3
-  n_rounds: 5000
+  n_rounds: 3000
   timeout_per_trial: 3600
   sampler_seed: 42
   default_lr: 0.01
@@ -120,7 +120,7 @@ evaluation:
     n_rounds: 300
     n_seeds: 3
   full:
-    n_rounds: 2000
+    n_rounds: 10000
     n_seeds: 10
   output_dir: "results/eval"
 
