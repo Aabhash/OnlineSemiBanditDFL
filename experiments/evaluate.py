@@ -3,6 +3,7 @@ import numpy as np
 import sys
 import os
 import yaml
+import time
 from datetime import datetime
 from typing import Dict, Any, Optional
 
@@ -285,17 +286,26 @@ def run_evaluation(
 
                 env = create_env(dataset, seed=seed, **dataset_config)
 
-                # Get LR from tuned params or default
+                # Get LR and params from tuned params or default
                 if tuned_params and agent_name in tuned_params:
                     lr = tuned_params[agent_name].get('lr', config['agent_defaults']['lr'])
+                    agent_params = tuned_params[agent_name]
                 else:
                     lr = config['agent_defaults']['lr']
+                    agent_params = {}
+
+                # Time the experiment
+                start_time = time.perf_counter()
 
                 result = run_experiment(
                     env, agent, n_rounds,
                     lr=lr, full_feedback=full_feedback,
                     test_set=test_set
                 )
+
+                wall_time = time.perf_counter() - start_time
+                result['wall_time_seconds'] = wall_time
+                result['hyperparameters'] = agent_params
 
                 if agent_name not in results[feedback_mode]:
                     results[feedback_mode][agent_name] = []
@@ -309,6 +319,8 @@ def run_evaluation(
                     'holdout_evals': result.get('holdout_evals', []),
                     'mse_losses': result.get('mse_losses', []),
                     'spo_losses': result.get('spo_losses', []),
+                    'wall_time_seconds': result.get('wall_time_seconds', 0.0),
+                    'hyperparameters': result.get('hyperparameters', {}),
                 }
 
                 # Log to wandb if enabled
@@ -332,17 +344,22 @@ def run_evaluation(
                     if holdout_evals:
                         holdout_regret = holdout_evals[-1][1].get('regret')
 
-                    wandb_logger.log_final_summary(result['final_regret'], holdout_regret)
+                    wandb_logger.log_final_summary(
+                        result['final_regret'],
+                        holdout_regret,
+                        wall_time_seconds=wall_time,
+                    )
                     wandb_logger.finish()
 
                 if verbose:
                     holdout_evals = result.get('holdout_evals', [])
+                    time_str = f'{wall_time:.1f}s'
                     if holdout_evals:
                         final_holdout = holdout_evals[-1][1]
                         holdout_regret = final_holdout['regret']
-                        print(f'regret={result["final_regret"]:.0f}, holdout_regret={holdout_regret:.0f}', flush=True)
+                        print(f'regret={result["final_regret"]:.0f}, holdout={holdout_regret:.0f}, time={time_str}', flush=True)
                     else:
-                        print(f'{result["final_regret"]:.0f}', flush=True)
+                        print(f'regret={result["final_regret"]:.0f}, time={time_str}', flush=True)
 
     return results, trajectories
 
@@ -436,7 +453,83 @@ def save_results(results, trajectories, output_dir):
     with open(f'{output_dir}/metrics/trajectories.pkl', 'wb') as f:
         pickle.dump(trajectories, f)
 
+    # Compute and save results summary (mean/std, timing, hyperparameters per agent)
+    results_summary = {}
+    holdout_summary = {}
+
+    for key, data in trajectories.items():
+        agent_name, dataset, feedback_mode, seed = key
+        run_key = f"{agent_name}_{dataset}_{feedback_mode}"
+
+        # Initialize if needed
+        if run_key not in results_summary:
+            results_summary[run_key] = {
+                'agent': agent_name,
+                'dataset': dataset,
+                'feedback_type': feedback_mode,
+                'final_regrets': [],
+                'wall_times': [],
+            }
+            holdout_summary[run_key] = []
+
+        # Collect final regret
+        cumulative_regret = data.get('cumulative_regret', [])
+        if cumulative_regret:
+            results_summary[run_key]['final_regrets'].append(cumulative_regret[-1])
+
+        # Collect wall time
+        results_summary[run_key]['wall_times'].append(data.get('wall_time_seconds', 0.0))
+
+        # Collect holdout regret if available
+        holdout_evals = data.get('holdout_evals', [])
+        if holdout_evals:
+            final_holdout = holdout_evals[-1][1]
+            holdout_summary[run_key].append(final_holdout.get('regret', 0.0))
+
+    # Compute statistics
+    for run_key, summary in results_summary.items():
+        regrets = summary['final_regrets']
+        times = summary['wall_times']
+
+        # Rename to cumulative_regret for clarity
+        summary['cumulative_regrets'] = regrets
+        del summary['final_regrets']
+
+        summary['mean_cumulative_regret'] = float(np.mean(regrets)) if regrets else 0.0
+        summary['std_cumulative_regret'] = float(np.std(regrets)) if regrets else 0.0
+        summary['min_cumulative_regret'] = float(np.min(regrets)) if regrets else 0.0
+        summary['max_cumulative_regret'] = float(np.max(regrets)) if regrets else 0.0
+        summary['n_seeds'] = len(regrets)
+
+        summary['wall_times_seconds'] = [float(t) for t in times]
+        del summary['wall_times']
+
+        summary['mean_wall_time_seconds'] = float(np.mean(times)) if times else 0.0
+        summary['total_wall_time_seconds'] = float(np.sum(times)) if times else 0.0
+
+        # Add holdout stats if available
+        if holdout_summary.get(run_key):
+            holdout_regrets = holdout_summary[run_key]
+            summary['mean_cumulative_holdout_regret'] = float(np.mean(holdout_regrets))
+            summary['std_cumulative_holdout_regret'] = float(np.std(holdout_regrets))
+
+        # Add hyperparameters if available (from first seed)
+        if summary.get('hyperparameters'):
+            pass  # Already set from timing_summary logic
+        else:
+            # Find from trajectories
+            for tkey, tdata in trajectories.items():
+                if f"{tkey[0]}_{tkey[1]}_{tkey[2]}" == run_key:
+                    summary['hyperparameters'] = tdata.get('hyperparameters', {})
+                    break
+
+    with open(f'{output_dir}/metrics/results_summary.json', 'w') as f:
+        json.dump(results_summary, f, indent=2)
+
+    # Compute overall timing
+    total_time = sum(data.get('wall_time_seconds', 0.0) for data in trajectories.values())
     print(f'\nSaved results to {output_dir}/metrics/')
+    print(f'Total evaluation time: {total_time/60:.1f} minutes ({total_time/3600:.2f} hours)')
 
 
 def run_evaluation_analysis(
@@ -669,7 +762,12 @@ class EvaluationWandbLogger:
                 'holdout/cumulative_regret': holdout_data.get('cumulative_regret', holdout_data.get('regret', 0)),
             }, step=round_num)
 
-    def log_final_summary(self, final_regret: float, holdout_regret: Optional[float] = None):
+    def log_final_summary(
+        self,
+        final_regret: float,
+        holdout_regret: Optional[float] = None,
+        wall_time_seconds: Optional[float] = None,
+    ):
         """Log final summary metrics."""
         if not self._enabled or not self._run:
             return
@@ -677,6 +775,8 @@ class EvaluationWandbLogger:
         self._wandb.summary['final_regret'] = final_regret
         if holdout_regret is not None:
             self._wandb.summary['holdout_regret'] = holdout_regret
+        if wall_time_seconds is not None:
+            self._wandb.summary['wall_time_seconds'] = wall_time_seconds
 
     def finish(self):
         if self._run:
