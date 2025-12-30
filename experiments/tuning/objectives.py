@@ -24,6 +24,25 @@ def load_search_spaces(search_space_dir: str) -> Dict[str, Dict[str, Any]]:
     return search_spaces
 
 
+def has_tunable_params(search_space: Dict[str, Any]) -> bool:
+    for name, spec in search_space.items():
+        if name == 'tune_lr':
+            continue
+        if isinstance(spec, dict) and 'type' in spec:
+            return True
+    return False
+
+
+def get_tunable_agents(search_spaces: Dict[str, Dict[str, Any]]) -> List[str]:
+    """Get list of agents that have tunable hyperparameters."""
+    return [agent for agent, space in search_spaces.items() if has_tunable_params(space)]
+
+
+def get_non_tunable_agents(search_spaces: Dict[str, Dict[str, Any]]) -> List[str]:
+    """Get list of agents that have NO tunable hyperparameters (e.g., Random, TS)."""
+    return [agent for agent, space in search_spaces.items() if not has_tunable_params(space)]
+
+
 def sample_hyperparameters(
     trial: 'optuna.Trial',
     search_space: Dict[str, Any],
@@ -229,7 +248,6 @@ def get_n_rounds_for_dataset(config: Dict[str, Any], dataset: str) -> int:
 
 
 def uses_holdout_for_selection(config: Dict[str, Any], dataset: str) -> bool:
-    """Check if dataset uses holdout regret for HP selection (e.g., nfl_logged)."""
     dataset_config = config['datasets'].get(dataset, {})
     return dataset_config.get('eval_metric') == 'holdout'
 

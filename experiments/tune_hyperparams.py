@@ -8,7 +8,12 @@ from pathlib import Path
 sys.path.insert(0, '.')
 
 from experiments.tuning import BanditHyperparameterTuner
-from experiments.tuning.objectives import load_search_spaces, get_n_rounds_for_dataset, uses_holdout_for_selection
+from experiments.tuning.objectives import (
+    load_search_spaces,
+    get_n_rounds_for_dataset,
+    uses_holdout_for_selection,
+    has_tunable_params,
+)
 from experiments.tuning.optuna_tuner import load_config
 from experiments.tuning.results_store import ResultsStore
 from experiments.analysis.bootstrap import compute_all_confidence_intervals, print_ci_table
@@ -21,14 +26,30 @@ DEFAULT_SEARCH_SPACE_DIR = 'experiments/configs/search_spaces'
 DEFAULT_OUTPUT_DIR = 'results/tuning'
 
 
-def get_agents_for_dataset(search_spaces: dict, config: dict, dataset: str) -> list:
+def get_agents_for_dataset(
+    search_spaces: dict,
+    config: dict,
+    dataset: str,
+    tunable_only: bool = False,
+) -> list:
     dataset_config = config['datasets'][dataset]
     env_type = dataset_config['env_type']
 
     if env_type == 'per_arm_context':
-        return [a for a in search_spaces if a.startswith('PerArm') or a.startswith('CN-')]
+        agents = [a for a in search_spaces if a.startswith('PerArm') or a.startswith('CN-')]
     else:
-        return [a for a in search_spaces if not a.startswith('PerArm') and not a.startswith('CN-')]
+        agents = [a for a in search_spaces if not a.startswith('PerArm') and not a.startswith('CN-')]
+
+    if tunable_only:
+        agents = [a for a in agents if has_tunable_params(search_spaces[a])]
+
+    return agents
+
+
+def get_skipped_agents_for_dataset(search_spaces: dict, config: dict, dataset: str) -> list:
+    all_agents = get_agents_for_dataset(search_spaces, config, dataset, tunable_only=False)
+    tunable_agents = get_agents_for_dataset(search_spaces, config, dataset, tunable_only=True)
+    return [a for a in all_agents if a not in tunable_agents]
 
 
 def run_analysis(
@@ -158,8 +179,11 @@ Examples:
     if args.parallel:
         config['compute']['max_parallel_trials'] = args.parallel
 
+    # Get agents for tuning (only those with tunable hyperparameters)
+    skipped_agents = get_skipped_agents_for_dataset(search_spaces, config, args.dataset)
+
     if args.all:
-        agents = get_agents_for_dataset(search_spaces, config, args.dataset)
+        agents = get_agents_for_dataset(search_spaces, config, args.dataset, tunable_only=True)
     elif args.agent:
         if args.agent not in search_spaces:
             print(f"Error: Unknown agent '{args.agent}'")
@@ -178,9 +202,15 @@ Examples:
                 print("This dataset requires shared context agents (not PerArm* or CN-*)")
             print(f"Compatible agents: {compatible_agents}")
             sys.exit(1)
-        agents = [args.agent]
+        # Check if the specific agent has tunable params
+        if args.agent in skipped_agents:
+            print(f"Warning: Agent '{args.agent}' has no tunable hyperparameters. Skipping HP tuning.")
+            print("This agent will still be included in final evaluation with default params.")
+            agents = []
+        else:
+            agents = [args.agent]
     else:
-        agents = get_agents_for_dataset(search_spaces, config, args.dataset)
+        agents = get_agents_for_dataset(search_spaces, config, args.dataset, tunable_only=True)
 
     wandb_status = "enabled" if config.get('wandb', {}).get('enabled', False) else "disabled"
 
@@ -190,7 +220,9 @@ Examples:
     print(f"Config: {args.config}")
     print(f"Dataset: {args.dataset}")
     print(f"Feedback: {args.feedback}")
-    print(f"Agents: {agents}")
+    print(f"Agents to tune: {agents}")
+    if skipped_agents:
+        print(f"Skipped (no tunable HPs): {skipped_agents}")
     print(f"Trials: {config['tuning']['n_trials']}")
     print(f"Seeds: {len(config['seeds'])}")
     print(f"Max rounds: {effective_n_rounds}")

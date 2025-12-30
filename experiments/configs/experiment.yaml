@@ -11,7 +11,7 @@ tuning:
   default_lr: 0.01
 
 early_stopping:
-  method: "ASHA"
+  method: "NONE"  # Disabled for low-fidelity tuning; use ASHA for full-scale tuning
   min_resource: 50
   max_resource: 2000
   reduction_factor: 3
@@ -101,24 +101,6 @@ datasets:
     env_type: per_arm_context
     n_rounds: 17           # One round per week, no repetition
     eval_metric: training  # Report cumulative training regret directly
-
-  cn_linear:
-    n_arms: 20
-    context_dim: 80
-    K: 4
-    env_type: per_arm_context
-
-  cn_quadratic:
-    n_arms: 20
-    context_dim: 80
-    K: 4
-    env_type: per_arm_context
-
-  cn_cosine:
-    n_arms: 20
-    context_dim: 80
-    K: 4
-    env_type: per_arm_context
 
   shortest_path_5:
     grid_size: 5

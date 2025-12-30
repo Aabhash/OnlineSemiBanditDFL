@@ -8,7 +8,7 @@
 #SBATCH --error=%x-%j.err
 
 cd ~/ConstrainedBanditsDFL
-uv run python experiments/tune_hyperparams.py --all --dataset synthetic_no_noise --n-seeds 3 --n-rounds 5000 --n-trials 30 --analyze
+uv run python experiments/tune_hyperparams.py --all --dataset synthetic_no_noise --n-seeds 3 --n-rounds 3000 --n-trials 30 --analyze
 uv run python experiments/evaluate.py --datasets synthetic_no_noise --use-tuned-params --full --n_seeds 10 --wandb
 
 # uv run python experiments/tune_hyperparams.py --all --dataset synthetic_low_noise --n-seeds 3 --n-rounds 5000 --n-trials 30  --analyze
