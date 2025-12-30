@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Tuple
+from typing import Tuple, Dict, Any
 
 from src.envs.base import ConstrainedBanditEnv
 from src.data.synthetic import SyntheticKnapsackData
@@ -16,6 +16,10 @@ class SyntheticKnapsackEnv(ConstrainedBanditEnv):
         deg: int = 4,
         noise_width: float = 0.5,
         seed: int = 42,
+        nonstationarity: str = 'none',
+        drift_rate: float = 0.01,
+        shift_interval: int = 500,
+        shift_fraction: float = 0.2,
     ):
         if context_dim is not None:
             effective_dim = context_dim
@@ -31,6 +35,10 @@ class SyntheticKnapsackEnv(ConstrainedBanditEnv):
             deg=deg,
             noise_width=noise_width,
             seed=seed,
+            nonstationarity=nonstationarity,
+            drift_rate=drift_rate,
+            shift_interval=shift_interval,
+            shift_fraction=shift_fraction,
         )
 
         super().__init__(
@@ -42,6 +50,21 @@ class SyntheticKnapsackEnv(ConstrainedBanditEnv):
         )
 
         self.current_context, self.current_values = self._generate_sample()
+
+    def step(
+        self,
+        action: np.ndarray,
+        full_feedback: bool = False,
+    ) -> Tuple[np.ndarray, float, Dict[str, Any]]:
+        observed_values, reward, info = super().step(action, full_feedback)
+
+        self.data.step()
+
+        return observed_values, reward, info
+
+    def reset(self) -> np.ndarray:
+        self.data.reset()
+        return super().reset()
 
     def _generate_sample(self) -> Tuple[np.ndarray, np.ndarray]:
         return self.data.sample()

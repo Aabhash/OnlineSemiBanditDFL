@@ -536,7 +536,6 @@ def run_evaluation_analysis(
 
 
 class EvaluationWandbLogger:
-    """Simple wandb logger for evaluation runs."""
 
     def __init__(self, config: Dict[str, Any], dataset: str, feedback_type: str, use_tuned_params: bool):
         self.config = config
@@ -623,7 +622,6 @@ def _generate_comparison_plot(
     dataset: str,
     output_dir: str,
 ):
-    """Generate bar plot comparing agents."""
     try:
         import matplotlib.pyplot as plt
     except ImportError:

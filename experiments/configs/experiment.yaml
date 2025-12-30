@@ -54,31 +54,28 @@ analysis:
     alpha: 0.05
 
 datasets:
-  synthetic:
+
+  # Non-stationary synthetic (tests adaptation to changing reward dynamics)
+  synthetic_drift_low_noise:
     n_items: 32
     context_dim: 5
     capacity: 20.0
+    noise_width: 0.1
+    nonstationarity: drift_and_shift
+    drift_rate: 0.02
+    shift_interval: 200
+    shift_fraction: 0.1
     env_type: shared_context
 
-  synthetic_no_noise:
+  synthetic_drift_high_noise:
     n_items: 32
     context_dim: 5
     capacity: 20.0
-    noise_width: 0.0
-    env_type: shared_context
-
-  synthetic_low_noise:
-    n_items: 32
-    context_dim: 5
-    capacity: 20.0
-    noise_width: 0.25
-    env_type: shared_context
-
-  synthetic_high_noise:
-    n_items: 32
-    context_dim: 5
-    capacity: 20.0
-    noise_width: 0.5
+    noise_width: 0.1
+    nonstationarity: drift_and_shift
+    drift_rate: 0.02
+    shift_interval: 200
+    shift_fraction: 0.1
     env_type: shared_context
 
   # NFL Fantasy variants
@@ -101,12 +98,6 @@ datasets:
     env_type: per_arm_context
     n_rounds: 17           # One round per week, no repetition
     eval_metric: training  # Report cumulative training regret directly
-
-  shortest_path_5:
-    grid_size: 5
-    data_type: synthetic
-    context_dim: 10
-    env_type: shared_context
 
   shortest_path_8:
     grid_size: 8
