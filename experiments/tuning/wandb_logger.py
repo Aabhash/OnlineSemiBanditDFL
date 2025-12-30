@@ -149,8 +149,6 @@ class WandbRunLogger:
         final_validation_regret: float,
         holdout_regret: Optional[float],
         wall_time_seconds: float,
-        pruned: bool,
-        pruned_at_round: Optional[int],
         total_rounds: int,
     ):
         if not self._enabled or self._run is None:
@@ -159,14 +157,10 @@ class WandbRunLogger:
         self._wandb.summary['final_train_regret'] = final_train_regret
         self._wandb.summary['final_validation_regret'] = final_validation_regret
         self._wandb.summary['wall_time_seconds'] = wall_time_seconds
-        self._wandb.summary['pruned'] = pruned
         self._wandb.summary['total_rounds'] = total_rounds
 
         if holdout_regret is not None:
             self._wandb.summary['holdout_regret'] = holdout_regret
-
-        if pruned_at_round is not None:
-            self._wandb.summary['pruned_at_round'] = pruned_at_round
 
     def finish(self, status: str = 'completed'):
         if not self._enabled or self._run is None:
@@ -261,7 +255,6 @@ class WandbStudyLogger:
         best_params: Dict[str, Any],
         best_value: float,
         n_trials: int,
-        n_pruned: int,
         total_time_minutes: float,
     ):
         if not self._enabled:
@@ -294,7 +287,6 @@ class WandbStudyLogger:
         self._wandb.summary['best_value'] = best_value
         self._wandb.summary['best_params'] = best_params
         self._wandb.summary['n_trials'] = n_trials
-        self._wandb.summary['n_pruned'] = n_pruned
         self._wandb.summary['total_time_minutes'] = total_time_minutes
 
         self._wandb.finish()

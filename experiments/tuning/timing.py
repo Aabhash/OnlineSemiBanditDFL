@@ -10,8 +10,6 @@ class TimingRecord:
     wall_time_seconds: float = 0.0
     gpu_time_seconds: Optional[float] = None
     n_rounds: int = 0
-    pruned: bool = False
-    pruned_at_round: Optional[int] = None
 
 
 class ComputeTimer:
@@ -127,18 +125,11 @@ class TrialTimer:
         end = self._end_time if self._end_time is not None else time.perf_counter()
         return end - self._start_time
 
-    def get_record(
-        self,
-        n_rounds: int,
-        pruned: bool = False,
-        pruned_at_round: Optional[int] = None
-    ) -> TimingRecord:
+    def get_record(self, n_rounds: int) -> TimingRecord:
         return TimingRecord(
             wall_time_seconds=self.elapsed,
             gpu_time_seconds=None,
             n_rounds=n_rounds,
-            pruned=pruned,
-            pruned_at_round=pruned_at_round,
         )
 
 

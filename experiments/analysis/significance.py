@@ -52,13 +52,14 @@ def wilcoxon_test_agents(
     pooled_var = (np.var(regrets1) + np.var(regrets2)) / 2
     effect_size = float((mean1 - mean2) / np.sqrt(pooled_var)) if pooled_var > 0 else 0
 
+    is_significant = bool(p_value < alpha)
     return {
         'agent1': agent1,
         'agent2': agent2,
         'statistic': float(stat),
         'p_value': float(p_value),
-        'significant': p_value < alpha,
-        'winner': winner if p_value < alpha else None,
+        'significant': is_significant,
+        'winner': winner if is_significant else None,
         'mean1': float(mean1),
         'mean2': float(mean2),
         'std1': float(np.std(regrets1)),

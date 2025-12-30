@@ -1,6 +1,5 @@
 from .optuna_tuner import BanditHyperparameterTuner
-from .objectives import ObjectiveFactory, sample_hyperparameters
-from .early_stopping import run_with_pruning
+from .objectives import ObjectiveFactory, sample_hyperparameters, run_tuning_experiment, ExperimentResult
 from .validation import OnlineValidator, OfflineValidator, create_validator
 from .timing import ComputeTimer
 from .results_store import TrialResult, ResultsStore
@@ -10,7 +9,8 @@ __all__ = [
     'BanditHyperparameterTuner',
     'ObjectiveFactory',
     'sample_hyperparameters',
-    'run_with_pruning',
+    'run_tuning_experiment',
+    'ExperimentResult',
     'OnlineValidator',
     'OfflineValidator',
     'create_validator',

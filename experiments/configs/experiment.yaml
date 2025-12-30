@@ -3,18 +3,12 @@ experiment:
   output_dir: "results/tuning"
 
 tuning:
-  n_trials: 20
+  n_trials: 25
   n_seeds: 3
-  n_rounds: 3000
+  n_rounds: 2500
   timeout_per_trial: 3600
   sampler_seed: 42
   default_lr: 0.01
-
-early_stopping:
-  method: "NONE"  # Disabled for low-fidelity tuning; use ASHA for full-scale tuning
-  min_resource: 50
-  max_resource: 2000
-  reduction_factor: 3
 
 validation:
   eval_interval: 25

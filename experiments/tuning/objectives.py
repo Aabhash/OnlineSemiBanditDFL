@@ -1,13 +1,146 @@
 import numpy as np
-from typing import Dict, Any, Callable, List, Optional
+from typing import Dict, Any, Callable, List, Optional, TYPE_CHECKING
 from pathlib import Path
+from dataclasses import dataclass, field
 import yaml
 import optuna
 
 from .timing import TrialTimer
 from .results_store import TrialResult, ResultsStore
-from .early_stopping import run_with_pruning
 from .wandb_logger import WandbTrialLogger, WandbRunLogger
+
+if TYPE_CHECKING:
+    from .wandb_logger import WandbRunLogger as WandbRunLoggerType
+
+
+@dataclass
+class ExperimentResult:
+    final_validation_regret: float
+    final_train_regret: float
+    validation_regrets: List[float] = field(default_factory=list)
+    train_regrets: List[float] = field(default_factory=list)
+    rewards: List[float] = field(default_factory=list)
+    optimal_rewards: List[float] = field(default_factory=list)
+    total_rounds: int = 0
+    holdout_regret: Optional[float] = None
+    cumulative_validation_regret: float = 0.0
+    cumulative_holdout_regret: Optional[float] = None
+
+
+def run_tuning_experiment(
+    env,
+    agent,
+    n_rounds: int,
+    eval_interval: int,
+    config: Dict[str, Any],
+    full_feedback: bool,
+    lr: float,
+    uses_lr: bool,
+    seed_idx: int = 0,
+    n_seeds: int = 1,
+    wandb_logger: Optional['WandbRunLoggerType'] = None,
+    is_online: bool = True,
+) -> ExperimentResult:
+    """Run a single tuning experiment."""
+    rewards = []
+    optimal_rewards = []
+    regrets = []
+    cumulative_regret = 0.0
+
+    # Track cumulative holdout metrics (only for non-online datasets like nfl_logged)
+    cumulative_holdout_regret = 0.0
+    cumulative_holdout_reward = 0.0
+
+    # Determine log interval for wandb (every N rounds to avoid too many logs)
+    wandb_log_interval = config.get('wandb', {}).get('log_interval', 10)
+
+    # Check if env supports holdout evaluation (only relevant for non-online datasets)
+    has_holdout = hasattr(env, 'evaluate_on_holdout') and not is_online
+
+    X = env.reset()
+
+    for t in range(n_rounds):
+        selection = agent.act(X)
+        observed_values, reward, info = env.step(selection, full_feedback=full_feedback)
+
+        rewards.append(reward)
+        optimal_reward = info['optimal_reward']
+        optimal_rewards.append(optimal_reward)
+        instant_regret = optimal_reward - reward
+        regrets.append(instant_regret)
+        cumulative_regret += instant_regret
+
+        # Try to update agent - agents have varying signatures for update()
+        try:
+            if uses_lr:
+                agent.update(X, selection, observed_values, lr=lr, full_feedback=full_feedback)
+            else:
+                agent.update(X, selection, observed_values, full_feedback=full_feedback)
+        except TypeError:
+            # Fallback chain for different agent signatures
+            try:
+                agent.update(X, selection, observed_values, full_feedback=full_feedback)
+            except TypeError:
+                try:
+                    agent.update(X, selection, observed_values, lr)
+                except TypeError:
+                    agent.update(X, selection, observed_values)
+
+        X = env.get_context()
+
+        # Log training metrics to wandb at regular intervals
+        should_log_wandb = (t + 1) % wandb_log_interval == 0 or t == n_rounds - 1
+        if wandb_logger is not None and should_log_wandb:
+            wandb_logger.log_round(
+                round_num=t,
+                regret=instant_regret,
+                cumulative_regret=cumulative_regret,
+                reward=reward,
+                optimal_reward=optimal_reward,
+            )
+
+        should_eval = (t + 1) % eval_interval == 0 or t == n_rounds - 1
+        if should_eval:
+            # For holdout datasets (nfl_logged), evaluate on holdout
+            if has_holdout:
+                holdout_result = env.evaluate_on_holdout(agent)
+                if holdout_result:
+                    holdout_regret = holdout_result['regret']
+                    holdout_reward = holdout_result.get('total_reward', holdout_result.get('reward', 0.0))
+
+                    # Update cumulative holdout metrics
+                    cumulative_holdout_regret += holdout_regret
+                    cumulative_holdout_reward += holdout_reward if holdout_reward else 0.0
+
+                    # Log holdout metrics to wandb
+                    if wandb_logger is not None:
+                        wandb_logger.log_holdout(
+                            round_num=t,
+                            holdout_regret=holdout_regret,
+                            cumulative_holdout_regret=cumulative_holdout_regret,
+                            holdout_reward=holdout_reward,
+                            cumulative_holdout_reward=cumulative_holdout_reward,
+                        )
+
+    # Get final holdout regret for the result (only for holdout datasets)
+    holdout_regret = None
+    if has_holdout:
+        holdout_result = env.evaluate_on_holdout(agent)
+        if holdout_result:
+            holdout_regret = holdout_result['regret']
+
+    return ExperimentResult(
+        final_validation_regret=cumulative_regret,
+        final_train_regret=cumulative_regret,
+        validation_regrets=[],
+        train_regrets=[sum(regrets[:i+1]) for i in range(len(regrets))],
+        rewards=rewards,
+        optimal_rewards=optimal_rewards,
+        total_rounds=n_rounds,
+        holdout_regret=holdout_regret,
+        cumulative_validation_regret=0.0,
+        cumulative_holdout_regret=cumulative_holdout_regret if has_holdout else None,
+    )
 
 
 def load_search_spaces(search_space_dir: str) -> Dict[str, Dict[str, Any]]:
@@ -302,9 +435,7 @@ class ObjectiveFactory:
             # Use holdout regret for datasets with eval_metric: holdout (e.g., nfl_logged)
             # Use cumulative training regret for others (standard in online bandit literature)
             selection_regrets = []
-            all_pruned = True
             total_wall_time = 0.0
-            n_pruned = 0
 
             n_seeds = len(seeds)
             for seed_idx, seed in enumerate(seeds):
@@ -322,13 +453,11 @@ class ObjectiveFactory:
                     )
 
                     with TrialTimer() as timer:
-                        result = run_with_pruning(
+                        result = run_tuning_experiment(
                             env=env,
                             agent=agent,
-                            trial=trial,
                             n_rounds=n_rounds,
                             eval_interval=eval_interval,
-                            validator=None,  # No validation for online datasets
                             config=config,
                             full_feedback=full_feedback,
                             lr=lr,
@@ -348,11 +477,9 @@ class ObjectiveFactory:
                             final_validation_regret=result.final_validation_regret,
                             holdout_regret=result.holdout_regret,
                             wall_time_seconds=timer.elapsed,
-                            pruned=result.pruned,
-                            pruned_at_round=result.pruned_at_round,
                             total_rounds=result.total_rounds,
                         )
-                        seed_logger.finish(status='pruned' if result.pruned else 'completed')
+                        seed_logger.finish(status='completed')
 
                     trial_result = TrialResult(
                         trial_id=trial.number,
@@ -367,8 +494,6 @@ class ObjectiveFactory:
                         final_train_regret=result.final_train_regret,
                         holdout_regret=result.holdout_regret,
                         wall_time_seconds=timer.elapsed,
-                        pruned=result.pruned,
-                        pruned_at_round=result.pruned_at_round,
                         total_rounds=result.total_rounds,
                         cumulative_validation_regret=result.cumulative_validation_regret,
                         cumulative_holdout_regret=result.cumulative_holdout_regret,
@@ -381,18 +506,10 @@ class ObjectiveFactory:
                     else:
                         selection_regrets.append(result.final_train_regret)
 
-                    if result.pruned:
-                        n_pruned += 1
-                    else:
-                        all_pruned = False
-
                 except Exception as e:
                     if seed_logger is not None:
                         seed_logger.finish(status='failed')
                     raise
-
-            if all_pruned:
-                raise optuna.TrialPruned()
 
             # HP selection based on average regret across seeds
             # Uses holdout regret for datasets with eval_metric: holdout (e.g., nfl_logged)
@@ -450,13 +567,11 @@ class ObjectiveFactory:
                     env = create_env_for_tuning(dataset, seed, config)
                     agent = create_agent_from_params(agent_name, env, params, seed, n_rounds, lr)
 
-                    result = run_with_pruning(
+                    result = run_tuning_experiment(
                         env=env,
                         agent=agent,
-                        trial=trial,
                         n_rounds=n_rounds,
                         eval_interval=eval_interval,
-                        validator=None,  # No validation for online datasets
                         config=config,
                         full_feedback=full_feedback,
                         lr=lr,
@@ -473,14 +588,9 @@ class ObjectiveFactory:
                             final_validation_regret=result.final_validation_regret,
                             holdout_regret=result.holdout_regret,
                             wall_time_seconds=0.0,
-                            pruned=result.pruned,
-                            pruned_at_round=result.pruned_at_round,
                             total_rounds=result.total_rounds,
                         )
-                        seed_logger.finish(status='pruned' if result.pruned else 'completed')
-
-                    if result.pruned:
-                        raise optuna.TrialPruned()
+                        seed_logger.finish(status='completed')
 
                     # Collect regret for HP selection based on dataset config
                     if use_holdout and result.cumulative_holdout_regret is not None:

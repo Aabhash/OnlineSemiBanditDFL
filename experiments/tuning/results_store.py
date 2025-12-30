@@ -21,8 +21,6 @@ class TrialResult:
     holdout_regret: Optional[float] = None
     wall_time_seconds: float = 0.0
     gpu_time_seconds: Optional[float] = None
-    pruned: bool = False
-    pruned_at_round: Optional[int] = None
     total_rounds: int = 0
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
     # Cumulative metrics for online bandit evaluation
@@ -42,7 +40,10 @@ class TrialResult:
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> 'TrialResult':
-        return cls(**d)
+        # Filter out legacy fields that no longer exist
+        valid_fields = {f.name for f in cls.__dataclass_fields__.values()}
+        filtered = {k: v for k, v in d.items() if k in valid_fields}
+        return cls(**filtered)
 
 
 @dataclass
@@ -60,7 +61,6 @@ class AgentSummary:
     total_wall_time_seconds: float = 0.0
     total_gpu_time_seconds: Optional[float] = None
     n_trials: int = 0
-    n_pruned: int = 0
     validation_ci_lower: Optional[float] = None
     validation_ci_upper: Optional[float] = None
 
@@ -172,7 +172,6 @@ class ResultsStore:
 
         total_wall_time = sum(t.wall_time_seconds for t in trials)
         total_gpu_time = sum(t.gpu_time_seconds for t in trials if t.gpu_time_seconds is not None)
-        n_pruned = sum(1 for t in trials if t.pruned)
 
         return AgentSummary(
             agent_name=agent_name,
@@ -188,7 +187,6 @@ class ResultsStore:
             total_wall_time_seconds=total_wall_time,
             total_gpu_time_seconds=total_gpu_time if total_gpu_time > 0 else None,
             n_trials=len(trials),
-            n_pruned=n_pruned,
         )
 
     def save_summary(self, summary: AgentSummary):
@@ -231,7 +229,6 @@ class ResultsStore:
 
         total_wall_time = 0.0
         total_gpu_time = 0.0
-        n_pruned = 0
 
         for trial in trials:
             agent = trial.agent_name
@@ -246,17 +243,12 @@ class ResultsStore:
             if trial.gpu_time_seconds:
                 total_gpu_time += trial.gpu_time_seconds
 
-            if trial.pruned:
-                n_pruned += 1
-
         return {
             'total_wall_time_seconds': total_wall_time,
             'total_wall_time_hours': total_wall_time / 3600,
             'total_gpu_time_seconds': total_gpu_time if total_gpu_time > 0 else None,
             'total_gpu_time_hours': total_gpu_time / 3600 if total_gpu_time > 0 else None,
             'n_trials': len(trials),
-            'n_pruned': n_pruned,
-            'prune_rate': n_pruned / len(trials),
             'per_agent_wall_time_hours': {k: v / 3600 for k, v in agent_times.items()},
             'per_agent_n_trials': agent_counts,
         }

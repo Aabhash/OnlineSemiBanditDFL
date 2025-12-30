@@ -623,7 +623,7 @@ def run_evaluation_analysis(
                         best_regrets[:n_compare],
                         alternative='greater'  # Test if agent is worse than best
                     )
-                    is_sig = p_value < 0.05
+                    is_sig = bool(p_value < 0.05)
                     significance_results[agent_name] = {
                         'p_value': float(p_value),
                         'significant': is_sig,
@@ -975,13 +975,13 @@ Examples:
 
     eval_config = config['evaluation']
     if args.quick:
-        n_rounds = args.n_rounds or eval_config['quick']['n_rounds']
+        default_n_rounds = args.n_rounds or eval_config['quick']['n_rounds']
         n_seeds = args.n_seeds or eval_config['quick']['n_seeds']
     elif args.full:
-        n_rounds = args.n_rounds or eval_config['full']['n_rounds']
+        default_n_rounds = args.n_rounds or eval_config['full']['n_rounds']
         n_seeds = args.n_seeds or eval_config['full']['n_seeds']
     else:
-        n_rounds = args.n_rounds or eval_config['quick']['n_rounds']
+        default_n_rounds = args.n_rounds or eval_config['quick']['n_rounds']
         n_seeds = args.n_seeds or eval_config['quick']['n_seeds']
 
     output_dir = args.output_dir or eval_config['output_dir']
@@ -1003,7 +1003,7 @@ Examples:
     print(f'Mode: {"quick" if args.quick else "full" if args.full else "custom"}')
     print(f'Datasets: {datasets}')
     print(f'Feedback: {args.feedback}')
-    print(f'Rounds: {n_rounds}')
+    print(f'Default rounds: {default_n_rounds} (may be overridden by dataset config)')
     print(f'Seeds: {n_seeds}')
     print(f'Noise: {args.noise}')
     print(f'Tuned params: {args.use_tuned_params} (from {args.tuning_dir})' if args.use_tuned_params else 'Tuned params: No (using defaults)')
@@ -1026,6 +1026,20 @@ Examples:
     all_trajectories = {}
 
     for dataset in datasets:
+        # Determine n_rounds for this dataset (dataset config overrides default)
+        dataset_config = config['datasets'][dataset]
+        if args.n_rounds:
+            # Explicit CLI argument always wins
+            n_rounds = args.n_rounds
+        elif 'n_rounds' in dataset_config:
+            # Dataset-specific n_rounds
+            n_rounds = dataset_config['n_rounds']
+        else:
+            # Fall back to evaluation config default
+            n_rounds = default_n_rounds
+
+        print(f'\n[{dataset}] Using n_rounds={n_rounds}')
+
         # Load tuned parameters if requested
         tuned_params = None
         if args.use_tuned_params:
@@ -1035,7 +1049,7 @@ Examples:
                         args.tuning_dir, dataset, ft, config
                     )
                     if tuned_params:
-                        print(f'\nLoaded tuned params for {len(tuned_params)} agents on {dataset} ({ft})')
+                        print(f'Loaded tuned params for {len(tuned_params)} agents on {dataset} ({ft})')
                         for agent_name, params in tuned_params.items():
                             print(f'  {agent_name}: {params}')
                         break

@@ -16,7 +16,6 @@ from .objectives import (
 )
 from .results_store import ResultsStore
 from .timing import ComputeTimer
-from .early_stopping import create_optuna_pruner
 from .wandb_logger import WandbStudyLogger
 
 
@@ -77,14 +76,12 @@ class BanditHyperparameterTuner:
         search_space = self.search_spaces[agent_name]
         study_name = self._get_study_name(agent_name, dataset, feedback_type)
 
-        pruner = create_optuna_pruner(self.config)
         sampler_seed = self.config['tuning']['sampler_seed']
 
         study = optuna.create_study(
             study_name=study_name,
             direction="minimize",
             sampler=TPESampler(seed=sampler_seed),
-            pruner=pruner,
             storage=self.storage,
             load_if_exists=resume,
         )
@@ -126,7 +123,6 @@ class BanditHyperparameterTuner:
         # Log study summary to wandb
         wandb_enabled = self.config.get('wandb', {}).get('enabled', False)
         if wandb_enabled and len(study.trials) > 0:
-            n_pruned = len([t for t in study.trials if t.state == optuna.trial.TrialState.PRUNED])
             study_logger = WandbStudyLogger(
                 config=self.config,
                 agent_name=agent_name,
@@ -137,7 +133,6 @@ class BanditHyperparameterTuner:
                 best_params=study.best_params,
                 best_value=study.best_value,
                 n_trials=len(study.trials),
-                n_pruned=n_pruned,
                 total_time_minutes=elapsed / 60,
             )
 
@@ -229,8 +224,6 @@ class BanditHyperparameterTuner:
         print("COMPUTE SUMMARY")
         print(f"{'='*70}")
         print(f"Total trials: {compute_summary['n_trials']}")
-        print(f"Pruned trials: {compute_summary['n_pruned']} "
-              f"({compute_summary['prune_rate']*100:.1f}%)")
         print(f"Total wall time: {compute_summary['total_wall_time_hours']:.2f} hours")
 
     def get_best_params(

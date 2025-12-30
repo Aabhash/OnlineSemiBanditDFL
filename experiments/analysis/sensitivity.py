@@ -126,17 +126,25 @@ def generate_all_sensitivity_plots(
     output_path.mkdir(parents=True, exist_ok=True)
 
     for agent_name, hp_space in search_spaces.items():
+        # Skip agents that don't have trials for this dataset
+        trials = results_store.load_all_trials(agent_name=agent_name, dataset=dataset, feedback_type=feedback_type)
+        if not trials:
+            continue
+
         agent_dir = output_path / agent_name
         agent_dir.mkdir(exist_ok=True)
 
         hps = [k for k in hp_space.keys() if k not in ('tune_lr',) and isinstance(hp_space[k], dict)]
 
         for hp_name in hps:
-            plot_path = agent_dir / f"sensitivity_{hp_name}.png"
-            plot_sensitivity(
-                results_store, agent_name, dataset, hp_name,
-                str(plot_path), feedback_type
-            )
+            try:
+                plot_path = agent_dir / f"sensitivity_{hp_name}.png"
+                plot_sensitivity(
+                    results_store, agent_name, dataset, hp_name,
+                    str(plot_path), feedback_type
+                )
+            except ValueError as e:
+                print(f"  Skipping {agent_name}/{hp_name}: {e}")
 
 
 def compute_sensitivity_scores(
@@ -184,17 +192,27 @@ def generate_sensitivity_report(
         if agent_name not in search_spaces:
             continue
 
+        # Skip agents that don't have trials for this dataset
+        trials = results_store.load_all_trials(agent_name=agent_name, dataset=dataset, feedback_type=feedback_type)
+        if not trials:
+            continue
+
         hp_space = search_spaces[agent_name]
         hps = [k for k in hp_space.keys() if k not in ('tune_lr',) and isinstance(hp_space[k], dict)]
 
         agent_report = {}
         for hp_name in hps:
-            scores = compute_sensitivity_scores(
-                results_store, agent_name, dataset, hp_name, feedback_type
-            )
-            agent_report[hp_name] = scores
+            try:
+                scores = compute_sensitivity_scores(
+                    results_store, agent_name, dataset, hp_name, feedback_type
+                )
+                agent_report[hp_name] = scores
+            except ValueError:
+                # Skip HPs without enough data
+                continue
 
-        report['agents'][agent_name] = agent_report
+        if agent_report:
+            report['agents'][agent_name] = agent_report
 
     with open(output_path, 'w') as f:
         json.dump(report, f, indent=2)
