@@ -39,6 +39,8 @@ class WandbRunLogger:
             return
 
         wandb_config = self.config.get('wandb', {})
+        # Get tuning-specific config (nested under wandb.tuning)
+        tuning_config = wandb_config.get('tuning', {})
 
         run_name = f"{self.dataset}_{self.feedback_type}_{self.agent_name}_trial{self.trial_number}_seed{self.seed}"
 
@@ -52,7 +54,9 @@ class WandbRunLogger:
             **{f'hp/{k}': v for k, v in self.params.items()},
         }
 
-        tags = wandb_config.get('tags', []) + [
+        # Get tags from tuning config, fallback to top-level tags
+        base_tags = tuning_config.get('tags', wandb_config.get('tags', []))
+        tags = base_tags + [
             self.agent_name,
             self.dataset,
             self.feedback_type,
@@ -62,8 +66,11 @@ class WandbRunLogger:
 
         group = f"{self.dataset}_{self.feedback_type}_{self.agent_name}"
 
+        # Get project from tuning config, fallback to top-level project
+        project = tuning_config.get('project', wandb_config.get('project', 'constrained-bandits-tuning'))
+
         self._run = self._wandb.init(
-            project=wandb_config.get('project', 'constrained-bandits'),
+            project=project,
             entity=wandb_config.get('entity'),
             name=run_name,
             group=group,

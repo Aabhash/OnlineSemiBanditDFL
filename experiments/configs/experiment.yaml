@@ -4,8 +4,8 @@ experiment:
 
 tuning:
   n_trials: 50
-  n_seeds: 5
-  n_rounds: 10000
+  n_seeds: 3
+  n_rounds: 5000
   timeout_per_trial: 3600
   sampler_seed: 42
   default_lr: 0.01
@@ -29,10 +29,15 @@ compute:
 
 wandb:
   enabled: true
-  project: "constrained-bandits"
   entity: null
   log_interval: 10  # Log training metrics every N rounds
-  tags: ["hp-tuning"]
+  # Separate projects for HP tuning vs final evaluation
+  tuning:
+    project: "constrained-bandits-tuning"
+    tags: ["hp-tuning"]
+  evaluation:
+    project: "constrained-bandits-eval"
+    tags: ["evaluation"]
 
 storage:
   database: "sqlite:///results/tuning/optuna.db"
