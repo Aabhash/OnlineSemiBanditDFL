@@ -8,16 +8,27 @@
 #SBATCH --error=%x-%j.err
 
 cd ~/ConstrainedBanditsDFL
-uv run python experiments/tune_hyperparams.py --all --dataset synthetic_drift_low_noise --feedback semi_bandit --n-rounds 2500 --analyze
-# uv run python experiments/evaluate.py --datasets synthetic_drift_low_noise --feedback semi_bandit --use-tuned-params --full --wandb --analyze
 
-uv run python experiments/tune_hyperparams.py --all --dataset synthetic_drift_high_noise --feedback semi_bandit --n-rounds 2500  --analyze
-# uv run python experiments/evaluate.py --datasets synthetic_drift_high_noise --feedback semi_bandit --use-tuned-params --full --wandb --analyze
+# Knapsack with non-stationarity
+uv run python experiments/tune_hyperparams.py --all --dataset knapsack_drift_low_noise --feedback semi_bandit --n-rounds 2500 --analyze
+# uv run python experiments/evaluate.py --datasets knapsack_drift_low_noise --feedback semi_bandit --use-tuned-params --full --wandb --analyze
 
-# uv run python experiments/tune_hyperparams.py --all --dataset nfl_online --feedback semi_bandit --n-rounds 17 --n-trials 25  --analyze
-# uv run python experiments/evaluate.py --datasets nfl_online --use-tuned-params --feedback semi_bandit --full --wandb --n_rounds 17 --analyze
+uv run python experiments/tune_hyperparams.py --all --dataset knapsack_drift_high_noise --feedback semi_bandit --n-rounds 2500  --analyze
+# uv run python experiments/evaluate.py --datasets knapsack_drift_high_noise --feedback semi_bandit --use-tuned-params --full --wandb --analyze
 
-# uv run python experiments/tune_hyperparams.py --all --dataset nfl_logged --feedback semi_bandit --n-rounds 300  --analyze
-# uv run python experiments/evaluate.py --datasets nfl_logged --use-tuned-params --feedback semi_bandit --full --wandb --analyze
+# Shortest path with non-stationarity
+# uv run python experiments/tune_hyperparams.py --all --dataset shortest_path_drift_low_noise --feedback semi_bandit --n-rounds 2500  --analyze
+# uv run python experiments/evaluate.py --datasets shortest_path_drift_low_noise --feedback semi_bandit --use-tuned-params --full --wandb --analyze
+
+# uv run python experiments/tune_hyperparams.py --all --dataset shortest_path_drift_high_noise --feedback semi_bandit --n-rounds 2500  --analyze
+# uv run python experiments/evaluate.py --datasets shortest_path_drift_high_noise --feedback semi_bandit --use-tuned-params --full --wandb --analyze
+
+# Criteo (real-world shared context with XGBoost surrogate)
+# uv run python experiments/tune_hyperparams.py --all --dataset criteo --feedback semi_bandit --n-rounds 2500  --analyze
+# uv run python experiments/evaluate.py --datasets criteo --feedback semi_bandit --use-tuned-params --full --wandb --analyze
+
+# NFL Fantasy (per-arm context benchmark)
+# uv run python experiments/tune_hyperparams.py --all --dataset nfl --feedback semi_bandit --n-rounds 1000  --analyze
+# uv run python experiments/evaluate.py --datasets nfl --use-tuned-params --feedback semi_bandit --full --wandb --analyze
 
 EOF

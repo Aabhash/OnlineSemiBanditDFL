@@ -48,7 +48,7 @@ def run_tuning_experiment(
     cumulative_regret = 0.0
     cumulative_reward = 0.0
 
-    # Track cumulative holdout metrics (only for non-online datasets like nfl_logged)
+    # Track cumulative holdout metrics (only for datasets with holdout like nfl)
     cumulative_holdout_regret = 0.0
     cumulative_holdout_reward = 0.0
 
@@ -104,7 +104,7 @@ def run_tuning_experiment(
 
         should_eval = (t + 1) % eval_interval == 0 or t == n_rounds - 1
         if should_eval:
-            # For holdout datasets (nfl_logged), evaluate on holdout
+            # For holdout datasets (e.g., nfl), evaluate on holdout
             if has_holdout:
                 holdout_result = env.evaluate_on_holdout(agent)
                 if holdout_result:
@@ -406,7 +406,7 @@ class ObjectiveFactory:
         results_store: ResultsStore,
         feedback_type: str,
     ) -> Callable[['optuna.Trial'], float]:
-        # Use dataset-specific n_rounds if available (e.g., nfl_online: 17, nfl_logged: 1000)
+        # Use dataset-specific n_rounds if available (e.g., nfl: 1000)
         n_rounds = get_n_rounds_for_dataset(config, dataset)
         seeds = config.get('tuning_seeds', [0, 1, 2, 3, 4])
         eval_interval = config['validation']['eval_interval']

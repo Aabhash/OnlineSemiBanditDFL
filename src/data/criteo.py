@@ -4,29 +4,35 @@ import pickle
 from pathlib import Path
 from typing import Tuple, Dict, Optional
 from sklearn.preprocessing import LabelEncoder
-from sklearn.linear_model import LogisticRegression
+
+from xgboost import XGBClassifier
 
 
 class CriteoData:
-
     def __init__(
         self,
         n_campaigns: int = 100,
         context_dim: int = 50,
         subsample_rate: float = 0.1,
         data_dir: Optional[str] = None,
-        noise_std: float = 0.05,
-        env_fraction: float = 0.8,
         seed: int = 42,
         verbose: bool = False,
+        # XGBoost parameters for surrogate model
+        n_estimators: int = 200,
+        max_depth: int = 6,
+        learning_rate: float = 0.1,
     ):
         self.n_campaigns = n_campaigns
         self.context_dim = context_dim
         self.subsample_rate = subsample_rate
-        self.noise_std = noise_std
-        self.env_fraction = env_fraction
         self.verbose = verbose
         self.rng = np.random.default_rng(seed)
+        self.seed = seed
+
+        # XGBoost surrogate parameters
+        self.n_estimators = n_estimators
+        self.max_depth = max_depth
+        self.learning_rate = learning_rate
 
         if data_dir is None:
             data_dir = 'data/criteo'
@@ -35,7 +41,8 @@ class CriteoData:
         self._load_or_process_data()
 
     def _get_cache_path(self) -> Path:
-        cache_name = f'criteo_processed_n{self.n_campaigns}_d{self.context_dim}_s{int(self.subsample_rate*100)}_e{int(self.env_fraction*100)}.pkl'
+        # Cache includes XGBoost params since they affect the surrogate
+        cache_name = f'criteo_xgb_n{self.n_campaigns}_d{self.context_dim}_s{int(self.subsample_rate*100)}_est{self.n_estimators}_dep{self.max_depth}.pkl'
         return self.data_dir / cache_name
 
     def _load_or_process_data(self):
@@ -52,39 +59,35 @@ class CriteoData:
 
         self.campaign_costs = cache['campaign_costs']
         self.campaign_conv_rates = cache['campaign_conv_rates']
-        self.bandit_contexts = cache['bandit_contexts']
-        self.X_encoded_bandit = cache['X_encoded_bandit']
-        self.context_coef = cache['context_coef']
-        self.campaign_coef = cache['campaign_coef']
-        self.intercept = cache['intercept']
+        self.contexts = cache['contexts']
+        self.X_encoded = cache['X_encoded']
+        self.campaign_indices = cache['campaign_indices']
         self.projection_matrix = cache['projection_matrix']
+        self.model = cache['model']  # XGBoost model
 
         if self.verbose:
-            n_env = cache['n_env']
-            n_bandit = len(self.bandit_contexts)
-            print(f"Loaded Criteo from cache: {n_env + n_bandit:,} impressions, {self.n_campaigns} campaigns")
+            n_samples = len(self.contexts)
+            print(f"Loaded Criteo from cache: {n_samples:,} impressions, {self.n_campaigns} campaigns")
 
     def _process_and_cache(self, cache_path: Path):
-        print("Processing Criteo data (first time, will be cached)...")
+        print("Processing Criteo data with XGBoost surrogate (first time, will be cached)...")
 
         self._load_data()
 
         cache = {
             'campaign_costs': self.campaign_costs,
             'campaign_conv_rates': self.campaign_conv_rates,
-            'bandit_contexts': self.bandit_contexts,
-            'X_encoded_bandit': self.X_encoded_bandit,
-            'context_coef': self.context_coef,
-            'campaign_coef': self.campaign_coef,
-            'intercept': self.intercept,
+            'contexts': self.contexts,
+            'X_encoded': self.X_encoded,
+            'campaign_indices': self.campaign_indices,
             'projection_matrix': self.projection_matrix,
-            'n_env': self._n_env,
+            'model': self.model,
         }
 
         with open(cache_path, 'wb') as f:
             pickle.dump(cache, f)
 
-        print(f"Cached to {cache_path.name} ({self._n_env + self._n_bandit:,} impressions)")
+        print(f"Cached to {cache_path.name} ({len(self.contexts):,} impressions)")
 
     def _load_data(self):
         parquet_file = self.data_dir / f'criteo_subsample_{int(self.subsample_rate * 100)}.parquet'
@@ -97,6 +100,7 @@ class CriteoData:
 
         df = pd.read_parquet(parquet_file)
 
+        # Select top campaigns by volume
         campaign_counts = df['campaign'].value_counts()
         top_campaigns = campaign_counts.head(self.n_campaigns).index.tolist()
 
@@ -105,22 +109,13 @@ class CriteoData:
         self.campaign_to_idx = {c: i for i, c in enumerate(top_campaigns)}
         df['campaign_idx'] = df['campaign'].map(self.campaign_to_idx)
 
-        n_total = len(df)
-        n_env = int(n_total * self.env_fraction)
-
-        indices = self.rng.permutation(n_total)
-        env_indices = indices[:n_env]
-        bandit_indices = indices[n_env:]
-
-        df_env = df.iloc[env_indices].reset_index(drop=True)
-        df_bandit = df.iloc[bandit_indices].reset_index(drop=True)
-
-        campaign_stats = df_env.groupby('campaign_idx').agg({
+        # Compute campaign costs (varied weights for knapsack constraint)
+        campaign_stats = df.groupby('campaign_idx').agg({
             'cost': 'mean',
             'conversion': 'mean',
             'click': 'mean',
         }).reset_index()
-        campaign_stats['count'] = df_env.groupby('campaign_idx').size().values
+        campaign_stats['count'] = df.groupby('campaign_idx').size().values
 
         self.campaign_costs = np.zeros(self.n_campaigns)
 
@@ -139,99 +134,95 @@ class CriteoData:
             idx = int(row['campaign_idx'])
             self.campaign_conv_rates[idx] = row['conversion']
 
-        self._encode_features(df_env, fit=True)
-        self._train_model(df_env)
-        self._encode_bandit_contexts(df_bandit)
+        # Encode features and train XGBoost surrogate on 100% of data
+        self._encode_features(df)
+        self._train_xgboost_surrogate(df)
 
-        self._n_env = len(df_env)
-        self._n_bandit = len(df_bandit)
+        # Store campaign indices for sampling
+        self.campaign_indices = df['campaign_idx'].values
 
-    def _encode_features(self, df: pd.DataFrame, fit: bool = True):
+    def _encode_features(self, df: pd.DataFrame):
         cat_cols = [f'cat{i}' for i in range(1, 10) if f'cat{i}' in df.columns]
         self.cat_cols = cat_cols
 
-        if fit:
-            self.label_encoders = {}
-            encoded_features = []
-
-            for col in cat_cols:
-                le = LabelEncoder()
-                df_col = df[col].fillna(-1).astype(int)
-                encoded = le.fit_transform(df_col)
-                self.label_encoders[col] = le
-                encoded_features.append(encoded)
-
-            X_encoded = np.column_stack(encoded_features)
-
-            n_cat_features = X_encoded.shape[1]
-            self.projection_matrix = self.rng.standard_normal(
-                (n_cat_features, self.context_dim)
-            ) / np.sqrt(n_cat_features)
-
-            self.X_encoded_env = X_encoded
-
-    def _encode_bandit_contexts(self, df: pd.DataFrame):
+        self.label_encoders = {}
         encoded_features = []
 
-        for col in self.cat_cols:
-            le = self.label_encoders[col]
+        for col in cat_cols:
+            le = LabelEncoder()
             df_col = df[col].fillna(-1).astype(int)
-            encoded = np.zeros(len(df_col), dtype=int)
-            for i, val in enumerate(df_col):
-                if val in le.classes_:
-                    encoded[i] = le.transform([val])[0]
-                else:
-                    encoded[i] = 0
+            encoded = le.fit_transform(df_col)
+            self.label_encoders[col] = le
             encoded_features.append(encoded)
 
-        X_encoded = np.column_stack(encoded_features)
-        self.X_encoded_bandit = X_encoded
+        self.X_encoded = np.column_stack(encoded_features)
 
-        contexts = X_encoded @ self.projection_matrix
+        # Create random projection for context (shared across all campaigns)
+        n_cat_features = self.X_encoded.shape[1]
+        self.projection_matrix = self.rng.standard_normal(
+            (n_cat_features, self.context_dim)
+        ) / np.sqrt(n_cat_features)
+
+        # Compute normalized contexts
+        contexts = self.X_encoded @ self.projection_matrix
         norms = np.linalg.norm(contexts, axis=1, keepdims=True)
         norms[norms == 0] = 1
-        self.bandit_contexts = contexts / norms * 2
+        self.contexts = contexts / norms * 2
 
-    def _train_model(self, df: pd.DataFrame):
+    def _train_xgboost_surrogate(self, df: pd.DataFrame):
         n_samples = len(df)
+
+        # Features: encoded categoricals + campaign one-hot
         campaign_onehot = np.zeros((n_samples, self.n_campaigns))
         for i, idx in enumerate(df['campaign_idx']):
             campaign_onehot[i, idx] = 1
 
-        X = np.hstack([self.X_encoded_env, campaign_onehot])
+        X = np.hstack([self.X_encoded, campaign_onehot])
         y = df['conversion'].values
 
-        self.model = LogisticRegression(
-            max_iter=500,
-            solver='lbfgs',
-            random_state=42,
+        print(f"Training XGBoost surrogate on {n_samples:,} samples...")
+
+        self.model = XGBClassifier(
+            n_estimators=self.n_estimators,
+            max_depth=self.max_depth,
+            learning_rate=self.learning_rate,
+            random_state=self.seed,
             n_jobs=-1,
+            use_label_encoder=False,
+            eval_metric='logloss',
+            verbosity=0,
         )
 
-        if n_samples > 100000:
-            train_idx = self.rng.choice(n_samples, size=100000, replace=False)
-            self.model.fit(X[train_idx], y[train_idx])
-        else:
-            self.model.fit(X, y)
+        self.model.fit(X, y)
 
-        self.context_coef = self.model.coef_[0, :self.X_encoded_env.shape[1]]
-        self.campaign_coef = self.model.coef_[0, self.X_encoded_env.shape[1]:]
-        self.intercept = self.model.intercept_[0]
+        # Compute and report surrogate quality
+        y_pred_proba = self.model.predict_proba(X)[:, 1]
+        from sklearn.metrics import roc_auc_score, log_loss
+        auc = roc_auc_score(y, y_pred_proba)
+        logloss = log_loss(y, y_pred_proba)
+        print(f"XGBoost surrogate trained: AUC={auc:.4f}, LogLoss={logloss:.4f}")
 
     def sample(self) -> Tuple[np.ndarray, np.ndarray]:
-        idx = self.rng.integers(len(self.bandit_contexts))
-        context = self.bandit_contexts[idx].copy()
+        """Sample a context and get conversion probabilities from XGBoost.
 
-        context += self.rng.standard_normal(self.context_dim) * 0.1
+        No artificial noise is added - the XGBoost predictions are the true values.
+        """
+        idx = self.rng.integers(len(self.contexts))
+        context = self.contexts[idx].copy()
 
-        x_encoded = self.X_encoded_bandit[idx]
-        base_logit = self.context_coef @ x_encoded + self.intercept
+        # Get conversion probabilities from XGBoost surrogate for ALL campaigns
+        x_encoded = self.X_encoded[idx]
 
-        logits = base_logit + self.campaign_coef
-        probs = 1 / (1 + np.exp(-logits))
+        # Create feature vectors for each campaign
+        n_features = len(x_encoded) + self.n_campaigns
+        X_pred = np.zeros((self.n_campaigns, n_features))
 
-        values = probs + self.rng.standard_normal(self.n_campaigns) * self.noise_std
-        values = np.clip(values, 0.01, 0.99)
+        for campaign_idx in range(self.n_campaigns):
+            X_pred[campaign_idx, :len(x_encoded)] = x_encoded
+            X_pred[campaign_idx, len(x_encoded) + campaign_idx] = 1
+
+        # Get probabilities from XGBoost (these ARE the true values)
+        values = self.model.predict_proba(X_pred)[:, 1]
 
         return context, values
 
@@ -240,7 +231,9 @@ class CriteoData:
             'n_campaigns': self.n_campaigns,
             'context_dim': self.context_dim,
             'subsample_rate': self.subsample_rate,
-            'env_fraction': self.env_fraction,
+            'surrogate': 'xgboost',
+            'n_estimators': self.n_estimators,
+            'max_depth': self.max_depth,
             'cost_range': (float(self.campaign_costs.min()), float(self.campaign_costs.max())),
             'mean_conversion_rate': float(self.campaign_conv_rates.mean()),
         }

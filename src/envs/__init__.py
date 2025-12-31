@@ -16,19 +16,22 @@ __all__ = [
 
 
 def create_env(env_type: str, seed: int = 42, **kwargs):
-    if env_type == 'synthetic' or env_type.startswith('synthetic_'):
+    if env_type.startswith('knapsack'):
         return SyntheticKnapsackEnv(seed=seed, **kwargs)
     elif env_type.startswith('cn_'):
         score_type = env_type[3:]
         return CNSyntheticEnv(seed=seed, score_type=score_type, **kwargs)
-    elif kwargs.get('type') == 'cn_synthetic':
-        kwargs_copy = kwargs.copy()
-        kwargs_copy.pop('type', None)
-        return CNSyntheticEnv(seed=seed, **kwargs_copy)
     elif env_type.startswith('shortest_path'):
         kwargs_copy = kwargs.copy()
         parts = env_type.split('_')
-        grid_size = kwargs_copy.pop('grid_size', int(parts[2]) if len(parts) > 2 else 5)
+        grid_size = kwargs_copy.pop('grid_size', None)
+        if grid_size is None:
+            for part in parts[2:]:
+                if part.isdigit():
+                    grid_size = int(part)
+                    break
+            if grid_size is None:
+                grid_size = 8  # default
         data_type = kwargs_copy.pop('data_type', 'synthetic')
         return ShortestPathEnv(
             grid_size=grid_size,
@@ -38,8 +41,8 @@ def create_env(env_type: str, seed: int = 42, **kwargs):
         )
     elif env_type.startswith('criteo'):
         return CriteoEnv(seed=seed, **kwargs)
-    elif env_type.startswith('fantasy') or env_type.startswith('nfl_'):
-        # nfl_logged and nfl_online are variants of fantasy with different configs
+    elif env_type.startswith('nfl'):
+        # nfl is the main NFL Fantasy environment
         # Remove n_rounds and eval_metric as they're not FantasyEnv parameters
         kwargs_copy = kwargs.copy()
         kwargs_copy.pop('n_rounds', None)
@@ -48,7 +51,7 @@ def create_env(env_type: str, seed: int = 42, **kwargs):
     else:
         raise ValueError(
             f"Unknown environment type: {env_type}. "
-            f"Available: synthetic, synthetic_no_noise, synthetic_low_noise, synthetic_high_noise, "
+            f"Available: knapsack, knapsack_drift_*, synthetic (legacy), "
             f"cn_linear, cn_quadratic, cn_cosine, "
-            f"shortest_path_5, shortest_path_8, criteo_ads, fantasy, nfl_logged, nfl_online"
+            f"shortest_path_8, shortest_path_drift, nfl, fantasy"
         )

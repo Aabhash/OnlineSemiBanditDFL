@@ -6,30 +6,28 @@ from src.data.criteo import CriteoData
 
 
 class CriteoEnv(ConstrainedBanditEnv):
-
     def __init__(
         self,
         n_campaigns: int = 100,
         n_select: int = 10,
         context_dim: int = 50,
         subsample_rate: float = 0.1,
-        env_fraction: float = 0.8,
         data_dir: Optional[str] = None,
-        noise_std: float = 0.05,
         seed: int = 42,
+        n_estimators: int = 200,
+        max_depth: int = 6,
     ):
         self.n_select = n_select
         self.subsample_rate = subsample_rate
-        self.env_fraction = env_fraction
 
         self.data = CriteoData(
             n_campaigns=n_campaigns,
             context_dim=context_dim,
             subsample_rate=subsample_rate,
-            env_fraction=env_fraction,
             data_dir=data_dir,
-            noise_std=noise_std,
             seed=seed,
+            n_estimators=n_estimators,
+            max_depth=max_depth,
         )
 
         weights = self.data.campaign_costs.copy()

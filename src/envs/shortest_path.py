@@ -6,18 +6,6 @@ from src.data.shortest_path import SyntheticGridData
 
 
 class ShortestPathEnv:
-    """Shortest path environment for semi-bandit learning.
-
-    Key differences from knapsack:
-    - Objective: Minimize path cost (not maximize value)
-    - Constraint: Path must connect source to target (not capacity)
-    - Action space: Path through grid (not subset of items)
-    - Feedback: Observe costs only for cells in chosen path
-
-    The environment treats grid cells as "arms". Predictions are interpreted
-    as cost estimates, and the solver finds the shortest path.
-    """
-
     def __init__(
         self,
         grid_size: int = 5,
@@ -27,6 +15,11 @@ class ShortestPathEnv:
         noise_std: float = 0.0,
         data_dir: str = 'data/warcraft',
         seed: int = 42,
+        # Non-stationarity parameters
+        nonstationarity: str = 'none',
+        drift_rate: float = 0.01,
+        shift_interval: int = 500,
+        shift_fraction: float = 0.2,
     ):
         self.grid_size = grid_size
         self.data_type = data_type
@@ -38,6 +31,10 @@ class ShortestPathEnv:
                 cost_type=cost_type,
                 noise_std=noise_std,
                 seed=seed,
+                nonstationarity=nonstationarity,
+                drift_rate=drift_rate,
+                shift_interval=shift_interval,
+                shift_fraction=shift_fraction,
             )
             self.context_dim = context_dim
         else:
@@ -59,6 +56,7 @@ class ShortestPathEnv:
 
     def reset(self) -> np.ndarray:
         self.t = 0
+        self.data.reset()
         self._current_context, self._current_costs = self.data.sample()
         return self._current_context
 
@@ -107,6 +105,7 @@ class ShortestPathEnv:
         reward = -path_cost
 
         self.t += 1
+        self.data.step()  # Apply non-stationarity
         self._current_context, self._current_costs = self.data.sample()
 
         return observed_costs, reward, info
