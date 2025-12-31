@@ -12,7 +12,6 @@ from src.envs.fantasy import FantasyEnv
 from src.agents.per_arm_context import (
     CNUCBAgent,
     CNTSAgent,
-    PerArmNeuralUCBAgent,
     PerArmBayesianSPOAgent,
     PerArmLinUCBAgent,
     PerArmThompsonSamplingAgent,
@@ -52,10 +51,6 @@ def get_agent(name, env, seed, config, n_rounds):
     elif name == 'CN-TS':
         return CNTSAgent(
             **common, hidden_dim=hidden_dim, lambda_reg=lambda_reg, nu=nu, lr=lr
-        )
-    elif name == 'PerArmNeuralUCB':
-        return PerArmNeuralUCBAgent(
-            **common, hidden_dim=hidden_dim, alpha=alpha, lambda_reg=lambda_reg, lr=lr
         )
     elif name == 'PerArmBayesianSPO':
         return PerArmBayesianSPOAgent(
