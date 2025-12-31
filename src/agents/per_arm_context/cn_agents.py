@@ -70,6 +70,10 @@ class CNUCBAgent:
         train_epochs: int = None,
         batch_size: int = None,
         per_arm_context: bool = True,
+        use_full_ntk: bool = True,
+        use_lr_schedule: bool = False,
+        decay_rounds: int = 300,
+        min_lr_ratio: float = 0.1,
     ):
         self.context_dim = context_dim
         self.n_arms = n_arms
@@ -77,6 +81,7 @@ class CNUCBAgent:
         self.weights_np = np.asarray(weights)
         self.capacity = capacity
         self.hidden_dim = hidden_dim
+        self.use_full_ntk = use_full_ntk
 
         if solver is None:
             from src.solver import solve_knapsack
@@ -123,12 +128,25 @@ class CNUCBAgent:
         }
         self.total_params = sum(int(np.prod(s)) for s in self.param_shapes.values())
 
-        self.Z_diag = lambda_reg * jnp.ones(self.total_params)
+        # NTK covariance: full matrix (Sherman-Morrison) or diagonal approximation
+        if self.use_full_ntk:
+            self.Z_inv = jnp.eye(self.total_params) / lambda_reg
+            self.Z_diag = None
+        else:
+            self.Z_inv = None
+            self.Z_diag = lambda_reg * jnp.ones(self.total_params)
 
-        self.optimizer = optax.chain(
-            optax.clip_by_global_norm(DEFAULT_GRAD_CLIP),
-            optax.adam(learning_rate=lr)
-        )
+        if use_lr_schedule and decay_rounds > 0:
+            schedule = optax.cosine_decay_schedule(lr, decay_rounds, alpha=min_lr_ratio)
+            self.optimizer = optax.chain(
+                optax.clip_by_global_norm(DEFAULT_GRAD_CLIP),
+                optax.adam(learning_rate=schedule)
+            )
+        else:
+            self.optimizer = optax.chain(
+                optax.clip_by_global_norm(DEFAULT_GRAD_CLIP),
+                optax.adam(learning_rate=lr)
+            )
         self.opt_state = self.optimizer.init({
             'W1': self.W1, 'b1': self.b1,
             'W2': self.W2, 'b2': self.b2
@@ -154,8 +172,15 @@ class CNUCBAgent:
         return _compute_all_gradients(params, X, self.n_arms, self.total_params)
 
     def _compute_uncertainties(self, g_features):
+        """Compute uncertainties using NTK (full or diagonal approximation)."""
         g_scaled = g_features / np.sqrt(self.total_params)
-        uncertainties = jnp.sqrt(jnp.sum(g_scaled ** 2 / self.Z_diag, axis=1))
+        if self.use_full_ntk:
+            # Full quadratic form: g @ Z_inv @ g for each arm
+            Zg = g_scaled @ self.Z_inv  # (n_arms, total_params)
+            uncertainties = jnp.sqrt(jnp.sum(g_scaled * Zg, axis=1))
+        else:
+            # Diagonal approximation
+            uncertainties = jnp.sqrt(jnp.sum(g_scaled ** 2 / self.Z_diag, axis=1))
         return uncertainties
 
     def _raw_predict(self, X):
@@ -185,10 +210,20 @@ class CNUCBAgent:
 
     def _update_gram_matrix(self, g_features, mask):
         g_scaled = g_features / np.sqrt(self.total_params)
-        for i in range(self.n_arms):
-            if mask[i]:
-                g = g_scaled[i]
-                self.Z_diag = self.Z_diag + g ** 2
+
+        if self.use_full_ntk:
+            # Sherman-Morrison must be applied sequentially for each rank-1 update
+            for i in range(self.n_arms):
+                if mask[i]:
+                    g = g_scaled[i]
+                    # (A + gg^T)^{-1} = A^{-1} - (A^{-1}g)(g^T A^{-1}) / (1 + g^T A^{-1} g)
+                    Zg = self.Z_inv @ g
+                    denom = 1.0 + jnp.dot(g, Zg)
+                    self.Z_inv = self.Z_inv - jnp.outer(Zg, Zg) / denom
+        else:
+            # Vectorized diagonal update: sum g^2 over observed arms
+            mask_float = jnp.asarray(mask, dtype=jnp.float32)
+            self.Z_diag = self.Z_diag + jnp.sum(g_scaled ** 2 * mask_float[:, None], axis=0)
 
     def _get_initial_params(self):
         return {
@@ -329,6 +364,10 @@ class CNTSAgent:
         train_epochs: int = None,
         batch_size: int = None,
         per_arm_context: bool = True,
+        use_full_ntk: bool = True,
+        use_lr_schedule: bool = False,
+        decay_rounds: int = 300,
+        min_lr_ratio: float = 0.1,
     ):
         self.context_dim = context_dim
         self.n_arms = n_arms
@@ -336,6 +375,7 @@ class CNTSAgent:
         self.weights_np = np.asarray(weights)
         self.capacity = capacity
         self.hidden_dim = hidden_dim
+        self.use_full_ntk = use_full_ntk
 
         if solver is None:
             from src.solver import solve_knapsack
@@ -385,12 +425,25 @@ class CNTSAgent:
         }
         self.total_params = sum(int(np.prod(s)) for s in self.param_shapes.values())
 
-        self.Z_diag = lambda_reg * jnp.ones(self.total_params)
+        # NTK covariance: full matrix (Sherman-Morrison) or diagonal approximation
+        if self.use_full_ntk:
+            self.Z_inv = jnp.eye(self.total_params) / lambda_reg
+            self.Z_diag = None
+        else:
+            self.Z_inv = None
+            self.Z_diag = lambda_reg * jnp.ones(self.total_params)
 
-        self.optimizer = optax.chain(
-            optax.clip_by_global_norm(DEFAULT_GRAD_CLIP),
-            optax.adam(learning_rate=lr)
-        )
+        if use_lr_schedule and decay_rounds > 0:
+            schedule = optax.cosine_decay_schedule(lr, decay_rounds, alpha=min_lr_ratio)
+            self.optimizer = optax.chain(
+                optax.clip_by_global_norm(DEFAULT_GRAD_CLIP),
+                optax.adam(learning_rate=schedule)
+            )
+        else:
+            self.optimizer = optax.chain(
+                optax.clip_by_global_norm(DEFAULT_GRAD_CLIP),
+                optax.adam(learning_rate=lr)
+            )
         self.opt_state = self.optimizer.init({
             'W1': self.W1, 'b1': self.b1,
             'W2': self.W2, 'b2': self.b2
@@ -414,8 +467,15 @@ class CNTSAgent:
         return _compute_all_gradients(params, X, self.n_arms, self.total_params)
 
     def _compute_uncertainties(self, g_features):
+        """Compute uncertainties using NTK (full or diagonal approximation)."""
         g_scaled = g_features / np.sqrt(self.total_params)
-        uncertainties = jnp.sqrt(jnp.sum(g_scaled ** 2 / self.Z_diag, axis=1))
+        if self.use_full_ntk:
+            # Full quadratic form: g @ Z_inv @ g for each arm
+            Zg = g_scaled @ self.Z_inv  # (n_arms, total_params)
+            uncertainties = jnp.sqrt(jnp.sum(g_scaled * Zg, axis=1))
+        else:
+            # Diagonal approximation
+            uncertainties = jnp.sqrt(jnp.sum(g_scaled ** 2 / self.Z_diag, axis=1))
         return uncertainties
 
     def _raw_predict(self, X):
@@ -450,11 +510,26 @@ class CNTSAgent:
             return self.solver(optimistic_values)
 
     def _update_gram_matrix(self, g_features, mask):
+        """Update NTK covariance (full Sherman-Morrison or diagonal).
+
+        For full NTK: applies Sherman-Morrison formula for each observed arm.
+        For diagonal: vectorized update summing squared gradients.
+        """
         g_scaled = g_features / np.sqrt(self.total_params)
-        for i in range(self.n_arms):
-            if mask[i]:
-                g = g_scaled[i]
-                self.Z_diag = self.Z_diag + g ** 2
+
+        if self.use_full_ntk:
+            # Sherman-Morrison must be applied sequentially for each rank-1 update
+            for i in range(self.n_arms):
+                if mask[i]:
+                    g = g_scaled[i]
+                    # (A + gg^T)^{-1} = A^{-1} - (A^{-1}g)(g^T A^{-1}) / (1 + g^T A^{-1} g)
+                    Zg = self.Z_inv @ g
+                    denom = 1.0 + jnp.dot(g, Zg)
+                    self.Z_inv = self.Z_inv - jnp.outer(Zg, Zg) / denom
+        else:
+            # Vectorized diagonal update: sum g^2 over observed arms
+            mask_float = jnp.asarray(mask, dtype=jnp.float32)
+            self.Z_diag = self.Z_diag + jnp.sum(g_scaled ** 2 * mask_float[:, None], axis=0)
 
     def _get_initial_params(self):
         return {

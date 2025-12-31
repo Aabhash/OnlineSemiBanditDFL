@@ -2,7 +2,16 @@ agents:
 
   PerArmThompsonSampling:
     tune_lr: false
-    # No hyperparameters to tune
+    lambda_reg:
+      type: float
+      low: 0.1
+      high: 10.0
+      log: true
+    sigma:
+      type: float
+      low: 0.1
+      high: 5.0
+      log: true
 
   PerArmEpsilonGreedy:
     tune_lr: true
@@ -65,6 +74,9 @@ agents:
       type: int
       low: 5
       high: 100
+    use_lr_schedule:
+      type: categorical
+      choices: [true, false]
 
   CN-TS:
     tune_lr: true
@@ -94,6 +106,9 @@ agents:
       type: int
       low: 5
       high: 100
+    use_lr_schedule:
+      type: categorical
+      choices: [true, false]
 
   PerArmLinUCB:
     tune_lr: false
@@ -108,13 +123,8 @@ agents:
       high: 10.0
       log: true
 
-  PerArmNeuralUCB:
-    tune_lr: true
-    lr:
-      type: float
-      low: 0.0001
-      high: 0.1
-      log: true
+  PerArmNeuralLinUCB:
+    tune_lr: false
     alpha:
       type: float
       low: 0.1

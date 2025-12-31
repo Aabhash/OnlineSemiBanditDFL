@@ -45,7 +45,7 @@ def plot_sensitivity(
                        rotation=45, ha='right')
 
     ax.set_xlabel(hyperparameter, fontsize=12)
-    ax.set_ylabel('Validation Regret', fontsize=12)
+    ax.set_ylabel('Train Cumulative Regret', fontsize=12)
     ax.set_title(f'{agent_name} on {dataset}: Sensitivity to {hyperparameter}', fontsize=14)
     ax.grid(True, alpha=0.3)
 
@@ -82,7 +82,7 @@ def plot_sensitivity_heatmap(
         key = (trial.params[hp1], trial.params[hp2])
         if key not in pair_values:
             pair_values[key] = []
-        pair_values[key].append(trial.final_validation_regret)
+        pair_values[key].append(trial.final_train_regret)
 
     if not pair_values:
         raise ValueError(f"No data found for {hp1} vs {hp2}")
@@ -109,7 +109,7 @@ def plot_sensitivity_heatmap(
     ax.set_ylabel(hp2, fontsize=12)
     ax.set_title(f'{agent_name}: {hp1} vs {hp2}', fontsize=14)
 
-    plt.colorbar(im, label='Mean Validation Regret')
+    plt.colorbar(im, label='Mean Train Cumulative Regret')
     plt.tight_layout()
     plt.savefig(output_path, dpi=150, bbox_inches='tight')
     plt.close()

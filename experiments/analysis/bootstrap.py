@@ -108,17 +108,16 @@ def compute_agent_ci(
 
     ci_func = bootstrap_ci_bca if use_bca else bootstrap_confidence_interval
 
-    val_regrets = np.array([t.final_validation_regret for t in trials])
+    # Use final_train_regret (cumulative regret) for CI computation
     train_regrets = np.array([t.final_train_regret for t in trials])
     holdout_regrets = np.array([t.holdout_regret for t in trials if t.holdout_regret is not None])
 
     results = {
-        'validation_regret': ci_func(val_regrets, n_bootstrap, confidence, seed),
-        'train_regret': ci_func(train_regrets, n_bootstrap, confidence, seed),
+        'train_cumulative_regret': ci_func(train_regrets, n_bootstrap, confidence, seed),
     }
 
     if len(holdout_regrets) > 0:
-        results['holdout_regret'] = ci_func(holdout_regrets, n_bootstrap, confidence, seed)
+        results['holdout_cumulative_regret'] = ci_func(holdout_regrets, n_bootstrap, confidence, seed)
 
     return results
 
@@ -170,7 +169,7 @@ def compute_all_confidence_intervals(
 
 def print_ci_table(
     all_cis: Dict[str, Dict[str, Tuple[float, float, float]]],
-    metric: str = 'validation_regret',
+    metric: str = 'train_cumulative_regret',
 ):
     print(f"\n{'Agent':<25} {'Mean':>10} {'95% CI':>20}")
     print("-" * 60)

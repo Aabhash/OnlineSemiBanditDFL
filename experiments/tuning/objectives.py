@@ -46,13 +46,14 @@ def run_tuning_experiment(
     optimal_rewards = []
     regrets = []
     cumulative_regret = 0.0
+    cumulative_reward = 0.0
 
     # Track cumulative holdout metrics (only for non-online datasets like nfl_logged)
     cumulative_holdout_regret = 0.0
     cumulative_holdout_reward = 0.0
 
-    # Determine log interval for wandb (every N rounds to avoid too many logs)
-    wandb_log_interval = config.get('wandb', {}).get('log_interval', 10)
+    # Determine log interval for wandb
+    wandb_log_interval = config.get('wandb', {}).get('log_interval', 1)
 
     # Check if env supports holdout evaluation (only relevant for non-online datasets)
     has_holdout = hasattr(env, 'evaluate_on_holdout') and not is_online
@@ -64,6 +65,7 @@ def run_tuning_experiment(
         observed_values, reward, info = env.step(selection, full_feedback=full_feedback)
 
         rewards.append(reward)
+        cumulative_reward += reward
         optimal_reward = info['optimal_reward']
         optimal_rewards.append(optimal_reward)
         instant_regret = optimal_reward - reward
@@ -97,6 +99,7 @@ def run_tuning_experiment(
                 cumulative_regret=cumulative_regret,
                 reward=reward,
                 optimal_reward=optimal_reward,
+                cumulative_reward=cumulative_reward,
             )
 
         should_eval = (t + 1) % eval_interval == 0 or t == n_rounds - 1
@@ -237,9 +240,9 @@ def create_agent_from_params(
         CNUCBAgent,
         CNTSAgent,
         PerArmLinUCBAgent,
+        PerArmNeuralLinUCBAgent,
         PerArmThompsonSamplingAgent,
         PerArmMSENeuralAgent,
-        PerArmNeuralUCBAgent,
         PerArmRandomAgent,
         PerArmEpsilonGreedyAgent,
     )
@@ -273,8 +276,10 @@ def create_agent_from_params(
             **{k: v for k, v in params.items() if k != 'lr'}
         )
     elif agent_name == 'ThompsonSampling':
+        prior_var = params.get('prior_var', 1.0)
+        noise_var = params.get('noise_var', 0.1)
         return ThompsonSamplingAgent(
-            BayesianLinearModel(env.context_dim, env.n_arms),
+            BayesianLinearModel(env.context_dim, env.n_arms, prior_var=prior_var, noise_var=noise_var),
             env.weights, env.capacity, minimize=minimize, solver=solver
         )
     elif agent_name == 'EpsilonGreedy':
@@ -308,13 +313,13 @@ def create_agent_from_params(
     elif agent_name == 'CN-UCB':
         return CNUCBAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            lr=lr, solver=solver, seed=seed,
+            lr=lr, solver=solver, seed=seed, decay_rounds=n_rounds,
             **{k: v for k, v in params.items() if k != 'lr'}
         )
     elif agent_name == 'CN-TS':
         return CNTSAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            lr=lr, solver=solver, seed=seed,
+            lr=lr, solver=solver, seed=seed, decay_rounds=n_rounds,
             **{k: v for k, v in params.items() if k != 'lr'}
         )
     elif agent_name == 'PerArmLinUCB':
@@ -323,16 +328,17 @@ def create_agent_from_params(
             solver=solver,
             **{k: v for k, v in params.items() if k != 'lr'}
         )
-    elif agent_name == 'PerArmNeuralUCB':
-        return PerArmNeuralUCBAgent(
+    elif agent_name == 'PerArmNeuralLinUCB':
+        return PerArmNeuralLinUCBAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            lr=lr, solver=solver, seed=seed,
+            solver=solver, seed=seed,
             **{k: v for k, v in params.items() if k != 'lr'}
         )
     elif agent_name == 'PerArmThompsonSampling':
         return PerArmThompsonSamplingAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            solver=solver
+            solver=solver, seed=seed,
+            **{k: v for k, v in params.items() if k != 'lr'}
         )
     elif agent_name == 'PerArmMSENeural':
         return PerArmMSENeuralAgent(
@@ -402,7 +408,7 @@ class ObjectiveFactory:
     ) -> Callable[['optuna.Trial'], float]:
         # Use dataset-specific n_rounds if available (e.g., nfl_online: 17, nfl_logged: 1000)
         n_rounds = get_n_rounds_for_dataset(config, dataset)
-        seeds = config['seeds']
+        seeds = config.get('tuning_seeds', [0, 1, 2, 3, 4])
         eval_interval = config['validation']['eval_interval']
         full_feedback = feedback_type == 'full'
         default_lr = config['tuning']['default_lr']
@@ -410,6 +416,12 @@ class ObjectiveFactory:
         wandb_enabled = config.get('wandb', {}).get('enabled', False)
         use_holdout = uses_holdout_for_selection(config, dataset)
         is_online = is_online_dataset(config, dataset)
+
+        # Pruning configuration
+        pruning_config = config.get('tuning', {}).get('pruning', {})
+        pruning_enabled = pruning_config.get('enabled', False)
+        min_seeds_before_pruning = pruning_config.get('min_seeds_before_pruning', 1)
+        warmup_trials = pruning_config.get('warmup_trials', 5)
 
         def objective(trial: 'optuna.Trial') -> float:
             params = sample_hyperparameters(trial, search_space)
@@ -432,8 +444,8 @@ class ObjectiveFactory:
                 )
 
             # Track regrets for HP selection
-            # Use holdout regret for datasets with eval_metric: holdout (e.g., nfl_logged)
-            # Use cumulative training regret for others (standard in online bandit literature)
+            # HP selection uses cumulative training regret (standard in online bandit literature)
+            # Holdout regret is only for final evaluation reporting, not HP selection
             selection_regrets = []
             total_wall_time = 0.0
 
@@ -472,10 +484,22 @@ class ObjectiveFactory:
 
                     # Log final summary to wandb
                     if seed_logger is not None:
+                        final_train_cumulative_reward = sum(result.rewards) if result.rewards else None
+                        final_train_reward_per_round = result.rewards[-1] if result.rewards else None
+                        # Per-round regret = optimal_reward - reward for last round
+                        final_train_regret_per_round = None
+                        if result.optimal_rewards and result.rewards:
+                            final_train_regret_per_round = result.optimal_rewards[-1] - result.rewards[-1]
+
                         seed_logger.log_final_summary(
-                            final_train_regret=result.final_train_regret,
-                            final_validation_regret=result.final_validation_regret,
-                            holdout_regret=result.holdout_regret,
+                            final_train_cumulative_regret=result.final_train_regret,
+                            final_train_cumulative_reward=final_train_cumulative_reward,
+                            final_train_regret_per_round=final_train_regret_per_round,
+                            final_train_reward_per_round=final_train_reward_per_round,
+                            final_holdout_cumulative_regret=result.cumulative_holdout_regret,
+                            final_holdout_cumulative_reward=None,  # Not tracked in result
+                            final_holdout_regret_per_round=result.holdout_regret,
+                            final_holdout_reward_per_round=None,  # Not tracked in result
                             wall_time_seconds=timer.elapsed,
                             total_rounds=result.total_rounds,
                         )
@@ -506,14 +530,37 @@ class ObjectiveFactory:
                     else:
                         selection_regrets.append(result.final_train_regret)
 
+                    # Report intermediate value for pruning (average regret so far)
+                    # This allows Optuna to prune trials that are clearly underperforming
+                    current_mean_regret = float(np.mean(selection_regrets))
+                    trial.report(current_mean_regret, seed_idx)
+
+                    # Check for pruning after minimum seeds have completed
+                    # Only prune if: (1) pruning enabled, (2) past warmup, (3) enough seeds run
+                    should_check_pruning = (
+                        pruning_enabled
+                        and trial.number >= warmup_trials
+                        and seed_idx >= min_seeds_before_pruning - 1
+                        and seed_idx < n_seeds - 1  # Don't prune on last seed
+                    )
+
+                    if should_check_pruning and trial.should_prune():
+                        # Clean up any remaining wandb loggers
+                        if seed_logger is not None:
+                            seed_logger.finish(status='pruned')
+                        raise optuna.TrialPruned(
+                            f"Pruned after {seed_idx + 1} seeds with mean regret {current_mean_regret:.1f}"
+                        )
+
+                except optuna.TrialPruned:
+                    raise  # Re-raise pruning exception
                 except Exception as e:
                     if seed_logger is not None:
                         seed_logger.finish(status='failed')
                     raise
 
-            # HP selection based on average regret across seeds
-            # Uses holdout regret for datasets with eval_metric: holdout (e.g., nfl_logged)
-            # Uses cumulative training regret for others (standard in online bandit literature)
+            # HP selection based on average cumulative training regret across seeds
+            # (standard in online bandit literature - holdout is only for final reporting)
             return float(np.mean(selection_regrets))
 
         return objective
@@ -528,7 +575,7 @@ class ObjectiveFactory:
     ) -> Callable[['optuna.Trial'], float]:
         # Use dataset-specific n_rounds if available
         n_rounds = get_n_rounds_for_dataset(config, dataset)
-        seeds = config['seeds'][:3]
+        seeds = config.get('tuning_seeds', [0, 1, 2])[:3]
         eval_interval = config['validation']['eval_interval']
         full_feedback = feedback_type == 'full'
         default_lr = config['tuning']['default_lr']
@@ -583,10 +630,22 @@ class ObjectiveFactory:
                     )
 
                     if seed_logger is not None:
+                        final_train_cumulative_reward = sum(result.rewards) if result.rewards else None
+                        final_train_reward_per_round = result.rewards[-1] if result.rewards else None
+                        # Per-round regret = optimal_reward - reward for last round
+                        final_train_regret_per_round = None
+                        if result.optimal_rewards and result.rewards:
+                            final_train_regret_per_round = result.optimal_rewards[-1] - result.rewards[-1]
+
                         seed_logger.log_final_summary(
-                            final_train_regret=result.final_train_regret,
-                            final_validation_regret=result.final_validation_regret,
-                            holdout_regret=result.holdout_regret,
+                            final_train_cumulative_regret=result.final_train_regret,
+                            final_train_cumulative_reward=final_train_cumulative_reward,
+                            final_train_regret_per_round=final_train_regret_per_round,
+                            final_train_reward_per_round=final_train_reward_per_round,
+                            final_holdout_cumulative_regret=result.cumulative_holdout_regret,
+                            final_holdout_cumulative_reward=None,
+                            final_holdout_regret_per_round=result.holdout_regret,
+                            final_holdout_reward_per_round=None,
                             wall_time_seconds=0.0,
                             total_rounds=result.total_rounds,
                         )

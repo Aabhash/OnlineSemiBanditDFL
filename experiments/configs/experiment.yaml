@@ -3,12 +3,18 @@ experiment:
   output_dir: "results/tuning"
 
 tuning:
-  n_trials: 25
-  n_seeds: 3
+  n_trials: 50
+  n_seeds: 5
   n_rounds: 2500
   timeout_per_trial: 3600
   sampler_seed: 42
   default_lr: 0.01
+  # Seed-aware pruning: prune trials that are clearly worse than median
+  pruning:
+    enabled: true
+    min_seeds_before_pruning: 1  # Run at least 1 seed before pruning
+    warmup_trials: 5             # Don't prune first N trials (need baseline)
+    percentile_threshold: 75     # Prune if worse than this percentile of completed trials
 
 validation:
   eval_interval: 25
@@ -37,7 +43,9 @@ storage:
   database: "sqlite:///results/tuning/optuna.db"
   results_dir: "results/tuning/trials"
 
-seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+# Disjoint seed sets to avoid data leakage between HP tuning and final evaluation
+tuning_seeds: [0, 1, 2, 3, 4]      # Seeds for HP tuning (5 seeds)
+evaluation_seeds: [100, 101, 102, 103, 104, 105, 106, 107, 108, 109]  # Seeds for final eval (10 seeds)
 
 analysis:
   bootstrap:
@@ -78,10 +86,10 @@ datasets:
     n_players: 494
     salary_cap: 50000
     context_dim: 14
-    holdout_weeks: 5       # Last 5 weeks for evaluation
+    holdout_weeks: 4       # Last 4 weeks for evaluation (14-17)
     env_type: per_arm_context
-    n_rounds: 1000         # Train with repetition over 12 weeks
-    eval_metric: holdout   # Report holdout cumulative regret
+    n_rounds: 1000         # Train with repetition over 13 weeks
+    eval_metric: training  # HP selection uses training regret; holdout is for final reporting only
 
   # nfl_online: True online setting, 17 rounds (one per week)
   nfl_online:
@@ -141,7 +149,7 @@ ablations:
     n_seeds: 3
     n_seeds_full: 5
     n_seeds_quick: 2
-    ntk_methods: ["CN-UCB", "CN-TS", "PerArmNeuralUCB"]
+    ntk_methods: ["CN-UCB", "CN-TS"]
     bayesian_methods: ["PerArmBayesianSPO", "PerArmLinUCB", "PerArmTS"]
     output_dir: "results/ablations/obs_rate"
   imputation:
@@ -176,7 +184,6 @@ plotting:
     PerArmLinUCB: "orange"
     PerArmUCB: "blue"
     PerArmTS: "green"
-    PerArmNeuralUCB: "red"
     PerArmMSENeural: "coral"
     PerArmEpsilonGreedy: "gold"
     PerArmRandom: "gray"

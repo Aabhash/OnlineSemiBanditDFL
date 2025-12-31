@@ -220,6 +220,7 @@ def run_evaluation(
     agents_filter: Optional[list] = None,
     wandb_enabled: bool = False,
     use_tuned_params_flag: bool = False,
+    seeds: Optional[list] = None,
 ):
     dataset_config = config['datasets'][dataset].copy()
     dataset_config.pop('env_type', None)
@@ -243,14 +244,17 @@ def run_evaluation(
 
     feedback_map = {'semi_bandit': False, 'full': True}
 
+    # Use provided seeds or fall back to range(n_seeds)
+    seed_list = seeds if seeds is not None else list(range(n_seeds))
+
     for feedback_mode in feedback_types:
         full_feedback = feedback_map[feedback_mode]
         if verbose:
             print(f'\n--- {feedback_mode.replace("_", " ").title()} Feedback ---')
 
-        for seed in range(n_seeds):
+        for seed_idx, seed in enumerate(seed_list):
             if verbose:
-                print(f'Seed {seed + 1}/{n_seeds}:', flush=True)
+                print(f'Seed {seed_idx + 1}/{len(seed_list)} (seed={seed}):', flush=True)
 
             env_base = create_env(dataset, seed=seed, **dataset_config)
             test_set = env_base.generate_test_set(100)
@@ -338,17 +342,7 @@ def run_evaluation(
                     )
                     wandb_logger.start()
                     wandb_logger.log_trajectory(result)
-
-                    holdout_regret = None
-                    holdout_evals = result.get('holdout_evals', [])
-                    if holdout_evals:
-                        holdout_regret = holdout_evals[-1][1].get('regret')
-
-                    wandb_logger.log_final_summary(
-                        result['final_regret'],
-                        holdout_regret,
-                        wall_time_seconds=wall_time,
-                    )
+                    wandb_logger.log_final_summary(result, wall_time_seconds=wall_time)
                     wandb_logger.finish()
 
                 if verbose:
@@ -737,46 +731,138 @@ class EvaluationWandbLogger:
         rewards = result.get('rewards', [])
         optimal_rewards = result.get('optimal_rewards', [])
 
-        log_interval = self.config.get('wandb', {}).get('log_interval', 10)
+        # Compute cumulative reward
+        cumulative_reward = []
+        running_reward = 0.0
+        for r in rewards:
+            running_reward += r
+            cumulative_reward.append(running_reward)
 
-        for i in range(len(cumulative_regret)):
-            if i % log_interval == 0 or i == len(cumulative_regret) - 1:
+        holdout_evals = result.get('holdout_evals', [])
+        n_rounds = len(cumulative_regret)
+        holdout_cumulative_regret = [None] * n_rounds
+        holdout_regret = [None] * n_rounds
+        holdout_cumulative_reward = [None] * n_rounds
+        holdout_reward = [None] * n_rounds
+
+        if holdout_evals:
+            # Accumulate holdout metrics across evaluations
+            running_holdout_regret = 0.0
+            running_holdout_reward = 0.0
+
+            cumulative_regret_lookup = {}
+            regret_lookup = {}
+            cumulative_reward_lookup = {}
+            reward_lookup = {}
+
+            for round_num, holdout_data in holdout_evals:
+                # Per-round metrics (from this evaluation)
+                eval_regret = holdout_data.get('regret', 0)
+                eval_reward = holdout_data.get('total_reward', holdout_data.get('reward', 0))
+
+                # Accumulate for cumulative metrics
+                running_holdout_regret += eval_regret
+                running_holdout_reward += eval_reward
+
+                regret_lookup[round_num] = eval_regret
+                reward_lookup[round_num] = eval_reward
+                cumulative_regret_lookup[round_num] = running_holdout_regret
+                cumulative_reward_lookup[round_num] = running_holdout_reward
+
+            # Fill arrays by carrying forward last known values
+            last_cum_regret = None
+            last_regret = None
+            last_cum_reward = None
+            last_reward = None
+            for i in range(n_rounds):
+                if i in cumulative_regret_lookup:
+                    last_cum_regret = cumulative_regret_lookup[i]
+                if i in regret_lookup:
+                    last_regret = regret_lookup[i]
+                if i in cumulative_reward_lookup:
+                    last_cum_reward = cumulative_reward_lookup[i]
+                if i in reward_lookup:
+                    last_reward = reward_lookup[i]
+                holdout_cumulative_regret[i] = last_cum_regret
+                holdout_regret[i] = last_regret
+                holdout_cumulative_reward[i] = last_cum_reward
+                holdout_reward[i] = last_reward
+
+        log_interval = self.config.get('wandb', {}).get('log_interval', 1)
+
+        for i in range(n_rounds):
+            if i % log_interval == 0 or i == n_rounds - 1:
                 metrics = {
                     'round': i,
                     'train/cumulative_regret': cumulative_regret[i],
                 }
+
                 if i < len(regrets):
                     metrics['train/regret'] = regrets[i]
                 if i < len(rewards):
                     metrics['train/reward'] = rewards[i]
+                if i < len(cumulative_reward):
+                    metrics['train/cumulative_reward'] = cumulative_reward[i]
                 if i < len(optimal_rewards):
                     metrics['train/optimal_reward'] = optimal_rewards[i]
 
-                self._wandb.log(metrics, step=i)
+                # Log holdout metrics at same frequency
+                if holdout_cumulative_regret[i] is not None:
+                    metrics['holdout/cumulative_regret'] = holdout_cumulative_regret[i]
+                if holdout_regret[i] is not None:
+                    metrics['holdout/regret'] = holdout_regret[i]
+                if holdout_cumulative_reward[i] is not None:
+                    metrics['holdout/cumulative_reward'] = holdout_cumulative_reward[i]
+                if holdout_reward[i] is not None:
+                    metrics['holdout/reward'] = holdout_reward[i]
 
-        # Log holdout metrics if available
-        holdout_evals = result.get('holdout_evals', [])
-        for round_num, holdout_data in holdout_evals:
-            self._wandb.log({
-                'holdout/regret': holdout_data.get('regret', 0),
-                'holdout/cumulative_regret': holdout_data.get('cumulative_regret', holdout_data.get('regret', 0)),
-            }, step=round_num)
+                self._wandb.log(metrics, step=i)
 
     def log_final_summary(
         self,
-        final_regret: float,
-        holdout_regret: Optional[float] = None,
+        result: Dict[str, Any],
         wall_time_seconds: Optional[float] = None,
     ):
-        """Log final summary metrics."""
+        """Log final summary metrics (consistent with tuning script)."""
         if not self._enabled or not self._run:
             return
 
-        self._wandb.summary['final_regret'] = final_regret
-        if holdout_regret is not None:
-            self._wandb.summary['holdout_regret'] = holdout_regret
+        # Extract final metrics from result
+        cumulative_regret = result.get('cumulative_regret', [])
+        regrets = result.get('regrets', [])
+        rewards = result.get('rewards', [])
+        holdout_evals = result.get('holdout_evals', [])
+
+        # Train metrics
+        if cumulative_regret:
+            self._wandb.summary['final_train_cumulative_regret'] = cumulative_regret[-1]
+        if regrets:
+            self._wandb.summary['final_train_regret_per_round'] = regrets[-1]
+        if rewards:
+            self._wandb.summary['final_train_cumulative_reward'] = sum(rewards)
+            self._wandb.summary['final_train_reward_per_round'] = rewards[-1]
+
+        if holdout_evals:
+            # Compute cumulative metrics by summing all holdout evaluations
+            cumulative_holdout_regret = sum(h[1].get('regret', 0) for h in holdout_evals)
+            cumulative_holdout_reward = sum(
+                h[1].get('total_reward', h[1].get('reward', 0)) for h in holdout_evals
+            )
+
+            # Per-round is from the last evaluation
+            final_holdout = holdout_evals[-1][1]
+            per_round_regret = final_holdout.get('regret', 0)
+            per_round_reward = final_holdout.get('total_reward', final_holdout.get('reward', 0))
+
+            self._wandb.summary['final_holdout_cumulative_regret'] = cumulative_holdout_regret
+            self._wandb.summary['final_holdout_regret_per_round'] = per_round_regret
+            self._wandb.summary['final_holdout_cumulative_reward'] = cumulative_holdout_reward
+            self._wandb.summary['final_holdout_reward_per_round'] = per_round_reward
+
         if wall_time_seconds is not None:
             self._wandb.summary['wall_time_seconds'] = wall_time_seconds
+        if cumulative_regret:
+            self._wandb.summary['total_rounds'] = len(cumulative_regret)
 
     def finish(self):
         if self._run:
@@ -811,7 +897,13 @@ class EvaluationSummaryLogger:
             except ImportError:
                 self._enabled = False
 
-    def log_summary(self, results: Dict[str, list]):
+    def log_summary(
+        self,
+        train_cumulative_regrets: Dict[str, list],
+        train_cumulative_rewards: Optional[Dict[str, list]] = None,
+        holdout_cumulative_regrets: Optional[Dict[str, list]] = None,
+        holdout_cumulative_rewards: Optional[Dict[str, list]] = None,
+    ):
         """Log summary table comparing all agents."""
         if not self._enabled:
             return
@@ -843,27 +935,68 @@ class EvaluationSummaryLogger:
             reinit=True,
         )
 
-        # Log summary statistics for each agent
-        for agent_name, regrets in results.items():
-            mean_regret = np.mean(regrets)
-            std_regret = np.std(regrets)
-            self._wandb.summary[f'{agent_name}/mean_regret'] = mean_regret
-            self._wandb.summary[f'{agent_name}/std_regret'] = std_regret
-            self._wandb.summary[f'{agent_name}/n_seeds'] = len(regrets)
+        # Log summary statistics for each agent (train and holdout equally)
+        for agent_name, regrets in train_cumulative_regrets.items():
+            n_seeds = len(regrets)
+            self._wandb.summary[f'{agent_name}/n_seeds'] = n_seeds
 
-        # Log comparison table
-        table_data = [[agent, np.mean(r), np.std(r), len(r)]
-                      for agent, r in sorted(results.items(), key=lambda x: np.mean(x[1]))]
-        table = self._wandb.Table(
-            columns=['Agent', 'Mean Regret', 'Std Regret', 'N Seeds'],
-            data=table_data
-        )
+            # Train cumulative regret
+            self._wandb.summary[f'{agent_name}/mean_final_train_cumulative_regret'] = np.mean(regrets)
+            self._wandb.summary[f'{agent_name}/std_final_train_cumulative_regret'] = np.std(regrets)
+
+            # Train cumulative reward
+            if train_cumulative_rewards and agent_name in train_cumulative_rewards:
+                rewards = train_cumulative_rewards[agent_name]
+                self._wandb.summary[f'{agent_name}/mean_final_train_cumulative_reward'] = np.mean(rewards)
+                self._wandb.summary[f'{agent_name}/std_final_train_cumulative_reward'] = np.std(rewards)
+
+            # Holdout cumulative regret
+            if holdout_cumulative_regrets and agent_name in holdout_cumulative_regrets:
+                holdout_reg = holdout_cumulative_regrets[agent_name]
+                self._wandb.summary[f'{agent_name}/mean_final_holdout_cumulative_regret'] = np.mean(holdout_reg)
+                self._wandb.summary[f'{agent_name}/std_final_holdout_cumulative_regret'] = np.std(holdout_reg)
+
+            # Holdout cumulative reward
+            if holdout_cumulative_rewards and agent_name in holdout_cumulative_rewards:
+                holdout_rew = holdout_cumulative_rewards[agent_name]
+                self._wandb.summary[f'{agent_name}/mean_final_holdout_cumulative_reward'] = np.mean(holdout_rew)
+                self._wandb.summary[f'{agent_name}/std_final_holdout_cumulative_reward'] = np.std(holdout_rew)
+
+        # Log comparison table with both metrics
+        if holdout_cumulative_regrets:
+            table_data = [
+                [agent, np.mean(r), np.std(r),
+                 np.mean(holdout_cumulative_regrets.get(agent, [])) if holdout_cumulative_regrets.get(agent) else None,
+                 np.std(holdout_cumulative_regrets.get(agent, [])) if holdout_cumulative_regrets.get(agent) else None,
+                 len(r)]
+                for agent, r in sorted(train_cumulative_regrets.items(), key=lambda x: np.mean(x[1]))
+            ]
+            table = self._wandb.Table(
+                columns=['Agent', 'mean_final_train_cumulative_regret', 'std_final_train_cumulative_regret',
+                         'mean_final_holdout_cumulative_regret', 'std_final_holdout_cumulative_regret', 'N Seeds'],
+                data=table_data
+            )
+        else:
+            table_data = [[agent, np.mean(r), np.std(r), len(r)]
+                          for agent, r in sorted(train_cumulative_regrets.items(), key=lambda x: np.mean(x[1]))]
+            table = self._wandb.Table(
+                columns=['Agent', 'mean_final_train_cumulative_regret', 'std_final_train_cumulative_regret', 'N Seeds'],
+                data=table_data
+            )
         self._wandb.log({'results_table': table})
 
-        # Log best agent
-        best_agent = min(results.items(), key=lambda x: np.mean(x[1]))
-        self._wandb.summary['best_agent'] = best_agent[0]
-        self._wandb.summary['best_mean_regret'] = np.mean(best_agent[1])
+        # Log best agent by train cumulative regret
+        best_agent = min(train_cumulative_regrets.items(), key=lambda x: np.mean(x[1]))
+        self._wandb.summary['best_train_agent'] = best_agent[0]
+        self._wandb.summary['best_mean_final_train_cumulative_regret'] = np.mean(best_agent[1])
+
+        # Log best agent by holdout cumulative regret if available
+        if holdout_cumulative_regrets:
+            valid_holdout = {k: v for k, v in holdout_cumulative_regrets.items() if v}
+            if valid_holdout:
+                best_holdout_agent = min(valid_holdout.items(), key=lambda x: np.mean(x[1]))
+                self._wandb.summary['best_holdout_agent'] = best_holdout_agent[0]
+                self._wandb.summary['best_mean_final_holdout_cumulative_regret'] = np.mean(best_holdout_agent[1])
 
         self._run.finish()
         self._run = None
@@ -984,6 +1117,10 @@ Examples:
         default_n_rounds = args.n_rounds or eval_config['quick']['n_rounds']
         n_seeds = args.n_seeds or eval_config['quick']['n_seeds']
 
+    # Use evaluation_seeds (disjoint from tuning_seeds to avoid data leakage)
+    default_eval_seeds = list(range(100, 100 + n_seeds))
+    evaluation_seeds = config.get('evaluation_seeds', default_eval_seeds)
+
     output_dir = args.output_dir or eval_config['output_dir']
 
     # Determine feedback types
@@ -1019,6 +1156,9 @@ Examples:
 
     wandb_enabled = config.get('wandb', {}).get('enabled', False) and not args.no_wandb
     print(f'Wandb: {"enabled" if wandb_enabled else "disabled"}')
+    # Limit evaluation_seeds to n_seeds
+    evaluation_seeds = evaluation_seeds[:n_seeds]
+    print(f'Eval seeds: {evaluation_seeds}')
     print(f'Output: {output_dir}')
     print(f'Started: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
 
@@ -1071,6 +1211,7 @@ Examples:
             agents_filter=agents_filter,
             wandb_enabled=wandb_enabled,
             use_tuned_params_flag=args.use_tuned_params,
+            seeds=evaluation_seeds,
         )
 
         print_summary(results, dataset, trajectories)
@@ -1082,13 +1223,56 @@ Examples:
         if wandb_enabled:
             for ft in feedback_types:
                 if ft in results and results[ft]:
+                    # Extract all metrics from trajectories
+                    train_cumulative_regrets = {}
+                    train_cumulative_rewards = {}
+                    holdout_cumulative_regrets = {}
+                    holdout_cumulative_rewards = {}
+
+                    for key, data in trajectories.items():
+                        agent_name, ds, mode, seed = key
+                        if ds == dataset and mode == ft:
+                            # Train metrics
+                            cumulative_regret = data.get('cumulative_regret', [])
+                            if cumulative_regret:
+                                if agent_name not in train_cumulative_regrets:
+                                    train_cumulative_regrets[agent_name] = []
+                                train_cumulative_regrets[agent_name].append(cumulative_regret[-1])
+
+                            rewards = data.get('rewards', [])
+                            if rewards:
+                                if agent_name not in train_cumulative_rewards:
+                                    train_cumulative_rewards[agent_name] = []
+                                train_cumulative_rewards[agent_name].append(sum(rewards))
+
+                            # Holdout metrics
+                            holdout_evals = data.get('holdout_evals', [])
+                            if holdout_evals:
+                                final_holdout = holdout_evals[-1][1]
+                                if agent_name not in holdout_cumulative_regrets:
+                                    holdout_cumulative_regrets[agent_name] = []
+                                holdout_cumulative_regrets[agent_name].append(
+                                    final_holdout.get('cumulative_regret', final_holdout.get('regret', 0))
+                                )
+
+                                if agent_name not in holdout_cumulative_rewards:
+                                    holdout_cumulative_rewards[agent_name] = []
+                                holdout_cumulative_rewards[agent_name].append(
+                                    final_holdout.get('cumulative_reward', final_holdout.get('reward', 0))
+                                )
+
                     summary_logger = EvaluationSummaryLogger(
                         config=config,
                         dataset=dataset,
                         feedback_type=ft,
                         use_tuned_params=args.use_tuned_params,
                     )
-                    summary_logger.log_summary(results[ft])
+                    summary_logger.log_summary(
+                        train_cumulative_regrets=train_cumulative_regrets,
+                        train_cumulative_rewards=train_cumulative_rewards if train_cumulative_rewards else None,
+                        holdout_cumulative_regrets=holdout_cumulative_regrets if holdout_cumulative_regrets else None,
+                        holdout_cumulative_rewards=holdout_cumulative_rewards if holdout_cumulative_rewards else None,
+                    )
                     print(f'Logged {dataset}/{ft} summary to wandb')
 
     if not args.no_save:

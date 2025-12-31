@@ -166,22 +166,25 @@ class ResultsStore:
         best_params = self.get_best_params(agent_name, dataset, feedback_type, use_holdout=use_holdout)
         best_trials = self.get_results_for_params(agent_name, dataset, best_params, feedback_type)
 
-        val_regrets = [t.final_validation_regret for t in best_trials]
+        # Use final_train_regret (cumulative regret) for summary
         train_regrets = [t.final_train_regret for t in best_trials]
         holdout_regrets = [t.holdout_regret for t in best_trials if t.holdout_regret is not None]
 
         total_wall_time = sum(t.wall_time_seconds for t in trials)
         total_gpu_time = sum(t.gpu_time_seconds for t in trials if t.gpu_time_seconds is not None)
 
+        mean_train = float(np.mean(train_regrets))
+        std_train = float(np.std(train_regrets))
+
         return AgentSummary(
             agent_name=agent_name,
             dataset=dataset,
             feedback_type=feedback_type,
             best_params=best_params,
-            mean_validation_regret=float(np.mean(val_regrets)),
-            std_validation_regret=float(np.std(val_regrets)),
-            mean_train_regret=float(np.mean(train_regrets)),
-            std_train_regret=float(np.std(train_regrets)),
+            mean_validation_regret=mean_train,  # Same as train (no separate validation)
+            std_validation_regret=std_train,
+            mean_train_regret=mean_train,
+            std_train_regret=std_train,
             mean_holdout_regret=float(np.mean(holdout_regrets)) if holdout_regrets else None,
             std_holdout_regret=float(np.std(holdout_regrets)) if holdout_regrets else None,
             total_wall_time_seconds=total_wall_time,
@@ -278,7 +281,7 @@ class ResultsStore:
             value = trial.params[hyperparameter]
             if value not in hp_values:
                 hp_values[value] = []
-            hp_values[value].append(trial.final_validation_regret)
+            hp_values[value].append(trial.final_train_regret)
 
         return hp_values
 

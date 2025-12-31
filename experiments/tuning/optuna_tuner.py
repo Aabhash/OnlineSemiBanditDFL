@@ -4,6 +4,7 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime
 import optuna
 from optuna.samplers import TPESampler
+from optuna.pruners import PercentilePruner
 
 from .objectives import (
     ObjectiveFactory,
@@ -78,10 +79,31 @@ class BanditHyperparameterTuner:
 
         sampler_seed = self.config['tuning']['sampler_seed']
 
+        # Configure pruner based on config
+        pruning_config = self.config.get('tuning', {}).get('pruning', {})
+        pruning_enabled = pruning_config.get('enabled', False)
+
+        if pruning_enabled:
+            # PercentilePruner: prune if trial is worse than given percentile of completed trials
+            # n_startup_trials: don't prune first N trials (need baseline data)
+            # n_warmup_steps: don't prune until this many intermediate values reported (i.e., seeds completed)
+            percentile = pruning_config.get('percentile_threshold', 75)
+            warmup_trials = pruning_config.get('warmup_trials', 5)
+            min_seeds = pruning_config.get('min_seeds_before_pruning', 1)
+
+            pruner = PercentilePruner(
+                percentile=percentile,
+                n_startup_trials=warmup_trials,
+                n_warmup_steps=min_seeds,  # Don't consider pruning until min_seeds completed
+            )
+        else:
+            pruner = optuna.pruners.NopPruner()
+
         study = optuna.create_study(
             study_name=study_name,
             direction="minimize",
             sampler=TPESampler(seed=sampler_seed),
+            pruner=pruner,
             storage=self.storage,
             load_if_exists=resume,
         )
@@ -108,6 +130,11 @@ class BanditHyperparameterTuner:
         print(f"\nTuning {agent_name} on {dataset} ({feedback_type})")
         print(f"  Trials: {remaining_trials} remaining (target: {n_trials})")
         print(f"  Search space: {list(search_space.keys())}")
+        print(f"  Pruning: {'enabled' if pruning_enabled else 'disabled'}")
+        if pruning_enabled:
+            print(f"    - Percentile threshold: {pruning_config.get('percentile_threshold', 75)}%")
+            print(f"    - Min seeds before pruning: {pruning_config.get('min_seeds_before_pruning', 1)}")
+            print(f"    - Warmup trials: {pruning_config.get('warmup_trials', 5)}")
         print(f"  Wandb: {self.config.get('wandb', {}).get('enabled', False)}")
 
         self.timer.start()
@@ -166,7 +193,7 @@ class BanditHyperparameterTuner:
         print(f"Feedback: {feedback_type}")
         print(f"Agents: {agents}")
         print(f"Trials per agent: {self.config['tuning']['n_trials']}")
-        print(f"Seeds per trial: {len(self.config['seeds'])}")
+        print(f"Tuning seeds: {self.config.get('tuning_seeds', [0, 1, 2, 3, 4])}")
         print(f"Max rounds: {effective_n_rounds}")
         print(f"Wandb: {self.config.get('wandb', {}).get('enabled', False)}")
         print(f"Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -255,7 +282,7 @@ def quick_tune(
 ) -> Dict[str, Any]:
     config = load_config(config_path)
     config['tuning']['n_trials'] = n_trials
-    config['seeds'] = list(range(n_seeds))
+    config['tuning_seeds'] = list(range(n_seeds))
 
     search_spaces = load_search_spaces(search_space_dir)
 

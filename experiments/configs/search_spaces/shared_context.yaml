@@ -76,7 +76,16 @@ agents:
 
   ThompsonSampling:
     tune_lr: false
-    # No hyperparameters to tune
+    prior_var:
+      type: float
+      low: 0.1
+      high: 10.0
+      log: true
+    noise_var:
+      type: float
+      low: 0.01
+      high: 1.0
+      log: true
 
   MSENeural:
     tune_lr: true

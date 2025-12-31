@@ -72,7 +72,7 @@ def run_analysis(
     significance_config = config['analysis']['significance']
     use_holdout = uses_holdout_for_selection(config, dataset)
 
-    print(f"Selection metric: {'holdout regret' if use_holdout else 'training regret'}")
+    print(f"Selection metric: {'holdout cumulative regret' if use_holdout else 'train cumulative regret'}")
 
     print("\n1. Computing bootstrap confidence intervals...")
     all_cis = compute_all_confidence_intervals(
@@ -155,7 +155,7 @@ Examples:
 
     if args.quick:
         config['tuning']['n_trials'] = 10
-        config['seeds'] = [0, 1, 2]
+        config['tuning_seeds'] = [0, 1, 2]
         # Override dataset-specific n_rounds for quick mode
         if 'n_rounds' in config['datasets'].get(args.dataset, {}):
             config['datasets'][args.dataset]['n_rounds'] = 100
@@ -167,7 +167,7 @@ Examples:
         if args.n_trials:
             config['tuning']['n_trials'] = args.n_trials
         if args.n_seeds:
-            config['seeds'] = list(range(args.n_seeds))
+            config['tuning_seeds'] = list(range(args.n_seeds))
         if args.n_rounds:
             # Override dataset-specific n_rounds via CLI
             if 'n_rounds' in config['datasets'].get(args.dataset, {}):
@@ -224,7 +224,7 @@ Examples:
     if skipped_agents:
         print(f"Skipped (no tunable HPs): {skipped_agents}")
     print(f"Trials: {config['tuning']['n_trials']}")
-    print(f"Seeds: {len(config['seeds'])}")
+    print(f"Tuning seeds: {config.get('tuning_seeds', [0, 1, 2, 3, 4])}")
     print(f"Max rounds: {effective_n_rounds}")
     print(f"Wandb: {wandb_status}")
     print(f"Output: {args.output}")

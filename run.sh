@@ -8,16 +8,16 @@
 #SBATCH --error=%x-%j.err
 
 cd ~/ConstrainedBanditsDFL
-uv run python experiments/tune_hyperparams.py --all --dataset synthetic_drift_low_noise --n-seeds 3 --n-rounds 2500 --n-trials 25 --analyze
-# uv run python experiments/evaluate.py --datasets synthetic_drift_low_noise --use-tuned-params --full --n_seeds 10 --wandb --analyze
+uv run python experiments/tune_hyperparams.py --all --dataset synthetic_drift_low_noise --feedback semi_bandit --n-rounds 2500 --analyze
+# uv run python experiments/evaluate.py --datasets synthetic_drift_low_noise --feedback semi_bandit --use-tuned-params --full --wandb --analyze
 
-# uv run python experiments/tune_hyperparams.py --all --dataset synthetic_drift_high_noise --n-seeds 3 --n-rounds 2500 --n-trials 25  --analyze
-# uv run python experiments/evaluate.py --datasets synthetic_drift_high_noise --use-tuned-params --full --n_seeds 10 --wandb --analyze
+uv run python experiments/tune_hyperparams.py --all --dataset synthetic_drift_high_noise --feedback semi_bandit --n-rounds 2500  --analyze
+# uv run python experiments/evaluate.py --datasets synthetic_drift_high_noise --feedback semi_bandit --use-tuned-params --full --wandb --analyze
 
-# uv run python experiments/tune_hyperparams.py --all --dataset nfl_online --n-seeds 3 --n-rounds 17 --n-trials 25  --analyze
-# uv run python experiments/evaluate.py --datasets nfl_online --use-tuned-params --full --n_seeds 10 --wandb --n_rounds 17 --analyze
+# uv run python experiments/tune_hyperparams.py --all --dataset nfl_online --feedback semi_bandit --n-rounds 17 --n-trials 25  --analyze
+# uv run python experiments/evaluate.py --datasets nfl_online --use-tuned-params --feedback semi_bandit --full --wandb --n_rounds 17 --analyze
 
-# uv run python experiments/tune_hyperparams.py --all --dataset nfl_logged --n-seeds 3 --n-rounds 300 --n-trials 25  --analyze
-# uv run python experiments/evaluate.py --datasets nfl_logged --use-tuned-params --full --n_seeds 10 --wandb --analyze
+# uv run python experiments/tune_hyperparams.py --all --dataset nfl_logged --feedback semi_bandit --n-rounds 300  --analyze
+# uv run python experiments/evaluate.py --datasets nfl_logged --use-tuned-params --feedback semi_bandit --full --wandb --analyze
 
 EOF

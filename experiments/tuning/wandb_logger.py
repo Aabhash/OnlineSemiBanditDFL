@@ -87,17 +87,22 @@ class WandbRunLogger:
         cumulative_regret: float,
         reward: float,
         optimal_reward: float,
+        cumulative_reward: Optional[float] = None,
     ):
         if not self._enabled or self._run is None:
             return
 
-        self._wandb.log({
+        metrics = {
             'round': round_num,
             'train/regret': regret,
             'train/cumulative_regret': cumulative_regret,
             'train/reward': reward,
             'train/optimal_reward': optimal_reward,
-        }, step=round_num)
+        }
+        if cumulative_reward is not None:
+            metrics['train/cumulative_reward'] = cumulative_reward
+
+        self._wandb.log(metrics, step=round_num)
 
     def log_validation(
         self,
@@ -145,22 +150,41 @@ class WandbRunLogger:
 
     def log_final_summary(
         self,
-        final_train_regret: float,
-        final_validation_regret: float,
-        holdout_regret: Optional[float],
-        wall_time_seconds: float,
-        total_rounds: int,
+        final_train_cumulative_regret: float,
+        final_train_cumulative_reward: Optional[float] = None,
+        final_train_regret_per_round: Optional[float] = None,
+        final_train_reward_per_round: Optional[float] = None,
+        final_holdout_cumulative_regret: Optional[float] = None,
+        final_holdout_cumulative_reward: Optional[float] = None,
+        final_holdout_regret_per_round: Optional[float] = None,
+        final_holdout_reward_per_round: Optional[float] = None,
+        wall_time_seconds: float = 0.0,
+        total_rounds: int = 0,
     ):
         if not self._enabled or self._run is None:
             return
 
-        self._wandb.summary['final_train_regret'] = final_train_regret
-        self._wandb.summary['final_validation_regret'] = final_validation_regret
+        # Train metrics
+        self._wandb.summary['final_train_cumulative_regret'] = final_train_cumulative_regret
+        if final_train_cumulative_reward is not None:
+            self._wandb.summary['final_train_cumulative_reward'] = final_train_cumulative_reward
+        if final_train_regret_per_round is not None:
+            self._wandb.summary['final_train_regret_per_round'] = final_train_regret_per_round
+        if final_train_reward_per_round is not None:
+            self._wandb.summary['final_train_reward_per_round'] = final_train_reward_per_round
+
+        # Holdout metrics (same pattern as train)
+        if final_holdout_cumulative_regret is not None:
+            self._wandb.summary['final_holdout_cumulative_regret'] = final_holdout_cumulative_regret
+        if final_holdout_cumulative_reward is not None:
+            self._wandb.summary['final_holdout_cumulative_reward'] = final_holdout_cumulative_reward
+        if final_holdout_regret_per_round is not None:
+            self._wandb.summary['final_holdout_regret_per_round'] = final_holdout_regret_per_round
+        if final_holdout_reward_per_round is not None:
+            self._wandb.summary['final_holdout_reward_per_round'] = final_holdout_reward_per_round
+
         self._wandb.summary['wall_time_seconds'] = wall_time_seconds
         self._wandb.summary['total_rounds'] = total_rounds
-
-        if holdout_regret is not None:
-            self._wandb.summary['holdout_regret'] = holdout_regret
 
     def finish(self, status: str = 'completed'):
         if not self._enabled or self._run is None:

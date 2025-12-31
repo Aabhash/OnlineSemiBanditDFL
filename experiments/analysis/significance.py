@@ -32,8 +32,9 @@ def wilcoxon_test_agents(
     if not trials2:
         raise ValueError(f"No trials found for {agent2}")
 
-    seed_to_regret1 = {t.seed: t.final_validation_regret for t in trials1}
-    seed_to_regret2 = {t.seed: t.final_validation_regret for t in trials2}
+    # Use final_train_regret (cumulative regret) for comparison
+    seed_to_regret1 = {t.seed: t.final_train_regret for t in trials1}
+    seed_to_regret2 = {t.seed: t.final_train_regret for t in trials2}
 
     common_seeds = sorted(set(seed_to_regret1.keys()) & set(seed_to_regret2.keys()))
 
@@ -179,7 +180,7 @@ def rank_agents(
     mean_regrets = {}
     for agent in agents:
         summary = results_store.compute_agent_summary(agent, dataset, feedback_type, use_holdout=use_holdout)
-        mean_regrets[agent] = summary.mean_validation_regret
+        mean_regrets[agent] = summary.mean_train_regret
 
     ranking = [
         (agent, mean_regrets[agent], win_counts[agent])
@@ -205,14 +206,14 @@ def generate_significance_report(
     lines.append(f"Dataset: {dataset}")
     lines.append(f"Feedback: {feedback_type}")
     lines.append(f"Agents: {len(agents)}")
-    lines.append(f"Selection metric: {'holdout regret' if use_holdout else 'training regret'}")
+    lines.append(f"Selection metric: {'holdout cumulative regret' if use_holdout else 'train cumulative regret'}")
     lines.append("")
 
     results, p_matrix = pairwise_significance_matrix(
         results_store, agents, dataset, feedback_type, alpha, use_holdout=use_holdout
     )
 
-    lines.append("AGENT RANKING (by validation regret)")
+    lines.append("AGENT RANKING (by cumulative regret)")
     lines.append("-" * 70)
     ranking = rank_agents(results_store, agents, dataset, feedback_type, alpha, use_holdout=use_holdout)
 

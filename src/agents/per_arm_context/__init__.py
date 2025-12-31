@@ -4,7 +4,6 @@ from src.agents.per_arm_context.ucb_agents import (
     PerArmLinUCBAgent,
     PerArmUCBAgent,
     PerArmNeuralLinUCBAgent,
-    PerArmNeuralUCBAgent,
 )
 from src.agents.per_arm_context.ts_agents import PerArmThompsonSamplingAgent
 from src.agents.per_arm_context.greedy_agents import PerArmEpsilonGreedyAgent
@@ -18,7 +17,6 @@ __all__ = [
     'PerArmLinUCBAgent',
     'PerArmUCBAgent',
     'PerArmNeuralLinUCBAgent',
-    'PerArmNeuralUCBAgent',
     'PerArmThompsonSamplingAgent',
     'PerArmEpsilonGreedyAgent',
     'PerArmMSENeuralAgent',
