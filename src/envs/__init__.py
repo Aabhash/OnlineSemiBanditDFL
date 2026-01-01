@@ -1,6 +1,5 @@
 from src.envs.base import ConstrainedBanditEnv
 from src.envs.synthetic import SyntheticKnapsackEnv
-from src.data.cn_synthetic import CNSyntheticEnv
 from src.envs.shortest_path import ShortestPathEnv
 from src.envs.criteo import CriteoEnv
 from src.envs.fantasy import FantasyEnv
@@ -8,7 +7,6 @@ from src.envs.fantasy import FantasyEnv
 __all__ = [
     'ConstrainedBanditEnv',
     'SyntheticKnapsackEnv',
-    'CNSyntheticEnv',
     'ShortestPathEnv',
     'CriteoEnv',
     'FantasyEnv',
@@ -18,9 +16,6 @@ __all__ = [
 def create_env(env_type: str, seed: int = 42, **kwargs):
     if env_type.startswith('knapsack'):
         return SyntheticKnapsackEnv(seed=seed, **kwargs)
-    elif env_type.startswith('cn_'):
-        score_type = env_type[3:]
-        return CNSyntheticEnv(seed=seed, score_type=score_type, **kwargs)
     elif env_type.startswith('shortest_path'):
         kwargs_copy = kwargs.copy()
         parts = env_type.split('_')
@@ -51,7 +46,6 @@ def create_env(env_type: str, seed: int = 42, **kwargs):
     else:
         raise ValueError(
             f"Unknown environment type: {env_type}. "
-            f"Available: knapsack, knapsack_drift_*, synthetic (legacy), "
-            f"cn_linear, cn_quadratic, cn_cosine, "
-            f"shortest_path_8, shortest_path_drift, nfl, fantasy"
+            f"Available: knapsack, knapsack_drift_*, "
+            f"shortest_path_*, criteo, nfl"
         )

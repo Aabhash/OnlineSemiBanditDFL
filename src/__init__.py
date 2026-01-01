@@ -1,7 +1,6 @@
 from src.envs import (
     ConstrainedBanditEnv,
     SyntheticKnapsackEnv,
-    CNSyntheticEnv,
     ShortestPathEnv,
     CriteoEnv,
     FantasyEnv,
@@ -10,7 +9,6 @@ from src.envs import (
 
 from src.data import (
     SyntheticKnapsackData,
-    CNSyntheticData,
     SyntheticGridData,
     FantasyData,
 )
@@ -60,14 +58,12 @@ __all__ = [
     # Environments
     "ConstrainedBanditEnv",
     "SyntheticKnapsackEnv",
-    "CNSyntheticEnv",
     "ShortestPathEnv",
     "CriteoEnv",
     "FantasyEnv",
     "create_env",
     # Data
     "SyntheticKnapsackData",
-    "CNSyntheticData",
     "SyntheticGridData",
     "FantasyData",
     # Models

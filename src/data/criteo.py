@@ -65,6 +65,12 @@ class CriteoData:
         self.projection_matrix = cache['projection_matrix']
         self.model = cache['model']  # XGBoost model
 
+        # Pre-allocate prediction array for sample() - avoid allocation every call
+        n_cat_features = self.X_encoded.shape[1]
+        self._X_pred = np.zeros((self.n_campaigns, n_cat_features + self.n_campaigns))
+        self._X_pred[:, n_cat_features:] = np.eye(self.n_campaigns)
+        self._n_cat_features = n_cat_features
+
         if self.verbose:
             n_samples = len(self.contexts)
             print(f"Loaded Criteo from cache: {n_samples:,} impressions, {self.n_campaigns} campaigns")
@@ -169,6 +175,13 @@ class CriteoData:
         norms[norms == 0] = 1
         self.contexts = contexts / norms * 2
 
+        # Pre-allocate prediction array for sample() - avoid allocation every call
+        n_cat_features = self.X_encoded.shape[1]
+        self._X_pred = np.zeros((self.n_campaigns, n_cat_features + self.n_campaigns))
+        # Pre-fill campaign one-hot (identity matrix in the right columns)
+        self._X_pred[:, n_cat_features:] = np.eye(self.n_campaigns)
+        self._n_cat_features = n_cat_features
+
     def _train_xgboost_surrogate(self, df: pd.DataFrame):
         n_samples = len(df)
 
@@ -210,19 +223,12 @@ class CriteoData:
         idx = self.rng.integers(len(self.contexts))
         context = self.contexts[idx].copy()
 
-        # Get conversion probabilities from XGBoost surrogate for ALL campaigns
-        x_encoded = self.X_encoded[idx]
-
-        # Create feature vectors for each campaign
-        n_features = len(x_encoded) + self.n_campaigns
-        X_pred = np.zeros((self.n_campaigns, n_features))
-
-        for campaign_idx in range(self.n_campaigns):
-            X_pred[campaign_idx, :len(x_encoded)] = x_encoded
-            X_pred[campaign_idx, len(x_encoded) + campaign_idx] = 1
+        # Update pre-allocated array with this sample's encoded features
+        # (campaign one-hot is already filled, just update the context part)
+        self._X_pred[:, :self._n_cat_features] = self.X_encoded[idx]
 
         # Get probabilities from XGBoost (these ARE the true values)
-        values = self.model.predict_proba(X_pred)[:, 1]
+        values = self.model.predict_proba(self._X_pred)[:, 1]
 
         return context, values
 
