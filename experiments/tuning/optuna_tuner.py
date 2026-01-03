@@ -150,11 +150,13 @@ class BanditHyperparameterTuner:
         # Log study summary to wandb
         wandb_enabled = self.config.get('wandb', {}).get('enabled', False)
         if wandb_enabled and len(study.trials) > 0:
+            is_minimize = self.config.get('datasets', {}).get(dataset, {}).get('minimize', False)
             study_logger = WandbStudyLogger(
                 config=self.config,
                 agent_name=agent_name,
                 dataset=dataset,
                 feedback_type=feedback_type,
+                minimize=is_minimize,
             )
             study_logger.log_study_summary(
                 best_params=study.best_params,

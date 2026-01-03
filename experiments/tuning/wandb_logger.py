@@ -14,6 +14,7 @@ class WandbRunLogger:
         trial_number: int,
         seed: int,
         params: Dict[str, Any],
+        minimize: bool = False,
     ):
         self.config = config
         self.agent_name = agent_name
@@ -22,6 +23,7 @@ class WandbRunLogger:
         self.trial_number = trial_number
         self.seed = seed
         self.params = params
+        self.minimize = minimize  # For shortest path, log cost instead of reward
 
         self._wandb = None
         self._run = None
@@ -96,11 +98,19 @@ class WandbRunLogger:
             'round': round_num,
             'train/regret': regret,
             'train/cumulative_regret': cumulative_regret,
-            'train/reward': reward,
-            'train/optimal_reward': optimal_reward,
         }
-        if cumulative_reward is not None:
-            metrics['train/cumulative_reward'] = cumulative_reward
+
+        if self.minimize:
+            # For minimization: log cost (positive) instead of reward (negative)
+            metrics['train/cost'] = -reward
+            metrics['train/optimal_cost'] = -optimal_reward
+            if cumulative_reward is not None:
+                metrics['train/cumulative_cost'] = -cumulative_reward
+        else:
+            metrics['train/reward'] = reward
+            metrics['train/optimal_reward'] = optimal_reward
+            if cumulative_reward is not None:
+                metrics['train/cumulative_reward'] = cumulative_reward
 
         self._wandb.log(metrics, step=round_num)
 
@@ -166,22 +176,37 @@ class WandbRunLogger:
 
         # Train metrics
         self._wandb.summary['final_train_cumulative_regret'] = final_train_cumulative_regret
-        if final_train_cumulative_reward is not None:
-            self._wandb.summary['final_train_cumulative_reward'] = final_train_cumulative_reward
         if final_train_regret_per_round is not None:
             self._wandb.summary['final_train_regret_per_round'] = final_train_regret_per_round
-        if final_train_reward_per_round is not None:
-            self._wandb.summary['final_train_reward_per_round'] = final_train_reward_per_round
 
-        # Holdout metrics (same pattern as train)
+        if self.minimize:
+            # For minimization: log cost instead of reward
+            if final_train_cumulative_reward is not None:
+                self._wandb.summary['final_train_cumulative_cost'] = -final_train_cumulative_reward
+            if final_train_reward_per_round is not None:
+                self._wandb.summary['final_train_cost_per_round'] = -final_train_reward_per_round
+        else:
+            if final_train_cumulative_reward is not None:
+                self._wandb.summary['final_train_cumulative_reward'] = final_train_cumulative_reward
+            if final_train_reward_per_round is not None:
+                self._wandb.summary['final_train_reward_per_round'] = final_train_reward_per_round
+
+        # Holdout metrics
         if final_holdout_cumulative_regret is not None:
             self._wandb.summary['final_holdout_cumulative_regret'] = final_holdout_cumulative_regret
-        if final_holdout_cumulative_reward is not None:
-            self._wandb.summary['final_holdout_cumulative_reward'] = final_holdout_cumulative_reward
         if final_holdout_regret_per_round is not None:
             self._wandb.summary['final_holdout_regret_per_round'] = final_holdout_regret_per_round
-        if final_holdout_reward_per_round is not None:
-            self._wandb.summary['final_holdout_reward_per_round'] = final_holdout_reward_per_round
+
+        if self.minimize:
+            if final_holdout_cumulative_reward is not None:
+                self._wandb.summary['final_holdout_cumulative_cost'] = -final_holdout_cumulative_reward
+            if final_holdout_reward_per_round is not None:
+                self._wandb.summary['final_holdout_cost_per_round'] = -final_holdout_reward_per_round
+        else:
+            if final_holdout_cumulative_reward is not None:
+                self._wandb.summary['final_holdout_cumulative_reward'] = final_holdout_cumulative_reward
+            if final_holdout_reward_per_round is not None:
+                self._wandb.summary['final_holdout_reward_per_round'] = final_holdout_reward_per_round
 
         self._wandb.summary['wall_time_seconds'] = wall_time_seconds
         self._wandb.summary['total_rounds'] = total_rounds
@@ -214,6 +239,7 @@ class WandbTrialLogger:
         feedback_type: str,
         trial_number: int,
         params: Dict[str, Any],
+        minimize: bool = False,
     ):
         self.config = config
         self.agent_name = agent_name
@@ -221,6 +247,7 @@ class WandbTrialLogger:
         self.feedback_type = feedback_type
         self.trial_number = trial_number
         self.params = params
+        self.minimize = minimize
         self._enabled = config.get('wandb', {}).get('enabled', False)
 
     def create_seed_logger(self, seed: int) -> WandbRunLogger:
@@ -233,6 +260,7 @@ class WandbTrialLogger:
             trial_number=self.trial_number,
             seed=seed,
             params=self.params,
+            minimize=self.minimize,
         )
 
 
@@ -244,11 +272,13 @@ class WandbStudyLogger:
         agent_name: str,
         dataset: str,
         feedback_type: str,
+        minimize: bool = False,
     ):
         self.config = config
         self.agent_name = agent_name
         self.dataset = dataset
         self.feedback_type = feedback_type
+        self.minimize = minimize
 
         self._wandb = None
         self._enabled = config.get('wandb', {}).get('enabled', False)
@@ -272,6 +302,7 @@ class WandbStudyLogger:
             feedback_type=self.feedback_type,
             trial_number=trial_number,
             params=params,
+            minimize=self.minimize,
         )
 
     def log_study_summary(

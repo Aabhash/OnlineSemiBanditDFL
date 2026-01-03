@@ -432,6 +432,9 @@ class ObjectiveFactory:
                 lr = default_lr
 
             # Create wandb trial logger factory (creates per-seed loggers)
+            # Get minimize flag from dataset config (defaults to False for maximization)
+            is_minimize = config.get('datasets', {}).get(dataset, {}).get('minimize', False)
+
             trial_logger: Optional[WandbTrialLogger] = None
             if wandb_enabled:
                 trial_logger = WandbTrialLogger(
@@ -441,6 +444,7 @@ class ObjectiveFactory:
                     feedback_type=feedback_type,
                     trial_number=trial.number,
                     params=params,
+                    minimize=is_minimize,
                 )
 
             # Track regrets for HP selection
@@ -589,6 +593,9 @@ class ObjectiveFactory:
             lr = params.get('lr', default_lr) if search_space.get('tune_lr', False) else default_lr
 
             # Create wandb trial logger factory
+            # Get minimize flag from dataset config (defaults to False for maximization)
+            is_minimize = config.get('datasets', {}).get(dataset, {}).get('minimize', False)
+
             trial_logger: Optional[WandbTrialLogger] = None
             if wandb_enabled:
                 trial_logger = WandbTrialLogger(
@@ -598,6 +605,7 @@ class ObjectiveFactory:
                     feedback_type=feedback_type,
                     trial_number=trial.number,
                     params=params,
+                    minimize=is_minimize,
                 )
 
             selection_regrets = []

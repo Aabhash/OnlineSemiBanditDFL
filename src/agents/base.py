@@ -89,22 +89,31 @@ def _compute_test_losses(agent, X_test, Y_test, weights, capacity):
     return mse_total / valid_count, spo_total / valid_count
 
 
-def _compute_test_regret(agent, X_test, Y_test, weights, capacity, solver=None):
+def _compute_test_regret(agent, X_test, Y_test, weights, capacity, solver=None, minimize=False):
     from src.solver import solve_knapsack
     n_samples = len(X_test)
     total_regret = 0.0
 
     for i in range(n_samples):
         selection = agent.act(X_test[i])
-        selection = np.asarray(selection)
-        Y_true = Y_test[i]
+        selection = np.asarray(selection).flatten()
+        Y_true = np.asarray(Y_test[i]).flatten()
+
         if solver is not None:
-            optimal_selection = solver(Y_true)
+            optimal_selection = solver(Y_test[i])  # Pass original shape for solver
+            optimal_selection = np.asarray(optimal_selection).flatten()
         else:
             optimal_selection = solve_knapsack(Y_true, weights, capacity)
-        reward = np.sum(Y_true * selection)
-        optimal_reward = np.sum(Y_true * optimal_selection)
-        total_regret += optimal_reward - reward
+
+        value = np.sum(Y_true * selection)
+        optimal_value = np.sum(Y_true * optimal_selection)
+
+        if minimize:
+            # For minimization: regret = agent_cost - optimal_cost
+            total_regret += value - optimal_value
+        else:
+            # For maximization: regret = optimal_reward - agent_reward
+            total_regret += optimal_value - value
 
     return total_regret
 
@@ -149,7 +158,8 @@ def run_experiment(
         observed_values, reward, info = env.step(selection, full_feedback=full_feedback)
 
         if t == n_rounds - 1 or (t > 0 and t % eval_interval == 0):
-            test_regret = _compute_test_regret(agent, X_test, Y_test, env.weights, env.capacity, solver)
+            minimize = getattr(env, 'minimize', False)
+            test_regret = _compute_test_regret(agent, X_test, Y_test, env.weights, env.capacity, solver, minimize)
             test_regrets.append(test_regret)
 
             # Evaluate on holdout if available
