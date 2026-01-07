@@ -10,7 +10,7 @@ from src.agents.bayesian_utils import (
 )
 
 
-class PerArmMSENeuralAgent:
+class PerArmBayesianMSEAgent:
 
     def __init__(
         self,

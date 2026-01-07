@@ -23,7 +23,6 @@ class BayesianSPOAgent:
         beta: float = 1.0,
         beta_start: float = None,
         beta_end: float = None,
-        alpha: float = 0.0,
         lambda_reg: float = 1.0,
         lr: float = 0.01,
         decay_rounds: int = 300,
@@ -44,7 +43,6 @@ class BayesianSPOAgent:
         else:
             self.solver = solver
         self.hidden_dim = hidden_dim
-        self.alpha = alpha
         self.lambda_reg = lambda_reg
         self.decay_rounds = decay_rounds
         self.t = 0
@@ -118,14 +116,9 @@ class BayesianSPOAgent:
             Y_target = jnp.where(selection > 0.5, rewards, ucb_values)
 
         spo_grad_val = spo_plus_grad(pred, Y_target, self.weights, self.capacity)
-        if self.alpha > 0:
-            mse_grad = 2 * (pred - Y_target) / self.n_arms
-            hybrid_grad = self.alpha * mse_grad + (1 - self.alpha) * spo_grad_val
-        else:
-            hybrid_grad = spo_grad_val
 
         theta = jnp.einsum('nij,nj->ni', self.A_inv, self.b_bayes)
-        grad_h = jnp.einsum('n,ni->i', hybrid_grad, theta)
+        grad_h = jnp.einsum('n,ni->i', spo_grad_val, theta)
 
         grad_z1 = grad_h * (z1 > 0)
 

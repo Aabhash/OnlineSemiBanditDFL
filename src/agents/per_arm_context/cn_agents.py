@@ -1,3 +1,5 @@
+from collections import deque
+
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -8,6 +10,7 @@ DEFAULT_TRAIN_INTERVAL = 5
 DEFAULT_TRAIN_EPOCHS = 50
 DEFAULT_BATCH_SIZE = 64
 DEFAULT_GRAD_CLIP = 5.0
+DEFAULT_MAX_HISTORY = 1000
 
 
 def _flatten_params(params):
@@ -25,29 +28,46 @@ def _forward(X, W1, b1, W2, b2):
     return out.squeeze()
 
 
+def _make_gradient_fn(W1_shape, b1_shape, W2_shape, b2_shape):
+    w1_size = int(np.prod(W1_shape))
+    b1_size = int(np.prod(b1_shape))
+    w2_size = int(np.prod(W2_shape))
+
+    @jax.jit
+    def compute_gradients(flat_params, X):
+        def forward_flat(fp):
+            idx = 0
+            W1 = fp[idx:idx + w1_size].reshape(W1_shape)
+            idx += w1_size
+            b1 = fp[idx:idx + b1_size].reshape(b1_shape)
+            idx += b1_size
+            W2 = fp[idx:idx + w2_size].reshape(W2_shape)
+            idx += w2_size
+            b2 = fp[idx:].reshape(b2_shape)
+
+            z1 = X @ W1 + b1
+            h = jnp.maximum(0, z1)
+            out = h @ W2 + b2
+            return out.squeeze()
+
+        return jax.jacobian(forward_flat)(flat_params)
+
+    return compute_gradients
+
+
+# Cache for JIT-compiled gradient functions by shape
+_gradient_fn_cache = {}
+
+
 def _compute_all_gradients(params, X, n_arms, total_params):
-    def forward_flat(flat_params):
-        w1_size = params['W1'].size
-        b1_size = params['b1'].size
-        w2_size = params['W2'].size
+    # Get or create JIT-compiled function for these shapes
+    shapes_key = (params['W1'].shape, params['b1'].shape, params['W2'].shape, params['b2'].shape)
+    if shapes_key not in _gradient_fn_cache:
+        _gradient_fn_cache[shapes_key] = _make_gradient_fn(*shapes_key)
 
-        idx = 0
-        W1 = flat_params[idx:idx + w1_size].reshape(params['W1'].shape)
-        idx += w1_size
-        b1 = flat_params[idx:idx + b1_size].reshape(params['b1'].shape)
-        idx += b1_size
-        W2 = flat_params[idx:idx + w2_size].reshape(params['W2'].shape)
-        idx += w2_size
-        b2 = flat_params[idx:].reshape(params['b2'].shape)
-
-        z1 = X @ W1 + b1
-        h = jnp.maximum(0, z1)
-        out = h @ W2 + b2
-        return out.squeeze()
-
+    grad_fn = _gradient_fn_cache[shapes_key]
     flat_params = _flatten_params(params)
-    jacobian = jax.jacobian(forward_flat)(flat_params)
-    return jacobian
+    return grad_fn(flat_params, X)
 
 
 class CNUCBAgent:
@@ -74,6 +94,7 @@ class CNUCBAgent:
         use_lr_schedule: bool = False,
         decay_rounds: int = 300,
         min_lr_ratio: float = 0.1,
+        max_history: int = None,
     ):
         self.context_dim = context_dim
         self.n_arms = n_arms
@@ -152,9 +173,10 @@ class CNUCBAgent:
             'W2': self.W2, 'b2': self.b2
         })
 
-        self.history_X = []
-        self.history_Y = []
-        self.history_mask = []
+        self.max_history = max_history if max_history is not None else DEFAULT_MAX_HISTORY
+        self.history_X = deque(maxlen=self.max_history)
+        self.history_Y = deque(maxlen=self.max_history)
+        self.history_mask = deque(maxlen=self.max_history)
 
         self.rng = np.random.default_rng(seed if seed else 0)
 
@@ -368,6 +390,7 @@ class CNTSAgent:
         use_lr_schedule: bool = False,
         decay_rounds: int = 300,
         min_lr_ratio: float = 0.1,
+        max_history: int = None,
     ):
         self.context_dim = context_dim
         self.n_arms = n_arms
@@ -449,9 +472,10 @@ class CNTSAgent:
             'W2': self.W2, 'b2': self.b2
         })
 
-        self.history_X = []
-        self.history_Y = []
-        self.history_mask = []
+        self.max_history = max_history if max_history is not None else DEFAULT_MAX_HISTORY
+        self.history_X = deque(maxlen=self.max_history)
+        self.history_Y = deque(maxlen=self.max_history)
+        self.history_mask = deque(maxlen=self.max_history)
 
         self.output_scale = 1.0
         self.output_bias = 0.0

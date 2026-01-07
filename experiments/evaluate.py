@@ -16,6 +16,7 @@ from src.agents.shared_context import (
     BayesianSPOAgent,
     LinUCBAgent,
     NeuralUCBAgent,
+    BayesianMSEAgent,
     ThompsonSamplingAgent,
     UCBAgent,
     EpsilonGreedyAgent,
@@ -27,9 +28,14 @@ from src.agents.per_arm_context import (
     CNTSAgent,
     PerArmLinUCBAgent,
     PerArmThompsonSamplingAgent,
-    PerArmMSENeuralAgent,
+    PerArmBayesianMSEAgent,
     PerArmEpsilonGreedyAgent,
     PerArmRandomAgent,
+)
+from experiments.ablations.agents import (
+    DecisionUCBAgent,
+    PerArmDecisionUCBAgent,
+    PerArmBayesianIERMDMAgent,
 )
 from src.models import BayesianLinearModel
 
@@ -143,7 +149,18 @@ def get_agents(env, seed, config, n_rounds):
         'BayesianSPO': BayesianSPOAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             hidden_dim=hidden_dim, beta=beta, decay_rounds=n_rounds,
-            alpha=0.0, lambda_reg=lambda_reg, solver=solver, seed=seed
+            lambda_reg=lambda_reg, lr=lr, solver=solver, seed=seed
+        ),
+        'BayesianMSE': BayesianMSEAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            hidden_dim=hidden_dim, beta=beta, lambda_reg=lambda_reg,
+            decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed
+        ),
+        'DecisionUCB': DecisionUCBAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            hidden_dim=hidden_dim, beta_pred_start=beta, beta_pred_end=0.1,
+            beta_decision=1.0, decay_rounds=n_rounds, alpha=0.0,
+            lambda_reg=lambda_reg, lr=lr, solver=solver, seed=seed
         ),
     }
 
@@ -191,10 +208,10 @@ def get_per_arm_agents(env, seed, config, n_rounds):
         ),
         'PerArmBayesianSPO': PerArmBayesianSPOAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, beta=beta, alpha=0.0, lambda_reg=lambda_reg,
+            hidden_dim=hidden_dim, beta=beta, lambda_reg=lambda_reg,
             lr=lr, decay_rounds=n_rounds, solver=solver, seed=seed
         ),
-        'PerArmMSENeural': PerArmMSENeuralAgent(
+        'PerArmBayesianMSE': PerArmBayesianMSEAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             hidden_dim=hidden_dim, beta=beta, lambda_reg=lambda_reg,
             decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed
@@ -203,6 +220,17 @@ def get_per_arm_agents(env, seed, config, n_rounds):
             env.context_dim, env.n_arms, env.weights, env.capacity,
             hidden_dim=hidden_dim, epsilon=epsilon, decay_epsilon=decay_epsilon,
             decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed
+        ),
+        'IERM-DM': PerArmBayesianIERMDMAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            hidden_dim=hidden_dim, beta=beta, alpha=0.0, lambda_reg=lambda_reg,
+            lr=lr, decay_rounds=n_rounds, solver=solver, seed=seed
+        ),
+        'PerArmDecisionUCB': PerArmDecisionUCBAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            hidden_dim=hidden_dim, beta_pred_start=beta, beta_pred_end=0.1,
+            beta_decision=1.0, decay_rounds=n_rounds, alpha=0.0,
+            lambda_reg=lambda_reg, lr=lr, solver=solver, seed=seed
         ),
     }
 
@@ -330,6 +358,7 @@ def run_evaluation(
                 # Log to wandb if enabled
                 if wandb_enabled:
                     agent_params = tuned_params.get(agent_name, {}) if tuned_params else {}
+                    is_minimize = config.get('datasets', {}).get(dataset, {}).get('minimize', False)
                     wandb_logger = EvaluationWandbLogger(
                         config=config,
                         agent_name=agent_name,
@@ -339,6 +368,7 @@ def run_evaluation(
                         use_tuned_params=use_tuned_params_flag,
                         n_rounds=n_rounds,
                         params=agent_params,
+                        minimize=is_minimize,
                     )
                     wandb_logger.start()
                     wandb_logger.log_trajectory(result)
@@ -371,6 +401,9 @@ def print_summary(results, dataset, trajectories=None):
                 break
 
     for feedback_mode in ['semi_bandit', 'full']:
+        if feedback_mode not in results or not results[feedback_mode]:
+            continue
+
         print(f'\n{feedback_mode.replace("_", " ").title()} Feedback:')
 
         if has_holdout and feedback_mode == 'semi_bandit':
@@ -406,13 +439,16 @@ def print_summary(results, dataset, trajectories=None):
             else:
                 print(f'{agent_name:<25} {mean:>10.0f} {std:>8.0f} {rank:>5}{marker}')
 
-    semi_bandit_best = min(results['semi_bandit'].items(), key=lambda x: np.mean(x[1]))
-    full_best = min(results['full'].items(), key=lambda x: np.mean(x[1]))
-
     print(f'\n{"=" * 70}')
     print('WINNERS:')
-    print(f'  Semi-bandit: {semi_bandit_best[0]} ({np.mean(semi_bandit_best[1]):.0f})')
-    print(f'  Full feedback: {full_best[0]} ({np.mean(full_best[1]):.0f})')
+
+    if 'semi_bandit' in results and results['semi_bandit']:
+        semi_bandit_best = min(results['semi_bandit'].items(), key=lambda x: np.mean(x[1]))
+        print(f'  Semi-bandit: {semi_bandit_best[0]} ({np.mean(semi_bandit_best[1]):.0f})')
+
+    if 'full' in results and results['full']:
+        full_best = min(results['full'].items(), key=lambda x: np.mean(x[1]))
+        print(f'  Full feedback: {full_best[0]} ({np.mean(full_best[1]):.0f})')
 
 
 def plot_trajectories(trajectories, dataset, output_dir, feedback_mode='semi_bandit'):
@@ -661,6 +697,7 @@ class EvaluationWandbLogger:
         use_tuned_params: bool,
         n_rounds: int,
         params: Optional[Dict[str, Any]] = None,
+        minimize: bool = False,
     ):
         self.config = config
         self.agent_name = agent_name
@@ -670,6 +707,7 @@ class EvaluationWandbLogger:
         self.use_tuned_params = use_tuned_params
         self.n_rounds = n_rounds
         self.params = params or {}
+        self.minimize = minimize  # For cost minimization problems (e.g., shortest path)
 
         self._wandb = None
         self._run = None
@@ -799,22 +837,39 @@ class EvaluationWandbLogger:
 
                 if i < len(regrets):
                     metrics['train/regret'] = regrets[i]
-                if i < len(rewards):
-                    metrics['train/reward'] = rewards[i]
-                if i < len(cumulative_reward):
-                    metrics['train/cumulative_reward'] = cumulative_reward[i]
-                if i < len(optimal_rewards):
-                    metrics['train/optimal_reward'] = optimal_rewards[i]
+
+                # For minimization problems, log cost (positive) instead of reward (negative)
+                if self.minimize:
+                    if i < len(rewards):
+                        metrics['train/cost'] = -rewards[i]
+                    if i < len(cumulative_reward):
+                        metrics['train/cumulative_cost'] = -cumulative_reward[i]
+                    if i < len(optimal_rewards):
+                        metrics['train/optimal_cost'] = -optimal_rewards[i]
+                else:
+                    if i < len(rewards):
+                        metrics['train/reward'] = rewards[i]
+                    if i < len(cumulative_reward):
+                        metrics['train/cumulative_reward'] = cumulative_reward[i]
+                    if i < len(optimal_rewards):
+                        metrics['train/optimal_reward'] = optimal_rewards[i]
 
                 # Log holdout metrics at same frequency
                 if holdout_cumulative_regret[i] is not None:
                     metrics['holdout/cumulative_regret'] = holdout_cumulative_regret[i]
                 if holdout_regret[i] is not None:
                     metrics['holdout/regret'] = holdout_regret[i]
-                if holdout_cumulative_reward[i] is not None:
-                    metrics['holdout/cumulative_reward'] = holdout_cumulative_reward[i]
-                if holdout_reward[i] is not None:
-                    metrics['holdout/reward'] = holdout_reward[i]
+
+                if self.minimize:
+                    if holdout_cumulative_reward[i] is not None:
+                        metrics['holdout/cumulative_cost'] = -holdout_cumulative_reward[i]
+                    if holdout_reward[i] is not None:
+                        metrics['holdout/cost'] = -holdout_reward[i]
+                else:
+                    if holdout_cumulative_reward[i] is not None:
+                        metrics['holdout/cumulative_reward'] = holdout_cumulative_reward[i]
+                    if holdout_reward[i] is not None:
+                        metrics['holdout/reward'] = holdout_reward[i]
 
                 self._wandb.log(metrics, step=i)
 
@@ -823,7 +878,6 @@ class EvaluationWandbLogger:
         result: Dict[str, Any],
         wall_time_seconds: Optional[float] = None,
     ):
-        """Log final summary metrics (consistent with tuning script)."""
         if not self._enabled or not self._run:
             return
 
@@ -838,9 +892,15 @@ class EvaluationWandbLogger:
             self._wandb.summary['final_train_cumulative_regret'] = cumulative_regret[-1]
         if regrets:
             self._wandb.summary['final_train_regret_per_round'] = regrets[-1]
+
+        # For minimization, log cost (positive) instead of reward (negative)
         if rewards:
-            self._wandb.summary['final_train_cumulative_reward'] = sum(rewards)
-            self._wandb.summary['final_train_reward_per_round'] = rewards[-1]
+            if self.minimize:
+                self._wandb.summary['final_train_cumulative_cost'] = -sum(rewards)
+                self._wandb.summary['final_train_cost_per_round'] = -rewards[-1]
+            else:
+                self._wandb.summary['final_train_cumulative_reward'] = sum(rewards)
+                self._wandb.summary['final_train_reward_per_round'] = rewards[-1]
 
         if holdout_evals:
             # Compute cumulative metrics by summing all holdout evaluations
@@ -856,8 +916,13 @@ class EvaluationWandbLogger:
 
             self._wandb.summary['final_holdout_cumulative_regret'] = cumulative_holdout_regret
             self._wandb.summary['final_holdout_regret_per_round'] = per_round_regret
-            self._wandb.summary['final_holdout_cumulative_reward'] = cumulative_holdout_reward
-            self._wandb.summary['final_holdout_reward_per_round'] = per_round_reward
+
+            if self.minimize:
+                self._wandb.summary['final_holdout_cumulative_cost'] = -cumulative_holdout_reward
+                self._wandb.summary['final_holdout_cost_per_round'] = -per_round_reward
+            else:
+                self._wandb.summary['final_holdout_cumulative_reward'] = cumulative_holdout_reward
+                self._wandb.summary['final_holdout_reward_per_round'] = per_round_reward
 
         if wall_time_seconds is not None:
             self._wandb.summary['wall_time_seconds'] = wall_time_seconds

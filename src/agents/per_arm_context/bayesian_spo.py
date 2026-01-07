@@ -7,6 +7,7 @@ from src.agents.bayesian_utils import (
     init_shared_regression,
     compute_shared_ucb_values,
     compute_shared_predictions,
+    compute_shared_uncertainties,
     update_shared_bayesian_stats,
 )
 
@@ -23,7 +24,6 @@ class PerArmBayesianSPOAgent:
         beta: float = 1.0,
         beta_start: float = None,
         beta_end: float = None,
-        alpha: float = 0.0,
         lambda_reg: float = 1.0,
         lr: float = 0.01,
         decay_rounds: int = 300,
@@ -45,7 +45,6 @@ class PerArmBayesianSPOAgent:
             self.solver = solver
 
         self.hidden_dim = hidden_dim
-        self.alpha = alpha
         self.lambda_reg = lambda_reg
         self.decay_rounds = decay_rounds
         self.t = 0
@@ -121,14 +120,8 @@ class PerArmBayesianSPOAgent:
 
         spo_grad_val = spo_plus_grad(pred, Y_target, self.weights, self.capacity)
 
-        if self.alpha > 0:
-            mse_grad = 2 * (pred - Y_target) / self.n_arms
-            hybrid_grad = self.alpha * mse_grad + (1 - self.alpha) * spo_grad_val
-        else:
-            hybrid_grad = spo_grad_val
-
         theta = self.A_inv @ self.b_bayes
-        grad_H = jnp.outer(hybrid_grad, theta)
+        grad_H = jnp.outer(spo_grad_val, theta)
         grad_Z1 = grad_H * (Z1 > 0)
         grad_W1 = X.T @ grad_Z1
         grad_b1 = jnp.sum(grad_Z1, axis=0)

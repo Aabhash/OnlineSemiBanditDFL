@@ -26,6 +26,9 @@ uv sync
 ## Quick Start
 
 ```bash
+# Download criteo data from HuggingFace
+uv run python src/data/download_criteo.py --subsample_rate 1.0
+
 # Run evaluation on default datasets
 python experiments/evaluate.py --datasets synthetic,fantasy --n_rounds 500 --n_seeds 3
 

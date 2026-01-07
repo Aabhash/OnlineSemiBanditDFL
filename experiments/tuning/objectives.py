@@ -66,9 +66,10 @@ def run_tuning_experiment(
 
         rewards.append(reward)
         cumulative_reward += reward
-        optimal_reward = info['optimal_reward']
+        # Handle both maximization (optimal_reward) and minimization (optimal_cost)
+        optimal_reward = info.get('optimal_reward', -info.get('optimal_cost', 0))
         optimal_rewards.append(optimal_reward)
-        instant_regret = optimal_reward - reward
+        instant_regret = info.get('regret', optimal_reward - reward)
         regrets.append(instant_regret)
         cumulative_regret += instant_regret
 
@@ -211,6 +212,8 @@ def sample_hyperparameters(
         elif param_type == 'categorical':
             choices = spec['choices']
             params[name] = trial.suggest_categorical(name, choices)
+        elif param_type == 'fixed':
+            params[name] = spec['value']
         else:
             raise ValueError(f"Unknown parameter type: {param_type}")
 
@@ -232,7 +235,7 @@ def create_agent_from_params(
         ThompsonSamplingAgent,
         UCBAgent,
         EpsilonGreedyAgent,
-        MSENeuralAgent,
+        BayesianMSEAgent,
         RandomAgent,
     )
     from src.agents.per_arm_context import (
@@ -242,7 +245,7 @@ def create_agent_from_params(
         PerArmLinUCBAgent,
         PerArmNeuralLinUCBAgent,
         PerArmThompsonSamplingAgent,
-        PerArmMSENeuralAgent,
+        PerArmBayesianMSEAgent,
         PerArmRandomAgent,
         PerArmEpsilonGreedyAgent,
     )
@@ -251,7 +254,7 @@ def create_agent_from_params(
     solver = env.solve
     minimize = getattr(env, 'minimize', False)
 
-    if agent_name == 'BayesianSPO':
+    if agent_name == 'BayesianSPO' or agent_name == 'BayesianSPO-PureSPO':
         return BayesianSPOAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed,
@@ -288,8 +291,8 @@ def create_agent_from_params(
             decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed,
             **{k: v for k, v in params.items() if k != 'lr'}
         )
-    elif agent_name == 'MSENeural':
-        return MSENeuralAgent(
+    elif agent_name == 'BayesianMSE':
+        return BayesianMSEAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed,
             **{k: v for k, v in params.items() if k != 'lr'}
@@ -340,8 +343,8 @@ def create_agent_from_params(
             solver=solver, seed=seed,
             **{k: v for k, v in params.items() if k != 'lr'}
         )
-    elif agent_name == 'PerArmMSENeural':
-        return PerArmMSENeuralAgent(
+    elif agent_name == 'PerArmBayesianMSE':
+        return PerArmBayesianMSEAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed,
             **{k: v for k, v in params.items() if k != 'lr'}

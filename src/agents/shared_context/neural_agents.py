@@ -10,7 +10,7 @@ from src.agents.bayesian_utils import (
 )
 
 
-class MSENeuralAgent:
+class BayesianMSEAgent:
 
     def __init__(
         self,

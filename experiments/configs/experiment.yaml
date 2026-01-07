@@ -91,6 +91,7 @@ datasets:
     shift_interval: 200
     shift_fraction: 0.1
     env_type: shared_context
+    minimize: true  # Cost minimization problem
 
   shortest_path_drift_high_noise:
     grid_size: 8
@@ -102,6 +103,7 @@ datasets:
     shift_interval: 200
     shift_fraction: 0.1
     env_type: shared_context
+    minimize: true  # Cost minimization problem
 
   # Criteo Ad Bidding: real-world shared context benchmark
   criteo:
@@ -120,7 +122,7 @@ datasets:
     context_dim: 14
     holdout_weeks: 4       # Last 4 weeks for evaluation (14-17)
     env_type: per_arm_context
-    n_rounds: 1000         # Train with repetition over 13 weeks
+    n_rounds: 400         # Train with repetition over 13 weeks
     eval_metric: training  # HP selection uses training regret; holdout is for final reporting only
 
 feedback_types:
@@ -132,7 +134,7 @@ evaluation:
     n_rounds: 300
     n_seeds: 3
   full:
-    n_rounds: 10000
+    n_rounds: 2000
     n_seeds: 10
   output_dir: "results/eval"
 

@@ -86,11 +86,15 @@ def pairwise_significance_matrix(
             if i >= j:
                 continue
 
-            result = wilcoxon_test_agents(
-                results_store, agent1, agent2, dataset, feedback_type, alpha,
-                use_holdout=use_holdout
-            )
-            results[(agent1, agent2)] = result
+            try:
+                result = wilcoxon_test_agents(
+                    results_store, agent1, agent2, dataset, feedback_type, alpha,
+                    use_holdout=use_holdout
+                )
+                results[(agent1, agent2)] = result
+            except ValueError as e:
+                # Skip pairs without enough common seeds
+                print(f"  Skipping {agent1} vs {agent2}: {e}")
 
     matrix_data = np.ones((n_agents, n_agents))
     for i, agent1 in enumerate(agents):
@@ -179,12 +183,17 @@ def rank_agents(
 
     mean_regrets = {}
     for agent in agents:
-        summary = results_store.compute_agent_summary(agent, dataset, feedback_type, use_holdout=use_holdout)
-        mean_regrets[agent] = summary.mean_train_regret
+        try:
+            summary = results_store.compute_agent_summary(agent, dataset, feedback_type, use_holdout=use_holdout)
+            mean_regrets[agent] = summary.mean_train_regret
+        except Exception:
+            # Skip agents without results
+            mean_regrets[agent] = float('inf')
 
     ranking = [
         (agent, mean_regrets[agent], win_counts[agent])
         for agent in agents
+        if mean_regrets[agent] != float('inf')
     ]
 
     return sorted(ranking, key=lambda x: x[1])

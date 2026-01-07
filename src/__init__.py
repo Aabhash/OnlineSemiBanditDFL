@@ -31,7 +31,7 @@ from src.agents import (
     LinUCBAgent,
     NeuralUCBAgent,
     EpsilonGreedyAgent,
-    MSENeuralAgent,
+    BayesianMSEAgent,
     run_experiment,
     # Per-arm context - our main contribution
     PerArmBayesianSPOAgent,
@@ -41,7 +41,7 @@ from src.agents import (
     PerArmLinUCBAgent,
     PerArmThompsonSamplingAgent,
     PerArmEpsilonGreedyAgent,
-    PerArmMSENeuralAgent,
+    PerArmBayesianMSEAgent,
     PerArmRandomAgent,
 )
 
@@ -80,7 +80,7 @@ __all__ = [
     "LinUCBAgent",
     "NeuralUCBAgent",
     "EpsilonGreedyAgent",
-    "MSENeuralAgent",
+    "BayesianMSEAgent",
     "run_experiment",
     # Per-arm context agents
     "PerArmBayesianSPOAgent",
@@ -89,7 +89,7 @@ __all__ = [
     "PerArmLinUCBAgent",
     "PerArmThompsonSamplingAgent",
     "PerArmEpsilonGreedyAgent",
-    "PerArmMSENeuralAgent",
+    "PerArmBayesianMSEAgent",
     "PerArmRandomAgent",
     # Solver
     "solve_knapsack",

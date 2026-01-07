@@ -30,7 +30,7 @@ agents:
       choices: [true, false]
     hidden_dim:
       type: categorical
-      choices: [32, 64, 128]
+      choices: [32, 64]
 
   PerArmGreedy:
     tune_lr: true
@@ -41,7 +41,7 @@ agents:
       log: true
     hidden_dim:
       type: categorical
-      choices: [32, 64, 128]
+      choices: [32, 64]
 
   PerArmRandom:
     tune_lr: false
@@ -65,7 +65,7 @@ agents:
       log: true
     hidden_dim:
       type: categorical
-      choices: [32, 64, 128]
+      choices: [32, 64]
     train_interval:
       type: int
       low: 1
@@ -97,7 +97,7 @@ agents:
       log: true
     hidden_dim:
       type: categorical
-      choices: [32, 64, 128]
+      choices: [32, 64]
     train_interval:
       type: int
       low: 1
@@ -137,9 +137,9 @@ agents:
       log: true
     hidden_dim:
       type: categorical
-      choices: [32, 64, 128]
+      choices: [32, 64]
 
-  PerArmMSENeural:
+  PerArmBayesianMSE:
     tune_lr: true
     lr:
       type: float
@@ -153,7 +153,7 @@ agents:
       log: true
     hidden_dim:
       type: categorical
-      choices: [32, 64, 128]
+      choices: [32, 64]
     lambda_reg:
       type: float
       low: 0.01
@@ -167,104 +167,16 @@ agents:
       low: 0.0001
       high: 0.1
       log: true
-    beta_start:
+    beta:
       type: float
       low: 0.1
       high: 5.0
       log: true
-    beta_end:
-      type: float
-      low: 0.01
-      high: 1.0
-      log: true
     hidden_dim:
       type: categorical
-      choices: [32, 64, 128]
+      choices: [32, 64]
     lambda_reg:
       type: float
       low: 0.01
       high: 10.0
       log: true
-
-  # PerArmFullSPO:
-  #   tune_lr: true
-  #   lr:
-  #     type: float
-  #     low: 0.0001
-  #     high: 0.1
-  #     log: true
-  #   beta_start:
-  #     type: float
-  #     low: 0.1
-  #     high: 5.0
-  #     log: true
-  #   beta_end:
-  #     type: float
-  #     low: 0.01
-  #     high: 1.0
-  #     log: true
-  #   hidden_dim:
-  #     type: categorical
-  #     choices: [32, 64, 128]
-
-  # PerArmNTKSPO:
-  #   tune_lr: true
-  #   lr:
-  #     type: float
-  #     low: 0.0001
-  #     high: 0.1
-  #     log: true
-  #   gamma_start:
-  #     type: float
-  #     low: 0.5
-  #     high: 5.0
-  #     log: true
-  #   gamma_end:
-  #     type: float
-  #     low: 0.01
-  #     high: 0.5
-  #     log: true
-  #   lambda_ntk:
-  #     type: float
-  #     low: 0.01
-  #     high: 10.0
-  #     log: true
-  #   lambda_reg:
-  #     type: float
-  #     low: 0.01
-  #     high: 10.0
-  #     log: true
-  #   hidden_dim:
-  #     type: categorical
-  #     choices: [32, 64, 128]
-
-  # PerArmNTKDecisionUCB:
-  #   tune_lr: true
-  #   lr:
-  #     type: float
-  #     low: 0.0001
-  #     high: 0.1
-  #     log: true
-  #   gamma_start:
-  #     type: float
-  #     low: 0.5
-  #     high: 5.0
-  #     log: true
-  #   gamma_end:
-  #     type: float
-  #     low: 0.01
-  #     high: 0.5
-  #     log: true
-  #   beta_decision:
-  #     type: float
-  #     low: 0.1
-  #     high: 3.0
-  #     log: true
-  #   lambda_ntk:
-  #     type: float
-  #     low: 0.01
-  #     high: 10.0
-  #     log: true
-  #   hidden_dim:
-  #     type: categorical
-  #     choices: [32, 64, 128]

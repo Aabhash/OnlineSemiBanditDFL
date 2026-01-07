@@ -28,6 +28,8 @@ def create_env(env_type: str, seed: int = 42, **kwargs):
             if grid_size is None:
                 grid_size = 8  # default
         data_type = kwargs_copy.pop('data_type', 'synthetic')
+        # Remove minimize as it's a property, not a parameter
+        kwargs_copy.pop('minimize', None)
         return ShortestPathEnv(
             grid_size=grid_size,
             data_type=data_type,

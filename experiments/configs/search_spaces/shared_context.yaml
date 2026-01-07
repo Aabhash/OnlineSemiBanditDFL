@@ -16,7 +16,7 @@ agents:
       choices: [true, false]
     hidden_dim:
       type: categorical
-      choices: [32, 64, 128]
+      choices: [32, 64]
 
   Greedy:
     tune_lr: true
@@ -27,7 +27,7 @@ agents:
       log: true
     hidden_dim:
       type: categorical
-      choices: [32, 64, 128]
+      choices: [32, 64]
 
   Random:
     tune_lr: false
@@ -64,7 +64,7 @@ agents:
       log: true
     hidden_dim:
       type: categorical
-      choices: [32, 64, 128]
+      choices: [32, 64]
 
   UCB-Bayesian:
     tune_lr: false
@@ -87,7 +87,7 @@ agents:
       high: 1.0
       log: true
 
-  MSENeural:
+  BayesianMSE:
     tune_lr: true
     lr:
       type: float
@@ -101,7 +101,7 @@ agents:
       log: true
     hidden_dim:
       type: categorical
-      choices: [32, 64, 128]
+      choices: [32, 64]
     lambda_reg:
       type: float
       low: 0.01
@@ -120,67 +120,11 @@ agents:
       low: 0.1
       high: 5.0
       log: true
-    alpha:
-      type: float
-      low: 0.0
-      high: 0.5
     hidden_dim:
       type: categorical
-      choices: [32, 64, 128]
+      choices: [32, 64]
     lambda_reg:
       type: float
       low: 0.01
       high: 10.0
       log: true
-
-  # FullSPO:
-  #   tune_lr: true
-  #   lr:
-  #     type: float
-  #     low: 0.0001
-  #     high: 0.1
-  #     log: true
-  #   beta_start:
-  #     type: float
-  #     low: 0.1
-  #     high: 5.0
-  #     log: true
-  #   beta_end:
-  #     type: float
-  #     low: 0.01
-  #     high: 1.0
-  #     log: true
-  #   hidden_dim:
-  #     type: categorical
-  #     choices: [32, 64, 128]
-  #   lambda_reg:
-  #     type: float
-  #     low: 0.01
-  #     high: 10.0
-  #     log: true
-
-  # DecisionUCB:
-  #   tune_lr: true
-  #   lr:
-  #     type: float
-  #     low: 0.0001
-  #     high: 0.1
-  #     log: true
-  #   beta_pred_start:
-  #     type: float
-  #     low: 0.1
-  #     high: 5.0
-  #     log: true
-  #   beta_pred_end:
-  #     type: float
-  #     low: 0.01
-  #     high: 1.0
-  #     log: true
-  #   beta_decision:
-  #     type: float
-  #     low: 0.1
-  #     high: 3.0
-  #     log: true
-  #   hidden_dim:
-  #     type: categorical
-  #     choices: [32, 64, 128]
