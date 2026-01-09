@@ -155,13 +155,7 @@ def get_agents(env, seed, config, n_rounds):
             env.context_dim, env.n_arms, env.weights, env.capacity,
             hidden_dim=hidden_dim, beta=beta, lambda_reg=lambda_reg,
             decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed
-        ),
-        'DecisionUCB': DecisionUCBAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, beta_pred_start=beta, beta_pred_end=0.1,
-            beta_decision=1.0, decay_rounds=n_rounds, alpha=0.0,
-            lambda_reg=lambda_reg, lr=lr, solver=solver, seed=seed
-        ),
+        )
     }
 
 
@@ -220,18 +214,7 @@ def get_per_arm_agents(env, seed, config, n_rounds):
             env.context_dim, env.n_arms, env.weights, env.capacity,
             hidden_dim=hidden_dim, epsilon=epsilon, decay_epsilon=decay_epsilon,
             decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed
-        ),
-        'IERM-DM': PerArmBayesianIERMDMAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, beta=beta, alpha=0.0, lambda_reg=lambda_reg,
-            lr=lr, decay_rounds=n_rounds, solver=solver, seed=seed
-        ),
-        'PerArmDecisionUCB': PerArmDecisionUCBAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, beta_pred_start=beta, beta_pred_end=0.1,
-            beta_decision=1.0, decay_rounds=n_rounds, alpha=0.0,
-            lambda_reg=lambda_reg, lr=lr, solver=solver, seed=seed
-        ),
+        )
     }
 
 

@@ -8,7 +8,7 @@ from src.data.criteo import CriteoData
 class CriteoEnv(ConstrainedBanditEnv):
     def __init__(
         self,
-        n_campaigns: int = 100,
+        n_campaigns: int = 25,
         n_select: int = 10,
         context_dim: int = 50,
         subsample_rate: float = 0.1,

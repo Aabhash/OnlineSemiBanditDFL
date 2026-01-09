@@ -40,8 +40,8 @@ def run_tuning_experiment(
     n_seeds: int = 1,
     wandb_logger: Optional['WandbRunLoggerType'] = None,
     is_online: bool = True,
+    log_interval: int = 1,
 ) -> ExperimentResult:
-    """Run a single tuning experiment."""
     rewards = []
     optimal_rewards = []
     regrets = []
@@ -52,8 +52,8 @@ def run_tuning_experiment(
     cumulative_holdout_regret = 0.0
     cumulative_holdout_reward = 0.0
 
-    # Determine log interval for wandb
-    wandb_log_interval = config.get('wandb', {}).get('log_interval', 1)
+    # Use provided log interval for wandb
+    wandb_log_interval = log_interval
 
     # Check if env supports holdout evaluation (only relevant for non-online datasets)
     has_holdout = hasattr(env, 'evaluate_on_holdout') and not is_online
@@ -377,7 +377,12 @@ def create_env_for_tuning(
     from src.envs import create_env
 
     dataset_config = config['datasets'][dataset].copy()
+    # Remove training loop parameters (not env constructor params)
     dataset_config.pop('env_type', None)
+    dataset_config.pop('n_rounds', None)
+    dataset_config.pop('eval_interval', None)
+    dataset_config.pop('log_interval', None)
+    dataset_config.pop('eval_metric', None)
 
     return create_env(dataset, seed=seed, **dataset_config)
 
@@ -387,6 +392,20 @@ def get_n_rounds_for_dataset(config: Dict[str, Any], dataset: str) -> int:
     if 'n_rounds' in dataset_config:
         return dataset_config['n_rounds']
     return config['tuning']['n_rounds']
+
+
+def get_eval_interval_for_dataset(config: Dict[str, Any], dataset: str) -> int:
+    dataset_config = config['datasets'].get(dataset, {})
+    if 'eval_interval' in dataset_config:
+        return dataset_config['eval_interval']
+    return config['validation']['eval_interval']
+
+
+def get_log_interval_for_dataset(config: Dict[str, Any], dataset: str) -> int:
+    dataset_config = config['datasets'].get(dataset, {})
+    if 'log_interval' in dataset_config:
+        return dataset_config['log_interval']
+    return config.get('wandb', {}).get('log_interval', 10)
 
 
 def uses_holdout_for_selection(config: Dict[str, Any], dataset: str) -> bool:
@@ -412,7 +431,8 @@ class ObjectiveFactory:
         # Use dataset-specific n_rounds if available (e.g., nfl: 1000)
         n_rounds = get_n_rounds_for_dataset(config, dataset)
         seeds = config.get('tuning_seeds', [0, 1, 2, 3, 4])
-        eval_interval = config['validation']['eval_interval']
+        eval_interval = get_eval_interval_for_dataset(config, dataset)
+        log_interval = get_log_interval_for_dataset(config, dataset)
         full_feedback = feedback_type == 'full'
         default_lr = config['tuning']['default_lr']
         uses_lr = search_space.get('tune_lr', False) or 'lr' in search_space
@@ -425,6 +445,10 @@ class ObjectiveFactory:
         pruning_enabled = pruning_config.get('enabled', False)
         min_seeds_before_pruning = pruning_config.get('min_seeds_before_pruning', 1)
         warmup_trials = pruning_config.get('warmup_trials', 5)
+        # Late-stage pruning: only consider last fraction of rounds for pruning decisions
+        # This prevents pruning exploration-heavy configs before they can exploit
+        use_late_stage = pruning_config.get('use_late_stage', False)
+        late_stage_fraction = pruning_config.get('late_stage_fraction', 0.25)
 
         def objective(trial: 'optuna.Trial') -> float:
             params = sample_hyperparameters(trial, search_space)
@@ -454,6 +478,9 @@ class ObjectiveFactory:
             # HP selection uses cumulative training regret (standard in online bandit literature)
             # Holdout regret is only for final evaluation reporting, not HP selection
             selection_regrets = []
+            # Track late-stage regrets separately for pruning decisions
+            # This allows exploration-heavy configs to not be pruned before they can exploit
+            late_stage_regrets = []
             total_wall_time = 0.0
 
             n_seeds = len(seeds)
@@ -485,6 +512,7 @@ class ObjectiveFactory:
                             n_seeds=n_seeds,
                             wandb_logger=seed_logger,
                             is_online=is_online,
+                            log_interval=log_interval,
                         )
 
                     total_wall_time += timer.elapsed
@@ -537,10 +565,23 @@ class ObjectiveFactory:
                     else:
                         selection_regrets.append(result.final_train_regret)
 
+                    # Compute late-stage regret for pruning decisions
+                    # This is the regret accumulated in the last fraction of rounds
+                    # Allows exploration-heavy configs to not be pruned before they can exploit
+                    if use_late_stage and result.train_regrets:
+                        n_total = len(result.train_regrets)
+                        late_start_idx = int(n_total * (1 - late_stage_fraction))
+                        # Late-stage regret = cumulative regret in last fraction of rounds
+                        late_regret = result.train_regrets[-1] - result.train_regrets[late_start_idx]
+                        late_stage_regrets.append(late_regret)
+                    else:
+                        # Fall back to full cumulative regret if late-stage not enabled
+                        late_stage_regrets.append(result.final_train_regret)
+
                     # Report intermediate value for pruning (average regret so far)
-                    # This allows Optuna to prune trials that are clearly underperforming
-                    current_mean_regret = float(np.mean(selection_regrets))
-                    trial.report(current_mean_regret, seed_idx)
+                    # Use late-stage regret for pruning to not penalize early exploration
+                    pruning_metric = float(np.mean(late_stage_regrets))
+                    trial.report(pruning_metric, seed_idx)
 
                     # Check for pruning after minimum seeds have completed
                     # Only prune if: (1) pruning enabled, (2) past warmup, (3) enough seeds run
@@ -556,7 +597,7 @@ class ObjectiveFactory:
                         if seed_logger is not None:
                             seed_logger.finish(status='pruned')
                         raise optuna.TrialPruned(
-                            f"Pruned after {seed_idx + 1} seeds with mean regret {current_mean_regret:.1f}"
+                            f"Pruned after {seed_idx + 1} seeds with late-stage regret {pruning_metric:.1f}"
                         )
 
                 except optuna.TrialPruned:
@@ -583,7 +624,8 @@ class ObjectiveFactory:
         # Use dataset-specific n_rounds if available
         n_rounds = get_n_rounds_for_dataset(config, dataset)
         seeds = config.get('tuning_seeds', [0, 1, 2])[:3]
-        eval_interval = config['validation']['eval_interval']
+        eval_interval = get_eval_interval_for_dataset(config, dataset)
+        log_interval = get_log_interval_for_dataset(config, dataset)
         full_feedback = feedback_type == 'full'
         default_lr = config['tuning']['default_lr']
         uses_lr = search_space.get('tune_lr', False) or 'lr' in search_space
@@ -638,6 +680,7 @@ class ObjectiveFactory:
                         n_seeds=n_seeds,
                         wandb_logger=seed_logger,
                         is_online=is_online,
+                        log_interval=log_interval,
                     )
 
                     if seed_logger is not None:
