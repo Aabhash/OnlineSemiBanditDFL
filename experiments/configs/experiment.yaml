@@ -68,9 +68,9 @@ datasets:
     capacity: 20.0
     noise_width: 0.1
     nonstationarity: drift_and_shift
-    drift_rate: 0.02
-    shift_interval: 200
-    shift_fraction: 0.1
+    drift_rate: 0.01
+    shift_interval: 500
+    shift_fraction: 0
     env_type: shared_context
 
   knapsack_high_noise:
@@ -79,35 +79,31 @@ datasets:
     capacity: 20.0
     noise_width: 0.5
     nonstationarity: drift_and_shift
-    drift_rate: 0.02
-    shift_interval: 200
-    shift_fraction: 0.1
+    drift_rate: 0.01
+    shift_interval: 500
+    shift_fraction: 0
     env_type: shared_context
 
   # Non-stationary shortest path (tests adaptation with path constraints)
   shortest_path_low_noise:
     grid_size: 8
-    data_type: synthetic
     context_dim: 20
-    noise_std: 0.1
+    noise_width: 0.1
     nonstationarity: drift_and_shift
-    drift_rate: 0.02
-    shift_interval: 200
-    shift_fraction: 0.1
+    drift_rate: 0.01
+    shift_interval: 500
+    shift_fraction: 0
     env_type: shared_context
-    minimize: true  # Cost minimization problem
 
   shortest_path_high_noise:
     grid_size: 8
-    data_type: synthetic
     context_dim: 20
-    noise_std: 0.5
+    noise_width: 0.5
     nonstationarity: drift_and_shift
-    drift_rate: 0.02
-    shift_interval: 200
-    shift_fraction: 0.1
+    drift_rate: 0.01
+    shift_interval: 500
+    shift_fraction: 0
     env_type: shared_context
-    minimize: true  # Cost minimization problem
 
   # Criteo Ad Bidding: real-world shared context benchmark
   criteo:
@@ -140,8 +136,8 @@ evaluation:
     n_rounds: 1000
     n_seeds: 3
   full:
-    n_rounds: 2000
-    n_seeds: 10
+    n_rounds: 10000
+    n_seeds: 5
   output_dir: "results/eval"
 
 agent_defaults:

@@ -1,13 +1,13 @@
 from src.envs.base import ConstrainedBanditEnv
 from src.envs.synthetic import SyntheticKnapsackEnv
-from src.envs.shortest_path import ShortestPathEnv
+from src.envs.shortest_path import ShortestPathEdgeEnv
 from src.envs.criteo import CriteoEnv
 from src.envs.fantasy import FantasyEnv
 
 __all__ = [
     'ConstrainedBanditEnv',
     'SyntheticKnapsackEnv',
-    'ShortestPathEnv',
+    'ShortestPathEdgeEnv',
     'CriteoEnv',
     'FantasyEnv',
 ]
@@ -30,7 +30,7 @@ def create_env(env_type: str, seed: int = 42, **kwargs):
         data_type = kwargs_copy.pop('data_type', 'synthetic')
         # Remove minimize as it's a property, not a parameter
         kwargs_copy.pop('minimize', None)
-        return ShortestPathEnv(
+        return ShortestPathEdgeEnv(
             grid_size=grid_size,
             data_type=data_type,
             seed=seed,

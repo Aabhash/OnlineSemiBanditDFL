@@ -4,7 +4,6 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import optax
-from src.solver import solve_top_k
 
 DEFAULT_TRAIN_INTERVAL = 5
 DEFAULT_TRAIN_EPOCHS = 50
@@ -225,10 +224,7 @@ class CNUCBAgent:
 
         ucb_values = predictions + self.gamma * scaled_uncertainties
 
-        if self.constraint_type == 'top_k':
-            return solve_top_k(np.asarray(ucb_values), self.K)
-        else:
-            return self.solver(np.asarray(ucb_values))
+        return self.solver(np.asarray(ucb_values))
 
     def _update_gram_matrix(self, g_features, mask):
         g_scaled = g_features / np.sqrt(self.total_params)

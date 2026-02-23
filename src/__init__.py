@@ -1,7 +1,7 @@
 from src.envs import (
     ConstrainedBanditEnv,
     SyntheticKnapsackEnv,
-    ShortestPathEnv,
+    ShortestPathEdgeEnv,
     CriteoEnv,
     FantasyEnv,
     create_env,
@@ -58,7 +58,7 @@ __all__ = [
     # Environments
     "ConstrainedBanditEnv",
     "SyntheticKnapsackEnv",
-    "ShortestPathEnv",
+    "ShortestPathEdgeEnv",
     "CriteoEnv",
     "FantasyEnv",
     "create_env",

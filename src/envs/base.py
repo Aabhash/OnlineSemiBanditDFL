@@ -63,6 +63,7 @@ class ConstrainedBanditEnv(ABC):
             'optimal_reward': optimal_reward,
             'regret': regret,
             'action': action,
+            'optimal_selection': optimal_action,
             'true_values': self.current_values.copy(),
             'selected_indices': np.where(action > 0.5)[0],
         }

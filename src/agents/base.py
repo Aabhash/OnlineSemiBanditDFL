@@ -126,6 +126,7 @@ def run_experiment(
     full_feedback: bool = True,
     test_set: tuple = None,
     n_test_samples: int = 100,
+    eval_interval: int = 5,
 ) -> Dict[str, List[float]]:
     from src.agents.shared_context.baselines import RandomAgent
     from src.agents.shared_context.greedy_agents import GreedyAgent
@@ -139,6 +140,8 @@ def run_experiment(
     cumulative_regret = []
     test_regrets = []
     holdout_evals = []  # (round, holdout_result) pairs
+    actions = []  # Track selections/actions
+    optimal_actions = []  # Track optimal selections
     total_regret = 0.0
     total_reward = 0.0
     total_optimal = 0.0
@@ -151,7 +154,7 @@ def run_experiment(
     solver = getattr(env, 'solve', None)
     has_holdout = hasattr(env, 'evaluate_on_holdout') and hasattr(env, 'holdout_weeks') and env.holdout_weeks > 0
     X = env.reset()
-    eval_interval = 5  # Evaluate holdout every 5 rounds
+    # eval_interval is now a parameter (default 5)
 
     for t in range(n_rounds):
         selection = agent.act(X)
@@ -180,6 +183,14 @@ def run_experiment(
         optimal_rewards.append(optimal_reward)
         regrets.append(instant_regret)
         cumulative_regret.append(total_regret)
+        actions.append(np.asarray(selection).copy())
+        # Handle different key names for optimal action across environments
+        opt_action = info.get('optimal_selection')
+        if opt_action is None:
+            opt_action = info.get('optimal_path')
+        if opt_action is None:
+            opt_action = selection  # Fallback
+        optimal_actions.append(np.asarray(opt_action).flatten().copy())
 
         if isinstance(agent, (ThompsonSamplingAgent, UCBAgent, LinUCBAgent,
                               NeuralUCBAgent, RandomAgent)):
@@ -217,4 +228,6 @@ def run_experiment(
         'final_optimal': total_optimal,
         'test_regrets': test_regrets,
         'holdout_evals': holdout_evals,
+        'actions': actions,
+        'optimal_actions': optimal_actions,
     }
