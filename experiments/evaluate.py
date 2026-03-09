@@ -15,7 +15,7 @@ from src.agents.base import pregenerate_episode, run_agent_on_episode
 
 from src.agents.shared_context import (
     BayesianSPOAgent,
-    BayesianSPO_DI_Agent,
+    BayesianSPO_DFE_Agent,
     LinUCBAgent,
     NeuralUCBAgent,
     BayesianMSEAgent,
@@ -156,22 +156,14 @@ def get_agents(env, seed, config, n_rounds):
         ),
     }
 
-    # Add DX/DI agents with appropriate combinatorial solver
+    # Add DFE/DI agents with appropriate combinatorial solver
     grid_size = getattr(env, 'grid_size', None)
     if grid_size is not None:
         co_solver = ShortestPathSolver(grid_size)
     else:
         co_solver = KnapsackSolver(env.weights, env.capacity)
 
-    # Data-aware IPS parameters: under uniform random feasible policy,
-    # expected selection size k = capacity / mean(weights).
-    # p_min ≈ k/n, clip_max = n/k = 1/p_min.
-    n = env.n_arms
-    k_est = env.capacity / np.mean(env.weights)
-    ips_p_min = k_est / n
-    ips_clip_max = n / k_est
-
-    di_common = dict(
+    dfe_common = dict(
         context_dim=env.context_dim, n_arms=env.n_arms,
         weights=env.weights, capacity=env.capacity,
         hidden_dim=hidden_dim, beta=beta,
@@ -179,21 +171,12 @@ def get_agents(env, seed, config, n_rounds):
         solver=solver, seed=seed, nonlinear=nonlinear,
     )
 
-    agents['BayesianSPO-DI'] = BayesianSPO_DI_Agent(
-        **di_common, imputation='disc_impute', co_solver=co_solver,
+    agents['BayesianSPO-DI'] = BayesianSPO_DFE_Agent(
+        **dfe_common, imputation='disc_impute', co_solver=co_solver,
     )
-    agents['BayesianSPO-DFE'] = BayesianSPO_DI_Agent(
-        **di_common, imputation='disc_explore', co_solver=co_solver,
+    agents['BayesianSPO-DFE'] = BayesianSPO_DFE_Agent(
+        **dfe_common, imputation='disc_explore', co_solver=co_solver,
         decision_focused_explore=True, adaptive_dfe=True,
-    )
-    agents['BayesianSPO-DR'] = BayesianSPO_DI_Agent(
-        **di_common, imputation='ips_dr', co_solver=co_solver,
-        ips_p_min=ips_p_min, ips_clip_max=ips_clip_max,
-    )
-    agents['BayesianSPO-DFE+DR'] = BayesianSPO_DI_Agent(
-        **di_common, imputation='ips_dr', co_solver=co_solver,
-        decision_focused_explore=True, adaptive_dfe=True,
-        ips_p_min=ips_p_min, ips_clip_max=ips_clip_max,
     )
 
     return agents

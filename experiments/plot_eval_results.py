@@ -23,8 +23,6 @@ AGENT_DISPLAY = {
     'BayesianSPO':        'BayesianSPO',
     'BayesianSPO-DFE':    'BSPO-DFE',
     'BayesianSPO-DI':     'BSPO-DI',
-    'BayesianSPO-DR':     'BSPO-DR',
-    'BayesianSPO-DFE+DR': 'BSPO-DFE+DR',
     'NeuralUCB':          'NeuralUCB',
     'LinUCB':             'LinUCB',
     'UCB-Bayesian':       'UCB-Bayesian',
@@ -46,9 +44,7 @@ COLORS = {
     'BayesianMSE':       '#d62728',   # red
     'BayesianSPO':       '#1f77b4',   # blue
     'BSPO-DFE':     '#9467bd',   # purple
-    'BSPO-DFE+DR':  '#bcbd22',   # olive
     'BSPO-DI':      '#2ca02c',   # green
-    'BSPO-DR':      '#ff7f0e',   # orange
     'NeuralUCB':    '#17becf',   # cyan
     'LinUCB':       '#8c564b',   # brown
     'UCB-Bayesian':    '#e377c2',   # pink
@@ -62,9 +58,7 @@ LINESTYLES = {
     'BayesianMSE':       'dotted',
     'BayesianSPO':       'dashed',
     'BSPO-DFE':     'solid',
-    'BSPO-DFE+DR':  'solid',
     'BSPO-DI':      'solid',
-    'BSPO-DR':      'solid',
     'NeuralUCB':    'dotdash',
     'LinUCB':       'dotdash',
     'UCB-Bayesian':    'dashed',
@@ -79,8 +73,6 @@ BAR_COLORS = {
     'BayesianSPO':       '#1f77b4',
     'BSPO-DFE':     '#ff7f0e',
     'BSPO-DI':      '#2ca02c',
-    'BSPO-DR':      '#ff7f0e',
-    'BSPO-DFE+DR':  '#ff7f0e',
     'BayesianMSE':       '#aaaaaa',
     'NeuralUCB':    '#aaaaaa',
     'LinUCB':       '#aaaaaa',
@@ -91,10 +83,21 @@ BAR_COLORS = {
     'Random':       '#aaaaaa',
 }
 
-WINDOW = 50  # smoothing window for per-round regret
+WINDOW = 5  # smoothing window for per-round regret
 
 # Agents to include in LINE plots (None = all agents present)
-LINE_AGENTS = None
+LINE_AGENTS = ['NeuralUCB', 'BayesianMSE', 'BayesianSPO']
+BAR_AGENTS = [
+    'NeuralUCB',
+    'LinUCB',
+    'UCB-Bayesian',
+    'TS',
+    'EpsGreedy',
+    'Greedy',
+    'Random',
+    'BayesianSPO',
+    'BayesianMSE',
+]
 
 LINE_LEGEND_THEME = theme(
     legend_position='bottom', legend_title=element_blank(),
@@ -103,7 +106,6 @@ LINE_LEGEND_THEME = theme(
 
 
 def load_trajectories(path):
-    """Load trajectories.pkl and return organized dict."""
     with open(path, 'rb') as f:
         raw = pickle.load(f)
 
@@ -234,7 +236,7 @@ def make_line_plots(df_cum_agg, df_pr_agg, datasets, feedback='semi_bandit',
             + scale_fill_manual(values=colors)
             + scale_linetype_manual(values=linetypes)
             + guides(color=guide_legend(nrow=2), fill='none', linetype=guide_legend(nrow=2))
-            + labs(title=f'{label}: Per-Round ({WINDOW}-avg)', x='Round', y='Per-Round Regret')
+            + labs(title=f'{label}: Per-Round Regret', x='Round', y='Per-Round Regret')
             + theme_minimal() + LINE_LEGEND_THEME
         )
 
@@ -330,8 +332,6 @@ def main():
                         help='Output format')
     parser.add_argument('--feedback', type=str, default='semi_bandit',
                         help='Feedback type to plot')
-    parser.add_argument('--bar_agents', type=str, nargs='*', default=None,
-                        help='Agents to include in bar chart (default: all)')
     parser.add_argument('--line_agents', type=str, nargs='*', default=None,
                         help='Agents to include in line plots (default: all)')
     parser.add_argument('--exclude_nl', action='store_true', default=True,
@@ -411,8 +411,8 @@ def main():
             print(f'Excluded {n_excluded} NL variant entries from bar charts')
 
     # Filter agents if specified
-    if args.bar_agents and not df_bar_combined.empty:
-        df_bar_combined = df_bar_combined[df_bar_combined['agent'].isin(args.bar_agents)]
+    if BAR_AGENTS and not df_bar_combined.empty:
+        df_bar_combined = df_bar_combined[df_bar_combined['agent'].isin(BAR_AGENTS)]
 
     # Generate line plots (only from trajectories)
     if df_cum_agg is not None and df_pr_agg is not None:

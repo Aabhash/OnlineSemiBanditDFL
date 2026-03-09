@@ -21,7 +21,7 @@ from src.models import (
 
 from src.agents import (
     BayesianSPOAgent,
-    BayesianSPO_DI_Agent,
+    BayesianSPO_DFE_Agent,
     RandomAgent,
     GreedyAgent,
     ThompsonSamplingAgent,
@@ -60,7 +60,7 @@ __all__ = [
     "create_model",
     # Agents
     "BayesianSPOAgent",
-    "BayesianSPO_DI_Agent",
+    "BayesianSPO_DFE_Agent",
     "RandomAgent",
     "GreedyAgent",
     "ThompsonSamplingAgent",

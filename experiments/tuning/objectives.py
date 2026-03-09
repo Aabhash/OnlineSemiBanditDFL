@@ -230,7 +230,7 @@ def create_agent_from_params(
 ):
     from src.agents.shared_context import (
         BayesianSPOAgent,
-        BayesianSPO_DI_Agent,
+        BayesianSPO_DFE_Agent,
         LinUCBAgent,
         NeuralUCBAgent,
         ThompsonSamplingAgent,
@@ -317,8 +317,7 @@ def create_agent_from_params(
         )
     elif agent_name == 'Random':
         return RandomAgent(env.n_arms, env.weights, env.capacity, solver=solver)
-    elif agent_name in ('BayesianSPO-DI', 'BayesianSPO-DFE',
-                         'BayesianSPO-DR', 'BayesianSPO-DFE+DR'):
+    elif agent_name in ('BayesianSPO-DI', 'BayesianSPO-DFE'):
         from src.solver import ShortestPathSolver, KnapsackSolver
         grid_size = getattr(env, 'grid_size', None)
         if grid_size is not None:
@@ -335,21 +334,9 @@ def create_agent_from_params(
             agent_params['imputation'] = 'disc_explore'
             agent_params['decision_focused_explore'] = True
             agent_params['adaptive_dfe'] = True
-        elif agent_name == 'BayesianSPO-DR':
-            agent_params['imputation'] = 'ips_dr'
-        elif agent_name == 'BayesianSPO-DFE+DR':
-            agent_params['imputation'] = 'ips_dr'
-            agent_params['decision_focused_explore'] = True
-            agent_params['adaptive_dfe'] = True
-
-        # Compute data-aware IPS parameters for DR agents (matching evaluate.py)
-        if agent_name in ('BayesianSPO-DR', 'BayesianSPO-DFE+DR'):
-            import numpy as _np
-            k_est = env.capacity / _np.mean(env.weights)
-            agent_params.setdefault('ips_p_min', k_est / env.n_arms)
 
         agent_lr = params.get('init_lr', 0.001)
-        return BayesianSPO_DI_Agent(
+        return BayesianSPO_DFE_Agent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             init_lr=agent_lr,
             minimize=minimize, solver=solver, seed=seed,
