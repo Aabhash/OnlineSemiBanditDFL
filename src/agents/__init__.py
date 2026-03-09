@@ -1,6 +1,7 @@
 from src.agents.base import run_experiment
 
 from src.agents.shared_context.bayesian_spo import BayesianSPOAgent
+from src.agents.shared_context.bayesian_spo_di import BayesianSPO_DI_Agent
 
 from src.agents.shared_context.ucb_agents import LinUCBAgent, NeuralUCBAgent, UCBAgent
 from src.agents.shared_context.ts_agents import ThompsonSamplingAgent
@@ -24,6 +25,7 @@ from src.agents.per_arm_context.baselines import PerArmRandomAgent
 __all__ = [
     'run_experiment',
     'BayesianSPOAgent',
+    'BayesianSPO_DI_Agent',
     'LinUCBAgent',
     'NeuralUCBAgent',
     'UCBAgent',

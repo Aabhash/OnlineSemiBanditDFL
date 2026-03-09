@@ -230,6 +230,7 @@ def create_agent_from_params(
 ):
     from src.agents.shared_context import (
         BayesianSPOAgent,
+        BayesianSPO_DI_Agent,
         LinUCBAgent,
         NeuralUCBAgent,
         ThompsonSamplingAgent,
@@ -254,11 +255,19 @@ def create_agent_from_params(
     solver = env.solve
     minimize = getattr(env, 'minimize', False)
 
-    if agent_name == 'BayesianSPO' or agent_name == 'BayesianSPO-PureSPO':
+    if agent_name in ('BayesianSPO', 'BayesianSPO-PureSPO'):
+        # Negate beta for minimization (LCB instead of UCB)
+        agent_params = {k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
+        if minimize and 'beta' in agent_params:
+            agent_params['beta'] = -agent_params['beta']
+        # BayesianSPOAgent constructor uses 'lr' param name
+        agent_lr = params.get('init_lr', 0.001)
         return BayesianSPOAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed,
-            **{k: v for k, v in params.items() if k != 'lr'}
+            lr=agent_lr,
+            decay_rounds=n_rounds, minimize=minimize, solver=solver, seed=seed,
+            mask_grad=True, nonlinear=False,
+            **agent_params
         )
     elif agent_name == 'LinUCB':
         return LinUCBAgent(
@@ -267,10 +276,11 @@ def create_agent_from_params(
             **{k: v for k, v in params.items() if k != 'lr'}
         )
     elif agent_name == 'NeuralUCB':
+        agent_lr = params.get('init_lr', lr)
         return NeuralUCBAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            lr=lr, minimize=minimize, solver=solver, seed=seed,
-            **{k: v for k, v in params.items() if k != 'lr'}
+            lr=agent_lr, minimize=minimize, solver=solver, seed=seed,
+            **{k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
         )
     elif agent_name == 'UCB-Bayesian':
         return UCBAgent(
@@ -286,44 +296,97 @@ def create_agent_from_params(
             env.weights, env.capacity, minimize=minimize, solver=solver
         )
     elif agent_name == 'EpsilonGreedy':
+        agent_lr = params.get('init_lr', 0.001)
         return EpsilonGreedyAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed,
-            **{k: v for k, v in params.items() if k != 'lr'}
+            lr=agent_lr,
+            decay_rounds=n_rounds, solver=solver, seed=seed,
+            **{k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
         )
     elif agent_name == 'BayesianMSE':
+        # Negate beta for minimization (LCB instead of UCB)
+        agent_params = {k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
+        if minimize and 'beta' in agent_params:
+            agent_params['beta'] = -agent_params['beta']
+        agent_lr = params.get('init_lr', 0.001)
         return BayesianMSEAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed,
-            **{k: v for k, v in params.items() if k != 'lr'}
+            lr=agent_lr,
+            decay_rounds=n_rounds, solver=solver, seed=seed,
+            nonlinear=False,
+            **agent_params
         )
     elif agent_name == 'Greedy':
         # Greedy is EpsilonGreedy with epsilon=0 (no exploration)
+        agent_lr = params.get('init_lr', 0.001)
         return EpsilonGreedyAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
+            lr=agent_lr,
             epsilon=0.0, decay_epsilon=False,
-            decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed,
-            **{k: v for k, v in params.items() if k not in ['lr', 'epsilon', 'decay_epsilon']}
+            decay_rounds=n_rounds, solver=solver, seed=seed,
+            **{k: v for k, v in params.items() if k not in ['lr', 'init_lr', 'epsilon', 'decay_epsilon']}
         )
     elif agent_name == 'Random':
         return RandomAgent(env.n_arms, env.weights, env.capacity, solver=solver)
+    elif agent_name in ('BayesianSPO-DI', 'BayesianSPO-DFE',
+                         'BayesianSPO-DR', 'BayesianSPO-DFE+DR'):
+        from src.solver import ShortestPathSolver, KnapsackSolver
+        grid_size = getattr(env, 'grid_size', None)
+        if grid_size is not None:
+            co_solver = ShortestPathSolver(grid_size)
+        else:
+            co_solver = KnapsackSolver(env.weights, env.capacity)
+        # Pop keys handled explicitly so they don't duplicate in **kwargs
+        agent_params = {k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
+
+        # Map agent name to constructor kwargs
+        if agent_name == 'BayesianSPO-DI':
+            agent_params['imputation'] = 'disc_impute'
+        elif agent_name == 'BayesianSPO-DFE':
+            agent_params['imputation'] = 'disc_explore'
+            agent_params['decision_focused_explore'] = True
+            agent_params['adaptive_dfe'] = True
+        elif agent_name == 'BayesianSPO-DR':
+            agent_params['imputation'] = 'ips_dr'
+        elif agent_name == 'BayesianSPO-DFE+DR':
+            agent_params['imputation'] = 'ips_dr'
+            agent_params['decision_focused_explore'] = True
+            agent_params['adaptive_dfe'] = True
+
+        # Compute data-aware IPS parameters for DR agents (matching evaluate.py)
+        if agent_name in ('BayesianSPO-DR', 'BayesianSPO-DFE+DR'):
+            import numpy as _np
+            k_est = env.capacity / _np.mean(env.weights)
+            agent_params.setdefault('ips_p_min', k_est / env.n_arms)
+
+        agent_lr = params.get('init_lr', 0.001)
+        return BayesianSPO_DI_Agent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            init_lr=agent_lr,
+            minimize=minimize, solver=solver, seed=seed,
+            co_solver=co_solver, nonlinear=False,
+            **agent_params,
+        )
     elif agent_name == 'PerArmBayesianSPO':
+        agent_lr = params.get('init_lr', 0.001)
         return PerArmBayesianSPOAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed,
-            **{k: v for k, v in params.items() if k != 'lr'}
+            lr=agent_lr, solver=solver, seed=seed,
+            **{k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
         )
     elif agent_name == 'CN-UCB':
+        agent_lr = params.get('init_lr', 0.001)
         return CNUCBAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            lr=lr, solver=solver, seed=seed, decay_rounds=n_rounds,
-            **{k: v for k, v in params.items() if k != 'lr'}
+            lr=agent_lr, solver=solver, seed=seed,
+            **{k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
         )
     elif agent_name == 'CN-TS':
+        agent_lr = params.get('init_lr', 0.001)
         return CNTSAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            lr=lr, solver=solver, seed=seed, decay_rounds=n_rounds,
-            **{k: v for k, v in params.items() if k != 'lr'}
+            lr=agent_lr, solver=solver, seed=seed,
+            **{k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
         )
     elif agent_name == 'PerArmLinUCB':
         return PerArmLinUCBAgent(
@@ -344,24 +407,28 @@ def create_agent_from_params(
             **{k: v for k, v in params.items() if k != 'lr'}
         )
     elif agent_name == 'PerArmBayesianMSE':
+        agent_lr = params.get('init_lr', 0.001)
         return PerArmBayesianMSEAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed,
-            **{k: v for k, v in params.items() if k != 'lr'}
+            lr=agent_lr, solver=solver, seed=seed,
+            **{k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
         )
     elif agent_name == 'PerArmEpsilonGreedy':
+        agent_lr = params.get('init_lr', 0.001)
         return PerArmEpsilonGreedyAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed,
-            **{k: v for k, v in params.items() if k != 'lr'}
+            lr=agent_lr, solver=solver, seed=seed,
+            **{k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
         )
     elif agent_name == 'PerArmGreedy':
         # PerArmGreedy is PerArmEpsilonGreedy with epsilon=0 (no exploration)
+        agent_lr = params.get('init_lr', 0.001)
         return PerArmEpsilonGreedyAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
+            lr=agent_lr,
             epsilon=0.0, decay_epsilon=False,
-            decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed,
-            **{k: v for k, v in params.items() if k not in ['lr', 'epsilon', 'decay_epsilon']}
+            solver=solver, seed=seed,
+            **{k: v for k, v in params.items() if k not in ['lr', 'init_lr', 'epsilon', 'decay_epsilon']}
         )
     elif agent_name == 'PerArmRandom':
         return PerArmRandomAgent(env.n_arms, env.weights, env.capacity, solver=solver)
@@ -435,7 +502,7 @@ class ObjectiveFactory:
         log_interval = get_log_interval_for_dataset(config, dataset)
         full_feedback = feedback_type == 'full'
         default_lr = config['tuning']['default_lr']
-        uses_lr = search_space.get('tune_lr', False) or 'lr' in search_space
+        uses_lr = search_space.get('tune_lr', False) or 'lr' in search_space or 'init_lr' in search_space
         wandb_enabled = config.get('wandb', {}).get('enabled', False)
         use_holdout = uses_holdout_for_selection(config, dataset)
         is_online = is_online_dataset(config, dataset)
@@ -454,7 +521,7 @@ class ObjectiveFactory:
             params = sample_hyperparameters(trial, search_space)
 
             if search_space.get('tune_lr', False):
-                lr = params.get('lr', default_lr)
+                lr = params.get('lr', params.get('init_lr', default_lr))
             else:
                 lr = default_lr
 
@@ -628,14 +695,14 @@ class ObjectiveFactory:
         log_interval = get_log_interval_for_dataset(config, dataset)
         full_feedback = feedback_type == 'full'
         default_lr = config['tuning']['default_lr']
-        uses_lr = search_space.get('tune_lr', False) or 'lr' in search_space
+        uses_lr = search_space.get('tune_lr', False) or 'lr' in search_space or 'init_lr' in search_space
         wandb_enabled = config.get('wandb', {}).get('enabled', False)
         use_holdout = uses_holdout_for_selection(config, dataset)
         is_online = is_online_dataset(config, dataset)
 
         def objective(trial: 'optuna.Trial') -> float:
             params = sample_hyperparameters(trial, search_space)
-            lr = params.get('lr', default_lr) if search_space.get('tune_lr', False) else default_lr
+            lr = params.get('lr', params.get('init_lr', default_lr)) if search_space.get('tune_lr', False) else default_lr
 
             # Create wandb trial logger factory
             # Get minimize flag from dataset config (defaults to False for maximization)

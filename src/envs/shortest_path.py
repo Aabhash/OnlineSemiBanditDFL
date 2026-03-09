@@ -5,6 +5,7 @@ from src.solver import (
     n_edges_grid,
     solve_shortest_path_edges,
     compute_edge_slacks,
+    ShortestPathSolver,
 )
 
 
@@ -14,55 +15,45 @@ class SyntheticEdgeData:
         self,
         grid_size: int = 5,
         context_dim: int = 10,
-        deg: int = 4,
+        deg: int = 6,
         noise_width: float = 0.5,
         seed: int = 42,
-        nonstationarity: str = 'none',
-        drift_rate: float = 0.01,
-        shift_interval: int = 500,
-        shift_fraction: float = 0.2,
+        **kwargs,  # absorb legacy nonstationarity params
     ):
         self.grid_size = grid_size
         self.n_edges = n_edges_grid(grid_size)
         self.context_dim = context_dim
+        self.deg = deg
         self.noise_width = noise_width
-        self.nonstationarity = nonstationarity
-        self.t = 0
 
         init_rng = np.random.default_rng(seed)
-        n_hidden = context_dim * deg
 
-        self.W1 = init_rng.standard_normal((context_dim, n_hidden)).astype(np.float32)
-        self.W1 /= np.sqrt(context_dim)
-        self.b1 = init_rng.standard_normal(n_hidden).astype(np.float32) * 0.5
-
-        self.W2 = init_rng.standard_normal((n_hidden, self.n_edges)).astype(np.float32)
-        self.W2 /= np.sqrt(n_hidden)
-
-        self.bias = init_rng.uniform(1.0, 5.0, size=self.n_edges).astype(np.float32)
+        # Binary feature mask (PyEPO convention)
+        self.B = init_rng.integers(0, 2, size=(self.n_edges, context_dim)).astype(float)
 
         self._sample_seed = seed + 7777
         self.sample_rng = np.random.default_rng(self._sample_seed)
 
     def reset(self):
-        self.t = 0
         self.sample_rng = np.random.default_rng(self._sample_seed)
 
     def step(self):
-        self.t += 1
+        pass  # stationary DGP
 
     def sample(self) -> Tuple[np.ndarray, np.ndarray]:
         x = self.sample_rng.standard_normal(self.context_dim).astype(np.float32)
 
-        h = np.maximum(0.0, x @ self.W1 + self.b1)          # ReLU
-        mean_costs = np.abs(h @ self.W2) + self.bias         # positive
+        linear = self.B @ x / np.sqrt(self.context_dim)
+        mean_costs = (linear + 3) ** self.deg + 1
+        mean_costs = mean_costs / (3.5 ** self.deg)
 
         noise = self.sample_rng.uniform(
-            -self.noise_width / 2, self.noise_width / 2,
+            1 - self.noise_width,
+            1 + self.noise_width,
             size=self.n_edges,
-        ).astype(np.float32)
+        )
+        costs = (mean_costs * noise).astype(np.float32)
 
-        costs = np.maximum(0.01, mean_costs + noise)         # safety clamp
         return x, costs
 
 
@@ -72,13 +63,10 @@ class ShortestPathEdgeEnv:
         self,
         grid_size: int = 5,
         context_dim: int = 10,
-        deg: int = 4,
+        deg: int = 6,
         noise_width: float = 0.5,
         seed: int = 42,
-        nonstationarity: str = 'none',
-        drift_rate: float = 0.01,
-        shift_interval: int = 500,
-        shift_fraction: float = 0.2,
+        **kwargs,  # absorb legacy nonstationarity params
     ):
         self.grid_size = grid_size
         self.n_arms = n_edges_grid(grid_size)
@@ -90,11 +78,9 @@ class ShortestPathEdgeEnv:
             deg=deg,
             noise_width=noise_width,
             seed=seed,
-            nonstationarity=nonstationarity,
-            drift_rate=drift_rate,
-            shift_interval=shift_interval,
-            shift_fraction=shift_fraction,
         )
+
+        self.sp_solver = ShortestPathSolver(grid_size)
 
         # kept for interface compatibility (used by agent constructors)
         self.weights = np.ones(self.n_arms)
@@ -127,10 +113,14 @@ class ShortestPathEdgeEnv:
         return self._current_context
 
     def solve(self, predicted_costs: np.ndarray) -> np.ndarray:
-        """Solve shortest path given predicted edge costs."""
-        return solve_shortest_path_edges(
-            np.asarray(predicted_costs, dtype=np.float64), self.grid_size
+        return self.sp_solver.solve(
+            np.asarray(predicted_costs, dtype=np.float64)
         )
+
+    def _advance(self):
+        self.t += 1
+        self.data.step()
+        self._current_context, self._current_costs = self.data.sample()
 
     def step(
         self,
@@ -142,7 +132,7 @@ class ShortestPathEdgeEnv:
 
         path_cost = float(np.sum(true_costs * selection))
 
-        optimal_path = solve_shortest_path_edges(true_costs, self.grid_size)
+        optimal_path = self.sp_solver.solve(true_costs)
         optimal_cost = float(np.sum(true_costs * optimal_path))
 
         regret = path_cost - optimal_cost

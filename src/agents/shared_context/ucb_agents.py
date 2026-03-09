@@ -1,6 +1,7 @@
 import jax
 import jax.numpy as jnp
 import numpy as np
+import optax
 from src.models import BayesianLinearModel
 from src.agents.bayesian_utils import (
     init_per_arm_regression,
@@ -71,12 +72,10 @@ class NeuralUCBAgent:
         hidden_dim: int = 100,
         alpha: float = 1.0,
         lambda_reg: float = 1.0,
-        lr: float = 0.01,
+        lr: float = 0.001,
         minimize: bool = False,
         solver=None,
         seed: int = None,
-        train_interval: int = 10,
-        train_epochs: int = 100,
     ):
         self.context_dim = context_dim
         self.n_arms = n_arms
@@ -92,9 +91,7 @@ class NeuralUCBAgent:
             self.solver = solver
         self.nu = alpha
         self.lambda_reg = lambda_reg
-        self.lr = lr
-        self.train_interval = train_interval
-        self.train_epochs = train_epochs
+        self.init_lr = lr
         self.t = 0
 
         key = jax.random.PRNGKey(seed if seed else 0)
@@ -121,6 +118,18 @@ class NeuralUCBAgent:
 
         self._cached_g_features = None
         self._cached_X = None
+
+        # Inverse-sqrt LR schedule: lr / sqrt(t+1)
+        schedule = lambda count: self.init_lr / jnp.sqrt(count + 1)
+        self.optimizer = optax.chain(
+            optax.clip_by_global_norm(5.0),
+            optax.adam(schedule),
+        )
+        init_params = {
+            'W1': self.W1, 'b1': self.b1,
+            'W2': self.W2, 'b2': self.b2,
+        }
+        self.opt_state = self.optimizer.init(init_params)
 
         self._build_jit_functions()
 
@@ -211,56 +220,57 @@ class NeuralUCBAgent:
     def _update_information_matrix(self, g_features, mask):
         self.U_diag = self._jit_update_U(self.U_diag, g_features, mask, self.total_params)
 
-    def _train_batch(self, batch_size=100):
-        if len(self.history_X) == 0:
+    def _train_step(self, batch_size=32):
+        """Single gradient step on a mini-batch from history.
+
+        Analogous to Bayesian agents' sufficient statistics update which
+        implicitly uses all history — one gradient step per round, but on
+        a batch sampled from accumulated data.
+        """
+        n_samples = len(self.history_X)
+        if n_samples == 0:
             return
 
-        all_X = jnp.asarray(self.history_X)
-        all_Y = jnp.asarray(self.history_Y)
-        all_mask = jnp.asarray(self.history_mask)
-        n_samples = len(all_X)
+        if n_samples <= batch_size:
+            batch_idx = np.arange(n_samples)
+        else:
+            batch_idx = self.rng.choice(n_samples, size=batch_size, replace=False)
+
+        X_batch = jnp.stack([self.history_X[i] for i in batch_idx])
+        Y_batch = jnp.stack([self.history_Y[i] for i in batch_idx])
+        mask_batch = jnp.stack([self.history_mask[i] for i in batch_idx])
 
         params_init = {
             'W1': self.W1_init, 'b1': self.b1_init,
             'W2': self.W2_init, 'b2': self.b2_init
         }
 
-        for epoch in range(self.train_epochs):
-            if n_samples <= batch_size:
-                batch_idx = np.arange(n_samples)
-            else:
-                batch_idx = self.rng.choice(n_samples, size=batch_size, replace=False)
+        def loss_fn(params):
+            z1 = X_batch @ params['W1'] + params['b1']
+            h = jnp.maximum(0, z1)
+            pred = h @ params['W2'] + params['b2']
 
-            X_batch = all_X[batch_idx]
-            Y_batch = all_Y[batch_idx]
-            mask_batch = all_mask[batch_idx]
+            diff = (pred - Y_batch) * mask_batch
+            n_obs = jnp.maximum(jnp.sum(mask_batch), 1.0)
+            mse_loss = 0.5 * jnp.sum(diff ** 2) / n_obs
 
-            def loss_fn(params):
-                z1 = X_batch @ params['W1'] + params['b1']
-                h = jnp.maximum(0, z1)
-                pred = h @ params['W2'] + params['b2']
+            reg_loss = 0.0
+            for key in params:
+                reg_loss = reg_loss + jnp.mean((params[key] - params_init[key]) ** 2)
+            reg_loss = 0.5 * self.lambda_reg * reg_loss
 
-                diff = (pred - Y_batch) * mask_batch
-                n_obs = jnp.maximum(jnp.sum(mask_batch), 1.0)
-                mse_loss = 0.5 * jnp.sum(diff ** 2) / n_obs
+            return mse_loss + reg_loss
 
-                reg_loss = 0.0
-                for key in params:
-                    reg_loss = reg_loss + jnp.mean((params[key] - params_init[key]) ** 2)
-                reg_loss = 0.5 * self.lambda_reg * reg_loss
+        params = self._get_params()
+        grads = jax.grad(loss_fn)(params)
 
-                return mse_loss + reg_loss
+        updates, self.opt_state = self.optimizer.update(grads, self.opt_state, params)
+        new_params = optax.apply_updates(params, updates)
 
-            params = self._get_params()
-            grads = jax.grad(loss_fn)(params)
-
-            grad_norm = jnp.sqrt(sum(jnp.sum(g**2) for g in grads.values()))
-            clip_coef = jnp.minimum(1.0, 1.0 / (grad_norm + 1e-6))
-
-            self.W1 = self.W1 - self.lr * grads['W1'] * clip_coef
-            self.b1 = self.b1 - self.lr * grads['b1'] * clip_coef
-            self.W2 = self.W2 - self.lr * grads['W2'] * clip_coef
-            self.b2 = self.b2 - self.lr * grads['b2'] * clip_coef
+        self.W1 = new_params['W1']
+        self.b1 = new_params['b1']
+        self.W2 = new_params['W2']
+        self.b2 = new_params['b2']
 
     def update(self, X: np.ndarray, selection: np.ndarray, rewards: np.ndarray,
                full_feedback: bool = False):
@@ -284,16 +294,15 @@ class NeuralUCBAgent:
 
         self._update_information_matrix(g_features, mask)
 
-        predictions = np.asarray(self._forward(X_jax))
-        Y_target = np.where(mask, rewards, predictions)
-        obs_mask = np.asarray(mask).astype(float)
+        predictions = self._forward(X_jax)
+        Y_target = jnp.where(mask, jnp.asarray(rewards), predictions)
+        obs_mask = mask.astype(jnp.float32)
 
-        self.history_X.append(np.asarray(X))
+        self.history_X.append(X_jax)
         self.history_Y.append(Y_target)
         self.history_mask.append(obs_mask)
 
-        if self.t % self.train_interval == 0:
-            self._train_batch()
+        self._train_step()
 
 
 class UCBBayesianAgent:

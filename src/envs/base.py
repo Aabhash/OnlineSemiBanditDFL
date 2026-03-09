@@ -73,6 +73,10 @@ class ConstrainedBanditEnv(ABC):
 
         return observed_values, reward, info
 
+    def _advance(self):
+        self.t += 1
+        self.current_context, self.current_values = self._generate_sample()
+
     def _solve_optimal(self, values: np.ndarray) -> np.ndarray:
         from src.solver import solve_knapsack
         return solve_knapsack(values, self.weights, self.capacity)

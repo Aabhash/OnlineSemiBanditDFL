@@ -1,7 +1,7 @@
 import jax.numpy as jnp
 import numpy as np
 from src.models import MLPModel
-from src.solver import solve_knapsack_with_sensitivity
+# from src.solver import solve_knapsack_with_sensitivity
 from src.losses import spo_plus_grad
 from src.agents.bayesian_utils import (
     mlp_forward,

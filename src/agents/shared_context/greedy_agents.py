@@ -58,9 +58,9 @@ class EpsilonGreedyAgent:
         epsilon: float = 0.1,
         decay_epsilon: bool = True,
         decay_rounds: int = 300,
-        lr: float = 0.01,
+        lr: float = 0.001,
+
         max_grad_norm: float = 5.0,
-        min_lr_ratio: float = 0.1,
         solver=None,
         seed: int = None,
     ):
@@ -90,17 +90,12 @@ class EpsilonGreedyAgent:
         self.W2 = jax.random.normal(k2, (hidden_dim, n_arms)) * 0.1
         self.b2 = jnp.zeros(n_arms)
 
-        if decay_rounds > 0:
-            schedule = optax.cosine_decay_schedule(lr, decay_rounds, alpha=min_lr_ratio)
-            self.optimizer = optax.chain(
-                optax.clip_by_global_norm(max_grad_norm),
-                optax.adam(learning_rate=schedule)
-            )
-        else:
-            self.optimizer = optax.chain(
-                optax.clip_by_global_norm(max_grad_norm),
-                optax.adam(learning_rate=lr)
-            )
+        # Inverse-sqrt LR schedule: lr / sqrt(t+1), same as Bayesian agents
+        schedule = lambda count: lr / jnp.sqrt(count + 1)
+        self.optimizer = optax.chain(
+            optax.clip_by_global_norm(max_grad_norm),
+            optax.adam(schedule)
+        )
         self.opt_state = self.optimizer.init({
             'W1': self.W1, 'b1': self.b1, 'W2': self.W2, 'b2': self.b2
         })

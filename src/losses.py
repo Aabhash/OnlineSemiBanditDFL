@@ -83,6 +83,26 @@ def spo_plus_grad_bandit(y_pred, y_observed, selection, weights, capacity: float
     return jnp.asarray(grad)
 
 
+def spo_plus_grad_generic(y_pred, y_true, solver, minimize=False):
+    cp = np.asarray(y_pred, dtype=np.float64)
+    ct = np.asarray(y_true, dtype=np.float64)
+    n = cp.shape[0]
+
+    w_true = solver(ct)
+    w_spo = solver(2 * cp - ct)
+
+    if minimize:
+        return jnp.asarray(2.0 * (w_true - w_spo) / n)
+    else:
+        return jnp.asarray(2.0 * (w_spo - w_true) / n)
+
+
+def make_spo_grad_fn(solver, minimize=False):
+    def loss_grad_fn(y_pred, y_true):
+        return spo_plus_grad_generic(y_pred, y_true, solver, minimize)
+    return loss_grad_fn
+
+
 def nce_grad_bandit(y_pred, y_observed, selection, solution_pool: list, weights, capacity: float) -> jnp.ndarray:
     y_pred_np = np.asarray(y_pred)
     y_observed_np = np.asarray(y_observed)

@@ -3,7 +3,7 @@ import jax.numpy as jnp
 import numpy as np
 import optax
 from src.losses import spo_plus_grad
-from src.solver import solve_knapsack_with_sensitivity
+# from src.solver import solve_knapsack_with_sensitivity
 from src.agents.bayesian_utils import (
     init_shared_regression,
     compute_shared_predictions,

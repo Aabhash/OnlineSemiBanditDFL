@@ -1,11 +1,9 @@
 agents:
   EpsilonGreedy:
     tune_lr: true
-    lr:
-      type: float
-      low: 0.0001
-      high: 0.1
-      log: true
+    init_lr:
+      type: categorical
+      choices: [0.0003, 0.001, 0.003]
     epsilon:
       type: float
       low: 0.01
@@ -16,18 +14,16 @@ agents:
       choices: [true, false]
     hidden_dim:
       type: categorical
-      choices: [32, 64]
+      choices: [8, 16, 32]
 
   Greedy:
     tune_lr: true
-    lr:
-      type: float
-      low: 0.0001
-      high: 0.1
-      log: true
+    init_lr:
+      type: categorical
+      choices: [0.0003, 0.001, 0.003]
     hidden_dim:
       type: categorical
-      choices: [32, 64]
+      choices: [8, 16, 32]
 
   Random:
     tune_lr: false
@@ -47,11 +43,9 @@ agents:
 
   NeuralUCB:
     tune_lr: true
-    lr:
-      type: float
-      low: 0.0001
-      high: 0.1
-      log: true
+    init_lr:
+      type: categorical
+      choices: [0.0003, 0.001, 0.003]
     alpha:
       type: float
       low: 0.1
@@ -64,7 +58,7 @@ agents:
       log: true
     hidden_dim:
       type: categorical
-      choices: [32, 64]
+      choices: [8, 16, 32]
 
   UCB-Bayesian:
     tune_lr: false
@@ -89,11 +83,9 @@ agents:
 
   BayesianMSE:
     tune_lr: true
-    lr:
-      type: float
-      low: 0.0001
-      high: 0.1
-      log: true
+    init_lr:
+      type: categorical
+      choices: [0.0003, 0.001, 0.003]
     beta:
       type: float
       low: 0.1
@@ -101,7 +93,7 @@ agents:
       log: true
     hidden_dim:
       type: categorical
-      choices: [32, 64]
+      choices: [8, 16, 32]
     lambda_reg:
       type: float
       low: 0.01
@@ -110,11 +102,9 @@ agents:
 
   BayesianSPO:
     tune_lr: true
-    lr:
-      type: float
-      low: 0.0001
-      high: 0.1
-      log: true
+    init_lr:
+      type: categorical
+      choices: [0.0003, 0.001, 0.003]
     beta:
       type: float
       low: 0.1
@@ -122,9 +112,138 @@ agents:
       log: true
     hidden_dim:
       type: categorical
-      choices: [32, 64]
+      choices: [8, 16, 32]
     lambda_reg:
       type: float
       low: 0.01
+      high: 10.0
+      log: true
+
+  BayesianSPO-DI:
+    tune_lr: true
+    init_lr:
+      type: categorical
+      choices: [0.0003, 0.001, 0.003]
+    beta:
+      type: float
+      low: 0.1
+      high: 5.0
+      log: true
+    hidden_dim:
+      type: categorical
+      choices: [8, 16, 32]
+    lambda_reg:
+      type: float
+      low: 0.01
+      high: 10.0
+      log: true
+    disc_K:
+      type: categorical
+      choices: [3, 5, 7]
+    contested_alpha:
+      type: float
+      low: 0.1
+      high: 3.0
+      log: true
+    disc_lambda:
+      type: float
+      low: 0.05
+      high: 1.0
+      log: true
+
+  BayesianSPO-DFE:
+    tune_lr: true
+    init_lr:
+      type: categorical
+      choices: [0.0003, 0.001, 0.003]
+    beta:
+      type: float
+      low: 0.1
+      high: 5.0
+      log: true
+    hidden_dim:
+      type: categorical
+      choices: [8, 16, 32]
+    lambda_reg:
+      type: float
+      low: 0.01
+      high: 10.0
+      log: true
+    contested_alpha:
+      type: float
+      low: 0.1
+      high: 3.0
+      log: true
+    dfe_gamma_0:
+      type: float
+      low: 0.1
+      high: 2.0
+      log: true
+
+
+  BayesianSPO-DR:
+    tune_lr: true
+    init_lr:
+      type: categorical
+      choices: [0.0003, 0.001, 0.003]
+    beta:
+      type: float
+      low: 0.1
+      high: 5.0
+      log: true
+    hidden_dim:
+      type: categorical
+      choices: [8, 16, 32]
+    lambda_reg:
+      type: float
+      low: 0.01
+      high: 10.0
+      log: true
+    ips_M:
+      type: categorical
+      choices: [5, 10, 20]
+    ips_clip_max:
+      type: float
+      low: 2.0
+      high: 10.0
+      log: true
+
+  BayesianSPO-DFE+DR:
+    tune_lr: true
+    init_lr:
+      type: categorical
+      choices: [0.0003, 0.001, 0.003]
+    beta:
+      type: float
+      low: 0.1
+      high: 5.0
+      log: true
+    hidden_dim:
+      type: categorical
+      choices: [8, 16, 32]
+    lambda_reg:
+      type: float
+      low: 0.01
+      high: 10.0
+      log: true
+    contested_alpha:
+      type: float
+      low: 0.1
+      high: 3.0
+      log: true
+    dfe_gamma_0:
+      type: float
+      low: 0.1
+      high: 2.0
+      log: true
+    n_disagreement_samples:
+      type: categorical
+      choices: [5, 10, 20]
+    ips_M:
+      type: categorical
+      choices: [5, 10, 20]
+    ips_clip_max:
+      type: float
+      low: 2.0
       high: 10.0
       log: true

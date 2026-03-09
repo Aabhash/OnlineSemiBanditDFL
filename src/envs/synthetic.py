@@ -16,10 +16,8 @@ class SyntheticKnapsackEnv(ConstrainedBanditEnv):
         deg: int = 4,
         noise_width: float = 0.5,
         seed: int = 42,
-        nonstationarity: str = 'none',
-        drift_rate: float = 0.01,
-        shift_interval: int = 500,
-        shift_fraction: float = 0.2,
+        unit_weights: bool = False,
+        **kwargs,  # absorb legacy nonstationarity params
     ):
         if context_dim is not None:
             effective_dim = context_dim
@@ -35,10 +33,7 @@ class SyntheticKnapsackEnv(ConstrainedBanditEnv):
             deg=deg,
             noise_width=noise_width,
             seed=seed,
-            nonstationarity=nonstationarity,
-            drift_rate=drift_rate,
-            shift_interval=shift_interval,
-            shift_fraction=shift_fraction,
+            unit_weights=unit_weights,
         )
 
         super().__init__(
@@ -57,10 +52,12 @@ class SyntheticKnapsackEnv(ConstrainedBanditEnv):
         full_feedback: bool = False,
     ) -> Tuple[np.ndarray, float, Dict[str, Any]]:
         observed_values, reward, info = super().step(action, full_feedback)
-
         self.data.step()
-
         return observed_values, reward, info
+
+    def _advance(self):
+        super()._advance()
+        self.data.step()
 
     def reset(self) -> np.ndarray:
         self.data.reset()

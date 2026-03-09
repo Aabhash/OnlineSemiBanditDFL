@@ -37,10 +37,10 @@ wandb:
   log_interval: 10  # Log training metrics every N rounds
   # Separate projects for HP tuning vs final evaluation
   tuning:
-    project: "constrained-bandits-tuning"
+    project: "constrained-bandits-tuning-new"
     tags: ["hp-tuning"]
   evaluation:
-    project: "constrained-bandits-eval"
+    project: "constrained-bandits-eval-new"
     tags: ["evaluation"]
 
 storage:
@@ -61,48 +61,35 @@ analysis:
 
 datasets:
 
-  # Non-stationary knapsack (tests adaptation to changing reward dynamics)
-  knapsack_low_noise:
+  # Knapsack with heterogeneous weights (uniform [1, 5])
+  knapsack:
     n_items: 32
     context_dim: 5
     capacity: 20.0
-    noise_width: 0.1
-    nonstationarity: drift_and_shift
-    drift_rate: 0.01
-    shift_interval: 500
-    shift_fraction: 0
+    noise_width: 0.25
     env_type: shared_context
 
-  knapsack_high_noise:
+  # Knapsack with unit weights (cardinality-constrained selection)
+  knapsack_unit_weight:
     n_items: 32
     context_dim: 5
     capacity: 20.0
-    noise_width: 0.5
-    nonstationarity: drift_and_shift
-    drift_rate: 0.01
-    shift_interval: 500
-    shift_fraction: 0
+    noise_width: 0.25
+    unit_weights: true
     env_type: shared_context
 
-  # Non-stationary shortest path (tests adaptation with path constraints)
-  shortest_path_low_noise:
+  # Shortest path 8x8 grid
+  shortest_path_8x8:
     grid_size: 8
-    context_dim: 20
-    noise_width: 0.1
-    nonstationarity: drift_and_shift
-    drift_rate: 0.01
-    shift_interval: 500
-    shift_fraction: 0
+    context_dim: 5
+    noise_width: 0.25
     env_type: shared_context
 
-  shortest_path_high_noise:
-    grid_size: 8
-    context_dim: 20
-    noise_width: 0.5
-    nonstationarity: drift_and_shift
-    drift_rate: 0.01
-    shift_interval: 500
-    shift_fraction: 0
+  # Shortest path 20x20 grid
+  shortest_path_20x20:
+    grid_size: 20
+    context_dim: 5
+    noise_width: 0.25
     env_type: shared_context
 
   # Criteo Ad Bidding: real-world shared context benchmark
@@ -137,13 +124,13 @@ evaluation:
     n_seeds: 3
   full:
     n_rounds: 10000
-    n_seeds: 5
+    n_seeds: 10
   output_dir: "results/eval"
 
 agent_defaults:
-  lr: 0.01
-  hidden_dim: 64
-  hidden_dim_small: 32
+  lr: 0.001
+  hidden_dim: 16
+  hidden_dim_small: 16
   lambda_reg: 1.0
   alpha: 1.0
   beta: 1.0
@@ -151,6 +138,7 @@ agent_defaults:
   nu: 1.0
   epsilon: 0.1
   decay_epsilon: true
+  nonlinear: false
 
 ablations:
   observation_rate:

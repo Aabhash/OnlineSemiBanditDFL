@@ -11,9 +11,11 @@ sys.path.insert(0, '.')
 
 from src.envs import create_env
 from src.agents import run_experiment
+from src.agents.base import pregenerate_episode, run_agent_on_episode
 
 from src.agents.shared_context import (
     BayesianSPOAgent,
+    BayesianSPO_DI_Agent,
     LinUCBAgent,
     NeuralUCBAgent,
     BayesianMSEAgent,
@@ -22,6 +24,7 @@ from src.agents.shared_context import (
     EpsilonGreedyAgent,
     RandomAgent,
 )
+from src.solver import ShortestPathSolver, KnapsackSolver
 from src.agents.per_arm_context import (
     PerArmBayesianSPOAgent,
     CNUCBAgent,
@@ -116,18 +119,23 @@ def get_agents(env, seed, config, n_rounds):
     beta = defaults['beta']
     epsilon = defaults['epsilon']
     decay_epsilon = defaults['decay_epsilon']
+    nonlinear = defaults.get('nonlinear', False)
 
     solver = env.solve
     minimize = getattr(env, 'minimize', False)
 
-    return {
+    # Negate beta for minimization (LCB instead of UCB)
+    # BayesianSPO/MSE agents use means + beta*stds, so beta < 0 gives LCB
+    bayes_beta = -beta if minimize else beta
+
+    agents = {
         'Random': RandomAgent(
             env.n_arms, env.weights, env.capacity, seed=seed
         ),
         'EpsilonGreedy': EpsilonGreedyAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             hidden_dim=hidden_dim, epsilon=epsilon, decay_epsilon=decay_epsilon,
-            decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed
+            decay_rounds=n_rounds, solver=solver, seed=seed
         ),
         'UCB-Bayesian': UCBAgent(
             BayesianLinearModel(env.context_dim, env.n_arms),
@@ -148,15 +156,59 @@ def get_agents(env, seed, config, n_rounds):
         ),
         'BayesianSPO': BayesianSPOAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, beta=beta, decay_rounds=n_rounds,
-            lambda_reg=lambda_reg, lr=lr, solver=solver, seed=seed
+            hidden_dim=hidden_dim, beta=bayes_beta, decay_rounds=n_rounds,
+            lambda_reg=lambda_reg, minimize=minimize, solver=solver, seed=seed,
+            mask_grad=True, nonlinear=nonlinear,
         ),
         'BayesianMSE': BayesianMSEAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, beta=beta, lambda_reg=lambda_reg,
-            decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed
-        )
+            hidden_dim=hidden_dim, beta=bayes_beta, lambda_reg=lambda_reg,
+            decay_rounds=n_rounds, solver=solver, seed=seed,
+            nonlinear=nonlinear,
+        ),
     }
+
+    # Add DX/DI agents with appropriate combinatorial solver
+    grid_size = getattr(env, 'grid_size', None)
+    if grid_size is not None:
+        co_solver = ShortestPathSolver(grid_size)
+    else:
+        co_solver = KnapsackSolver(env.weights, env.capacity)
+
+    # Data-aware IPS parameters: under uniform random feasible policy,
+    # expected selection size k = capacity / mean(weights).
+    # p_min ≈ k/n, clip_max = n/k = 1/p_min.
+    n = env.n_arms
+    k_est = env.capacity / np.mean(env.weights)
+    ips_p_min = k_est / n
+    ips_clip_max = n / k_est
+
+    di_common = dict(
+        context_dim=env.context_dim, n_arms=env.n_arms,
+        weights=env.weights, capacity=env.capacity,
+        hidden_dim=hidden_dim, beta=beta,
+        lambda_reg=lambda_reg, minimize=minimize,
+        solver=solver, seed=seed, nonlinear=nonlinear,
+    )
+
+    agents['BayesianSPO-DI'] = BayesianSPO_DI_Agent(
+        **di_common, imputation='disc_impute', co_solver=co_solver,
+    )
+    agents['BayesianSPO-DFE'] = BayesianSPO_DI_Agent(
+        **di_common, imputation='disc_explore', co_solver=co_solver,
+        decision_focused_explore=True, adaptive_dfe=True,
+    )
+    agents['BayesianSPO-DR'] = BayesianSPO_DI_Agent(
+        **di_common, imputation='ips_dr', co_solver=co_solver,
+        ips_p_min=ips_p_min, ips_clip_max=ips_clip_max,
+    )
+    agents['BayesianSPO-DFE+DR'] = BayesianSPO_DI_Agent(
+        **di_common, imputation='ips_dr', co_solver=co_solver,
+        decision_focused_explore=True, adaptive_dfe=True,
+        ips_p_min=ips_p_min, ips_clip_max=ips_clip_max,
+    )
+
+    return agents
 
 
 def get_per_arm_agents(env, seed, config, n_rounds):
@@ -180,7 +232,7 @@ def get_per_arm_agents(env, seed, config, n_rounds):
         'PerArmGreedy': PerArmEpsilonGreedyAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             hidden_dim=hidden_dim, epsilon=0.0, decay_epsilon=False,
-            decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed
+            solver=solver, seed=seed
         ),
         'PerArmLinUCB': PerArmLinUCBAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
@@ -192,28 +244,28 @@ def get_per_arm_agents(env, seed, config, n_rounds):
         ),
         'CN-UCB': CNUCBAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, lambda_reg=lambda_reg, gamma=gamma, lr=lr,
+            hidden_dim=hidden_dim, lambda_reg=lambda_reg, gamma=gamma,
             per_arm_context=True, solver=solver, seed=seed
         ),
         'CN-TS': CNTSAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, lambda_reg=lambda_reg, nu=nu, lr=lr,
+            hidden_dim=hidden_dim, lambda_reg=lambda_reg, nu=nu,
             per_arm_context=True, solver=solver, seed=seed
         ),
         'PerArmBayesianSPO': PerArmBayesianSPOAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             hidden_dim=hidden_dim, beta=beta, lambda_reg=lambda_reg,
-            lr=lr, decay_rounds=n_rounds, solver=solver, seed=seed
+            solver=solver, seed=seed
         ),
         'PerArmBayesianMSE': PerArmBayesianMSEAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             hidden_dim=hidden_dim, beta=beta, lambda_reg=lambda_reg,
-            decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed
+            solver=solver, seed=seed
         ),
         'PerArmEpsilonGreedy': PerArmEpsilonGreedyAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             hidden_dim=hidden_dim, epsilon=epsilon, decay_epsilon=decay_epsilon,
-            decay_rounds=n_rounds, lr=lr, solver=solver, seed=seed
+            solver=solver, seed=seed
         )
     }
 
@@ -268,7 +320,6 @@ def run_evaluation(
                 print(f'Seed {seed_idx + 1}/{len(seed_list)} (seed={seed}):', flush=True)
 
             env_base = create_env(dataset, seed=seed, **dataset_config)
-            test_set = env_base.generate_test_set(100)
 
             # Create agents - use tuned params if available, else defaults
             if tuned_params:
@@ -295,11 +346,23 @@ def run_evaluation(
                 if agents_filter:
                     agents = {k: v for k, v in agents.items() if k in agents_filter}
 
+            # Pre-generate episode data once per seed — all agents replay
+            # the same (context, true_values, optimal_action) sequence,
+            # avoiding redundant solver calls.
+            use_pregenerated = not getattr(env_base, 'per_arm_context', False)
+            if use_pregenerated:
+                ep_env = create_env(dataset, seed=seed, **dataset_config)
+                pregen_start = time.perf_counter()
+                episode = pregenerate_episode(
+                    ep_env, n_rounds, full_feedback=full_feedback,
+                )
+                pregen_time = time.perf_counter() - pregen_start
+                if verbose:
+                    print(f'  (episode pregenerated in {pregen_time:.1f}s)')
+
             for agent_name, agent in agents.items():
                 if verbose:
                     print(f'  {agent_name}...', end=' ', flush=True)
-
-                env = create_env(dataset, seed=seed, **dataset_config)
 
                 # Get LR and params from tuned params or default
                 if tuned_params and agent_name in tuned_params:
@@ -312,11 +375,17 @@ def run_evaluation(
                 # Time the experiment
                 start_time = time.perf_counter()
 
-                result = run_experiment(
-                    env, agent, n_rounds,
-                    lr=lr, full_feedback=full_feedback,
-                    test_set=test_set
-                )
+                if use_pregenerated:
+                    result = run_agent_on_episode(
+                        agent, episode, n_rounds,
+                        lr=lr, full_feedback=full_feedback,
+                    )
+                else:
+                    env = create_env(dataset, seed=seed, **dataset_config)
+                    result = run_experiment(
+                        env, agent, n_rounds,
+                        lr=lr, full_feedback=full_feedback,
+                    )
 
                 wall_time = time.perf_counter() - start_time
                 result['wall_time_seconds'] = wall_time
@@ -434,11 +503,6 @@ def print_summary(results, dataset, trajectories=None):
         print(f'  Full feedback: {full_best[0]} ({np.mean(full_best[1]):.0f})')
 
 
-def plot_trajectories(trajectories, dataset, output_dir, feedback_mode='semi_bandit'):
-    from experiments.plot_results import plot_trajectories as _plot_trajectories
-    _plot_trajectories(trajectories, dataset, output_dir, feedback_mode)
-
-
 def save_results(results, trajectories, output_dir):
     import json
     import pickle
@@ -463,8 +527,19 @@ def save_results(results, trajectories, output_dir):
     with open(f'{output_dir}/metrics/results.json', 'w') as f:
         json.dump(results_json, f, indent=2)
 
+    # Save combined trajectories (backwards compat) and per-dataset files
     with open(f'{output_dir}/metrics/trajectories.pkl', 'wb') as f:
         pickle.dump(trajectories, f)
+
+    # Split and save per-dataset trajectory files
+    per_dataset = {}
+    for key, data in trajectories.items():
+        dataset = key[1]  # (agent, dataset, feedback, seed)
+        per_dataset.setdefault(dataset, {})[key] = data
+    for dataset, ds_trajectories in per_dataset.items():
+        with open(f'{output_dir}/metrics/trajectories_{dataset}.pkl', 'wb') as f:
+            pickle.dump(ds_trajectories, f)
+        print(f'Saved trajectories_{dataset}.pkl ({len(ds_trajectories)} entries)')
 
     # Compute and save results summary (mean/std, timing, hyperparameters per agent)
     results_summary = {}
@@ -539,9 +614,59 @@ def save_results(results, trajectories, output_dir):
     with open(f'{output_dir}/metrics/results_summary.json', 'w') as f:
         json.dump(results_summary, f, indent=2)
 
+    # Build final_eval_regrets: {dataset: {agent: [regret_per_seed]}}
+    eval_regrets = {}
+    for run_key, summary in results_summary.items():
+        ds = summary['dataset']
+        agent = summary['agent']
+        eval_regrets.setdefault(ds, {})[agent] = [
+            float(r) for r in summary['cumulative_regrets']
+        ]
+
+    # Save combined final_eval_regrets.json
+    with open(f'{output_dir}/metrics/final_eval_regrets.json', 'w') as f:
+        json.dump(eval_regrets, f, indent=2)
+
+    # Save per-dataset final_eval_regrets_<dataset>.json
+    for ds, agent_regrets in eval_regrets.items():
+        with open(f'{output_dir}/metrics/final_eval_regrets_{ds}.json', 'w') as f:
+            json.dump({ds: agent_regrets}, f, indent=2)
+
+    # Build and save final_eval_summary.csv (combined + per-dataset)
+    import csv
+    csv_rows = []
+    for run_key, summary in results_summary.items():
+        csv_rows.append({
+            'Dataset': summary['dataset'],
+            'Agent': summary['agent'],
+            'Mean Regret': summary['mean_cumulative_regret'],
+            'Std Regret': summary['std_cumulative_regret'],
+            'Mean Time (s)': summary['mean_wall_time_seconds'],
+        })
+    csv_rows.sort(key=lambda r: (r['Dataset'], r['Mean Regret']))
+
+    fieldnames = ['Dataset', 'Agent', 'Mean Regret', 'Std Regret', 'Mean Time (s)']
+
+    with open(f'{output_dir}/metrics/final_eval_summary.csv', 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(csv_rows)
+
+    # Per-dataset summary CSVs
+    datasets_in_results = sorted(set(r['Dataset'] for r in csv_rows))
+    for ds in datasets_in_results:
+        ds_rows = [r for r in csv_rows if r['Dataset'] == ds]
+        with open(f'{output_dir}/metrics/final_eval_summary_{ds}.csv', 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(ds_rows)
+
     # Compute overall timing
     total_time = sum(data.get('wall_time_seconds', 0.0) for data in trajectories.values())
     print(f'\nSaved results to {output_dir}/metrics/')
+    print(f'  final_eval_regrets.json (+ per-dataset)')
+    print(f'  final_eval_summary.csv (+ per-dataset)')
+    print(f'  trajectories.pkl (+ per-dataset)')
     print(f'Total evaluation time: {total_time/60:.1f} minutes ({total_time/3600:.2f} hours)')
 
 
@@ -663,8 +788,6 @@ def run_evaluation_analysis(
 
         print(f"\nSaved analysis to {output_file}")
 
-    # 3. Generate comparison bar plot
-    _generate_comparison_plot(results, dataset, analysis_dir)
 
 
 class EvaluationWandbLogger:
@@ -1050,51 +1173,6 @@ class EvaluationSummaryLogger:
         self._run = None
 
 
-def _generate_comparison_plot(
-    results: Dict[str, Dict[str, list]],
-    dataset: str,
-    output_dir: str,
-):
-    try:
-        import matplotlib.pyplot as plt
-    except ImportError:
-        print("matplotlib not available, skipping comparison plot")
-        return
-
-    for feedback_type, agents_data in results.items():
-        if not agents_data:
-            continue
-
-        # Sort by mean regret
-        sorted_agents = sorted(agents_data.items(), key=lambda x: np.mean(x[1]))
-
-        agents = [a[0] for a in sorted_agents]
-        means = [np.mean(a[1]) for a in sorted_agents]
-        stds = [np.std(a[1]) for a in sorted_agents]
-
-        fig, ax = plt.subplots(figsize=(12, 6))
-
-        x = np.arange(len(agents))
-        bars = ax.bar(x, means, yerr=stds, capsize=5, color='steelblue', alpha=0.8)
-
-        # Highlight best agent
-        bars[0].set_color('forestgreen')
-
-        ax.set_xlabel('Agent')
-        ax.set_ylabel('Cumulative Regret')
-        ax.set_title(f'{dataset} - {feedback_type.replace("_", " ").title()} Feedback\n(Mean ± Std across seeds)')
-        ax.set_xticks(x)
-        ax.set_xticklabels(agents, rotation=45, ha='right')
-
-        plt.tight_layout()
-
-        plot_file = os.path.join(output_dir, f'comparison_{dataset}_{feedback_type}.png')
-        plt.savefig(plot_file, dpi=150)
-        plt.close()
-
-        print(f"Saved comparison plot to {plot_file}")
-
-
 def main():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -1325,10 +1403,6 @@ Examples:
 
     if not args.no_save:
         save_results(all_results, all_trajectories, output_dir)
-
-        for dataset in datasets:
-            for ft in feedback_types:
-                plot_trajectories(all_trajectories, dataset, output_dir, ft)
 
     # Run statistical analysis if requested
     if args.analyze:

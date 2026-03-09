@@ -2,7 +2,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import optax
-from src.solver import solve_top_k
+# from src.solver import solve_top_k
 
 DEFAULT_GRAD_CLIP = 5.0
 

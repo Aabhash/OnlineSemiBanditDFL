@@ -80,7 +80,6 @@ def run_ablation(
             print(f'\nSeed {seed + 1}/{n_seeds}:', end=' ', flush=True)
 
         env = create_env(dataset, seed=seed, **dataset_config)
-        test_set = env.generate_test_set(100)
         agents = get_agents(env, seed, config, n_rounds)
 
         seed_results = {}
@@ -89,7 +88,6 @@ def run_ablation(
             result = run_experiment(
                 env, agent, n_rounds,
                 lr=lr, full_feedback=False,
-                test_set=test_set
             )
             seed_results[agent_name] = result['final_regret']
             if agent_name not in results:
