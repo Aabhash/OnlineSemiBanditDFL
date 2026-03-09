@@ -2,10 +2,10 @@ import numpy as np
 from typing import Tuple, Dict, Any
 
 from src.envs.base import ConstrainedBanditEnv
-from src.data.synthetic import SyntheticKnapsackData
+from src.data.knapsack import KnapsackData
 
 
-class SyntheticKnapsackEnv(ConstrainedBanditEnv):
+class KnapsackEnv(ConstrainedBanditEnv):
 
     def __init__(
         self,
@@ -26,7 +26,7 @@ class SyntheticKnapsackEnv(ConstrainedBanditEnv):
         else:
             effective_dim = 5  # default
 
-        self.data = SyntheticKnapsackData(
+        self.data = KnapsackData(
             n_items=n_items,
             context_dim=effective_dim,
             capacity=capacity,

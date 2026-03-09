@@ -1,9 +1,3 @@
-[submodule "paper_informs"]
-	path = paper_informs
-	url = https://git@git.overleaf.com/696a351be90f35a002ddfd43
-[submodule "paper_overleaf"]
-	path = paper_overleaf
-	url = https://git@git.overleaf.com/69429cbe8313b2451ed77a16
 [submodule "paper_neurips_2026"]
 	path = paper_neurips_2026
 	url = https://git@git.overleaf.com/699076e3c60a2f9a6ab97b5f

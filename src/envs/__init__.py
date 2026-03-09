@@ -1,11 +1,11 @@
 from src.envs.base import ConstrainedBanditEnv
-from src.envs.synthetic import SyntheticKnapsackEnv
+from src.envs.knapsack import KnapsackEnv
 from src.envs.shortest_path import ShortestPathEdgeEnv
 from src.envs.criteo import CriteoEnv
 
 __all__ = [
     'ConstrainedBanditEnv',
-    'SyntheticKnapsackEnv',
+    'KnapsackEnv',
     'ShortestPathEdgeEnv',
     'CriteoEnv',
 ]
@@ -13,7 +13,7 @@ __all__ = [
 
 def create_env(env_type: str, seed: int = 42, **kwargs):
     if env_type.startswith('knapsack'):
-        return SyntheticKnapsackEnv(seed=seed, **kwargs)
+        return KnapsackEnv(seed=seed, **kwargs)
     elif env_type.startswith('shortest_path'):
         kwargs_copy = kwargs.copy()
         parts = env_type.split('_')

@@ -2,7 +2,7 @@ import numpy as np
 from typing import Tuple
 
 
-class SyntheticKnapsackData:
+class KnapsackData:
     def __init__(
         self,
         n_items: int = 32,
