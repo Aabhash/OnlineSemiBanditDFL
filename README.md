@@ -46,8 +46,8 @@ uv run python experiments/plot_eval_results.py --format pdf
 
 | Dataset | Arms ($n$) | Selection size | Obs. rate | Description |
 |---------|-----------|----------------|-----------|-------------|
-| `knapsack` | 32 | ~20 (capacity) | ~62% | Heterogeneous weights, capacity 20 |
-| `knapsack_unit_weight` | 32 | 20 | ~62% | Unit weights (cardinality constraint) |
+| `knapsack` | 32 | ~6-7 (by weight) | ~19-22% | Heterogeneous weights [1,5], capacity 20 |
+| `knapsack_unit_weight` | 32 | 5 | ~16% | Unit weights (cardinality constraint), capacity 5 |
 | `shortest_path_8x8` | 112 | ~14 (path) | ~12% | 8x8 grid, shortest path |
 | `shortest_path_20x20` | 760 | ~38 (path) | ~5% | 20x20 grid, shortest path |
 | `criteo` | 25 | 10 | ~40% | Real-world ad bidding with XGBoost surrogate |
