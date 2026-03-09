@@ -102,17 +102,6 @@ datasets:
     max_depth: 6           # XGBoost tree depth
     env_type: shared_context
 
-  # NFL Fantasy: real-world per-arm context benchmark
-  nfl:
-    n_players: 494
-    salary_cap: 50000
-    context_dim: 14
-    holdout_weeks: 4       # Last 4 weeks for evaluation (14-17)
-    env_type: per_arm_context
-    n_rounds: 400         # Train with repetition over 13 weeks
-    eval_interval: 1      # Evaluate every round
-    log_interval: 1       # Log to wandb every round
-    eval_metric: training  # HP selection uses training regret; holdout is for final reporting only
 
 feedback_types:
   - semi_bandit
@@ -151,8 +140,8 @@ ablations:
     n_seeds: 3
     n_seeds_full: 5
     n_seeds_quick: 2
-    ntk_methods: ["CN-UCB", "CN-TS"]
-    bayesian_methods: ["PerArmBayesianSPO", "PerArmLinUCB", "PerArmTS"]
+    ntk_methods: []
+    bayesian_methods: []
     output_dir: "results/ablations/obs_rate"
   imputation:
     n_rounds: 200
@@ -177,19 +166,8 @@ plotting:
     BayesianSPO: "purple"
     FullSPO: "pink"
     DecisionUCB: "cyan"
-    CN-UCB: "magenta"
-    CN-TS: "darkblue"
     EpsilonGreedy: "gold"
     MSENeural: "coral"
-    PerArmBayesianSPO: "purple"
-    PerArmFullSPO: "pink"
-    PerArmLinUCB: "orange"
-    PerArmUCB: "blue"
-    PerArmTS: "green"
-    PerArmMSENeural: "coral"
-    PerArmEpsilonGreedy: "gold"
-    PerArmRandom: "gray"
-    PerArmGreedy: "darkgray"
   figsize:
     default: [10, 6]
     wide: [14, 6]

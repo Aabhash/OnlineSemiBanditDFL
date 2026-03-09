@@ -27,10 +27,6 @@ class ConstrainedBanditEnv(ABC):
     def minimize(self) -> bool:
         return False
 
-    @property
-    def per_arm_context(self) -> bool:
-        return False
-
     @abstractmethod
     def _generate_sample(self) -> Tuple[np.ndarray, np.ndarray]:
         pass

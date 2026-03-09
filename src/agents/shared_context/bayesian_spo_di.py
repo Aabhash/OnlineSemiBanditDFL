@@ -75,27 +75,7 @@ def _fused_predict_nl(X, W1, b1, W2, b2, A_inv, b_bayes):
     theta = jnp.einsum('nij,nj->ni', A_inv, b_bayes)
     return theta @ h
 
-
-# ---------------------------------------------------------------------------
-# Standalone helpers for posterior-sample-based diagnostics
-# ---------------------------------------------------------------------------
-
 def compute_decision_disagreement(means_np, stds_np, solver, rng, M=10):
-    """Compute decision disagreement rate delta_t.
-
-    Draw M posterior-predictive samples, solve each, count pairwise disagreements.
-
-    Args:
-        means_np: (n_arms,) posterior means
-        stds_np: (n_arms,) posterior stds
-        solver: combinatorial solver callable
-        rng: numpy random generator (np.random.Generator)
-        M: number of posterior samples
-
-    Returns:
-        delta_t: float in [0, 1], decision disagreement rate
-        solutions: list of M solution vectors (for diagnostics)
-    """
     n_arms = len(means_np)
     solutions = []
 
@@ -119,21 +99,6 @@ def compute_decision_disagreement(means_np, stds_np, solver, rng, M=10):
 
 
 def compute_propensities(means_np, stds_np, solver, rng, M=10, p_min=0.05):
-    """Estimate per-arm selection propensity from posterior samples.
-
-    p_i = P(arm i in optimal solution) estimated by solving M posterior samples.
-
-    Args:
-        means_np: (n_arms,) posterior means
-        stds_np: (n_arms,) posterior stds
-        solver: combinatorial solver callable
-        rng: numpy random generator (np.random.Generator)
-        M: number of posterior samples
-        p_min: minimum propensity clamp to avoid explosion
-
-    Returns:
-        propensities: (n_arms,) array in [p_min, 1.0]
-    """
     n_arms = len(means_np)
     counts = np.zeros(n_arms)
 
@@ -149,25 +114,6 @@ def compute_propensities(means_np, stds_np, solver, rng, M=10, p_min=0.05):
 
 
 class BayesianSPO_DI_Agent:
-    """BayesianSPO agent with discriminative exploration, imputation, and DFE.
-
-    Imputation modes:
-      'model'         -- impute unobserved with model prediction (+ optional mask_grad)
-      'disc_explore'  (DX) -- masked SPO+ gradient (zero on unobserved)
-      'disc_impute'   (DI) -- adversarial imputation via alternatives
-      'ips_dr'        -- Doubly Robust: IPS-weighted observed gradients
-
-    DFE (decision_focused_explore=True):
-      Asymmetric exploration in act(): on-solution penalty, contested off-solution boost.
-
-    Adaptive DFE (adaptive_dfe=True):
-      gamma_t = gamma_0 * delta_t modulates exploration intensity per-context.
-
-    Gated DI (di_gate_threshold > 0):
-      Only apply adversarial imputation when delta_t < threshold.
-
-    LR schedule: init_lr / (t+1)^lr_power  (default lr_power=0.5 = inv-sqrt).
-    """
 
     def __init__(
         self,

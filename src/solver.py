@@ -14,5 +14,4 @@ from src.solvers import (  # explicit re-exports for type checkers
     down_edge_idx,
     edge_to_nodes,
     ShortestPathSolver,
-    solve_fantasy_lineup,
 )

@@ -179,13 +179,7 @@ class BanditHyperparameterTuner:
         feedback_type: str = 'semi_bandit',
     ) -> Dict[str, 'optuna.Study']:
         if agents is None:
-            dataset_config = self.config['datasets'][dataset]
-            env_type = dataset_config['env_type']
-
-            if env_type == 'per_arm_context':
-                agents = [a for a in self.search_spaces if a.startswith('PerArm') or a.startswith('CN-')]
-            else:
-                agents = [a for a in self.search_spaces if not a.startswith('PerArm') and not a.startswith('CN-')]
+            agents = list(self.search_spaces.keys())
 
         effective_n_rounds = get_n_rounds_for_dataset(self.config, dataset)
         print(f"\n{'='*70}")

@@ -48,7 +48,7 @@ def run_tuning_experiment(
     cumulative_regret = 0.0
     cumulative_reward = 0.0
 
-    # Track cumulative holdout metrics (only for datasets with holdout like nfl)
+    # Track cumulative holdout metrics (for datasets with holdout evaluation)
     cumulative_holdout_regret = 0.0
     cumulative_holdout_reward = 0.0
 
@@ -105,7 +105,7 @@ def run_tuning_experiment(
 
         should_eval = (t + 1) % eval_interval == 0 or t == n_rounds - 1
         if should_eval:
-            # For holdout datasets (e.g., nfl), evaluate on holdout
+            # For holdout datasets, evaluate on holdout
             if has_holdout:
                 holdout_result = env.evaluate_on_holdout(agent)
                 if holdout_result:
@@ -239,17 +239,6 @@ def create_agent_from_params(
         BayesianMSEAgent,
         RandomAgent,
     )
-    from src.agents.per_arm_context import (
-        PerArmBayesianSPOAgent,
-        CNUCBAgent,
-        CNTSAgent,
-        PerArmLinUCBAgent,
-        PerArmNeuralLinUCBAgent,
-        PerArmThompsonSamplingAgent,
-        PerArmBayesianMSEAgent,
-        PerArmRandomAgent,
-        PerArmEpsilonGreedyAgent,
-    )
     from src.models import BayesianLinearModel
 
     solver = env.solve
@@ -367,71 +356,6 @@ def create_agent_from_params(
             co_solver=co_solver, nonlinear=False,
             **agent_params,
         )
-    elif agent_name == 'PerArmBayesianSPO':
-        agent_lr = params.get('init_lr', 0.001)
-        return PerArmBayesianSPOAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            lr=agent_lr, solver=solver, seed=seed,
-            **{k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
-        )
-    elif agent_name == 'CN-UCB':
-        agent_lr = params.get('init_lr', 0.001)
-        return CNUCBAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            lr=agent_lr, solver=solver, seed=seed,
-            **{k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
-        )
-    elif agent_name == 'CN-TS':
-        agent_lr = params.get('init_lr', 0.001)
-        return CNTSAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            lr=agent_lr, solver=solver, seed=seed,
-            **{k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
-        )
-    elif agent_name == 'PerArmLinUCB':
-        return PerArmLinUCBAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            solver=solver,
-            **{k: v for k, v in params.items() if k != 'lr'}
-        )
-    elif agent_name == 'PerArmNeuralLinUCB':
-        return PerArmNeuralLinUCBAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            solver=solver, seed=seed,
-            **{k: v for k, v in params.items() if k != 'lr'}
-        )
-    elif agent_name == 'PerArmThompsonSampling':
-        return PerArmThompsonSamplingAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            solver=solver, seed=seed,
-            **{k: v for k, v in params.items() if k != 'lr'}
-        )
-    elif agent_name == 'PerArmBayesianMSE':
-        agent_lr = params.get('init_lr', 0.001)
-        return PerArmBayesianMSEAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            lr=agent_lr, solver=solver, seed=seed,
-            **{k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
-        )
-    elif agent_name == 'PerArmEpsilonGreedy':
-        agent_lr = params.get('init_lr', 0.001)
-        return PerArmEpsilonGreedyAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            lr=agent_lr, solver=solver, seed=seed,
-            **{k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
-        )
-    elif agent_name == 'PerArmGreedy':
-        # PerArmGreedy is PerArmEpsilonGreedy with epsilon=0 (no exploration)
-        agent_lr = params.get('init_lr', 0.001)
-        return PerArmEpsilonGreedyAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            lr=agent_lr,
-            epsilon=0.0, decay_epsilon=False,
-            solver=solver, seed=seed,
-            **{k: v for k, v in params.items() if k not in ['lr', 'init_lr', 'epsilon', 'decay_epsilon']}
-        )
-    elif agent_name == 'PerArmRandom':
-        return PerArmRandomAgent(env.n_arms, env.weights, env.capacity, solver=solver)
     else:
         raise ValueError(f"Unknown agent: {agent_name}")
 
@@ -495,7 +419,7 @@ class ObjectiveFactory:
         results_store: ResultsStore,
         feedback_type: str,
     ) -> Callable[['optuna.Trial'], float]:
-        # Use dataset-specific n_rounds if available (e.g., nfl: 1000)
+        # Use dataset-specific n_rounds if available
         n_rounds = get_n_rounds_for_dataset(config, dataset)
         seeds = config.get('tuning_seeds', [0, 1, 2, 3, 4])
         eval_interval = get_eval_interval_for_dataset(config, dataset)

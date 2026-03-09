@@ -2,14 +2,12 @@ from src.envs.base import ConstrainedBanditEnv
 from src.envs.synthetic import SyntheticKnapsackEnv
 from src.envs.shortest_path import ShortestPathEdgeEnv
 from src.envs.criteo import CriteoEnv
-from src.envs.fantasy import FantasyEnv
 
 __all__ = [
     'ConstrainedBanditEnv',
     'SyntheticKnapsackEnv',
     'ShortestPathEdgeEnv',
     'CriteoEnv',
-    'FantasyEnv',
 ]
 
 
@@ -37,16 +35,9 @@ def create_env(env_type: str, seed: int = 42, **kwargs):
         )
     elif env_type.startswith('criteo'):
         return CriteoEnv(seed=seed, **kwargs)
-    elif env_type.startswith('nfl'):
-        # nfl is the main NFL Fantasy environment
-        # Remove n_rounds and eval_metric as they're not FantasyEnv parameters
-        kwargs_copy = kwargs.copy()
-        kwargs_copy.pop('n_rounds', None)
-        kwargs_copy.pop('eval_metric', None)
-        return FantasyEnv(seed=seed, **kwargs_copy)
     else:
         raise ValueError(
             f"Unknown environment type: {env_type}. "
             f"Available: knapsack, knapsack_unit_weight, "
-            f"shortest_path_*, criteo, nfl"
+            f"shortest_path_*, criteo"
         )

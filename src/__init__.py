@@ -3,14 +3,13 @@ from src.envs import (
     SyntheticKnapsackEnv,
     ShortestPathEdgeEnv,
     CriteoEnv,
-    FantasyEnv,
     create_env,
 )
 
 from src.data import (
     SyntheticKnapsackData,
     SyntheticGridData,
-    FantasyData,
+    CriteoData,
 )
 
 from src.models import (
@@ -21,9 +20,8 @@ from src.models import (
 )
 
 from src.agents import (
-    # Shared context - main contribution
     BayesianSPOAgent,
-    # Shared context - baselines
+    BayesianSPO_DI_Agent,
     RandomAgent,
     GreedyAgent,
     ThompsonSamplingAgent,
@@ -33,16 +31,6 @@ from src.agents import (
     EpsilonGreedyAgent,
     BayesianMSEAgent,
     run_experiment,
-    # Per-arm context - our main contribution
-    PerArmBayesianSPOAgent,
-    # Per-arm context - baselines
-    CNUCBAgent,
-    CNTSAgent,
-    PerArmLinUCBAgent,
-    PerArmThompsonSamplingAgent,
-    PerArmEpsilonGreedyAgent,
-    PerArmBayesianMSEAgent,
-    PerArmRandomAgent,
 )
 
 from src.solver import solve_knapsack
@@ -60,19 +48,19 @@ __all__ = [
     "SyntheticKnapsackEnv",
     "ShortestPathEdgeEnv",
     "CriteoEnv",
-    "FantasyEnv",
     "create_env",
     # Data
     "SyntheticKnapsackData",
     "SyntheticGridData",
-    "FantasyData",
+    "CriteoData",
     # Models
     "LinearModel",
     "MLPModel",
     "BayesianLinearModel",
     "create_model",
-    # Shared context agents
+    # Agents
     "BayesianSPOAgent",
+    "BayesianSPO_DI_Agent",
     "RandomAgent",
     "GreedyAgent",
     "ThompsonSamplingAgent",
@@ -82,15 +70,6 @@ __all__ = [
     "EpsilonGreedyAgent",
     "BayesianMSEAgent",
     "run_experiment",
-    # Per-arm context agents
-    "PerArmBayesianSPOAgent",
-    "CNUCBAgent",
-    "CNTSAgent",
-    "PerArmLinUCBAgent",
-    "PerArmThompsonSamplingAgent",
-    "PerArmEpsilonGreedyAgent",
-    "PerArmBayesianMSEAgent",
-    "PerArmRandomAgent",
     # Solver
     "solve_knapsack",
     # Losses

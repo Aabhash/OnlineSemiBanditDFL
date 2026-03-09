@@ -21,8 +21,6 @@ class OnlineValidator(BaseValidator):
         self.solver = env.solve
         self.weights = env.weights
         self.capacity = env.capacity
-        self.per_arm_context = getattr(env, 'per_arm_context', False)
-
         rng = np.random.default_rng(seed)
         np.random.seed(seed)
         self.X_val, self.Y_val = env.generate_test_set(n_samples)

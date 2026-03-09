@@ -295,7 +295,7 @@ def run_experiment(
         selection = agent.act(X)
         observed_values, reward, info = env.step(selection, full_feedback=full_feedback)
 
-        # Holdout evaluation (only for envs like NFL that have holdout data)
+        # Holdout evaluation (for envs that have holdout data)
         if has_holdout and eval_interval > 0 and (t == n_rounds - 1 or (t > 0 and t % eval_interval == 0)):
             holdout_result = env.evaluate_on_holdout(agent)
             holdout_evals.append((t, holdout_result))

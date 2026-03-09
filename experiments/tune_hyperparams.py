@@ -32,13 +32,7 @@ def get_agents_for_dataset(
     dataset: str,
     tunable_only: bool = False,
 ) -> list:
-    dataset_config = config['datasets'][dataset]
-    env_type = dataset_config['env_type']
-
-    if env_type == 'per_arm_context':
-        agents = [a for a in search_spaces if a.startswith('PerArm') or a.startswith('CN-')]
-    else:
-        agents = [a for a in search_spaces if not a.startswith('PerArm') and not a.startswith('CN-')]
+    agents = list(search_spaces.keys())
 
     if tunable_only:
         agents = [a for a in agents if has_tunable_params(search_spaces[a])]
@@ -113,11 +107,11 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python experiments/tune_hyperparams.py --agent PerArmBayesianSPO --dataset fantasy
-  python experiments/tune_hyperparams.py --all --dataset fantasy
-  python experiments/tune_hyperparams.py --agent PerArmBayesianSPO --dataset fantasy --quick
-  python experiments/tune_hyperparams.py --all --dataset fantasy --analyze
-  python experiments/tune_hyperparams.py --all --dataset fantasy --no-wandb
+  python experiments/tune_hyperparams.py --agent BayesianSPO --dataset knapsack
+  python experiments/tune_hyperparams.py --all --dataset knapsack
+  python experiments/tune_hyperparams.py --agent BayesianSPO --dataset knapsack --quick
+  python experiments/tune_hyperparams.py --all --dataset knapsack --analyze
+  python experiments/tune_hyperparams.py --all --dataset knapsack --no-wandb
         """
     )
 
@@ -192,14 +186,7 @@ Examples:
         # Validate agent is compatible with dataset's env_type
         compatible_agents = get_agents_for_dataset(search_spaces, config, args.dataset)
         if args.agent not in compatible_agents:
-            dataset_config = config['datasets'][args.dataset]
-            env_type = dataset_config['env_type']
             print(f"Error: Agent '{args.agent}' is not compatible with dataset '{args.dataset}'")
-            print(f"Dataset env_type: {env_type}")
-            if env_type == 'per_arm_context':
-                print("This dataset requires PerArm* or CN-* agents")
-            else:
-                print("This dataset requires shared context agents (not PerArm* or CN-*)")
             print(f"Compatible agents: {compatible_agents}")
             sys.exit(1)
         # Check if the specific agent has tunable params

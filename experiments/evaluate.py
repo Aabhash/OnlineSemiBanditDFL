@@ -25,20 +25,8 @@ from src.agents.shared_context import (
     RandomAgent,
 )
 from src.solver import ShortestPathSolver, KnapsackSolver
-from src.agents.per_arm_context import (
-    PerArmBayesianSPOAgent,
-    CNUCBAgent,
-    CNTSAgent,
-    PerArmLinUCBAgent,
-    PerArmThompsonSamplingAgent,
-    PerArmBayesianMSEAgent,
-    PerArmEpsilonGreedyAgent,
-    PerArmRandomAgent,
-)
 from experiments.ablations.agents import (
     DecisionUCBAgent,
-    PerArmDecisionUCBAgent,
-    PerArmBayesianIERMDMAgent,
 )
 from src.models import BayesianLinearModel
 
@@ -211,64 +199,6 @@ def get_agents(env, seed, config, n_rounds):
     return agents
 
 
-def get_per_arm_agents(env, seed, config, n_rounds):
-    defaults = config['agent_defaults']
-    lr = defaults['lr']
-    hidden_dim = defaults['hidden_dim'] if env.context_dim > 20 else defaults['hidden_dim_small']
-    lambda_reg = defaults['lambda_reg']
-    alpha = defaults['alpha']
-    beta = defaults['beta']
-    gamma = defaults['gamma']
-    nu = defaults['nu']
-    epsilon = defaults['epsilon']
-    decay_epsilon = defaults['decay_epsilon']
-
-    solver = env.solve
-
-    return {
-        'PerArmRandom': PerArmRandomAgent(
-            env.n_arms, env.weights, env.capacity, seed=seed
-        ),
-        'PerArmGreedy': PerArmEpsilonGreedyAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, epsilon=0.0, decay_epsilon=False,
-            solver=solver, seed=seed
-        ),
-        'PerArmLinUCB': PerArmLinUCBAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            alpha=alpha, lambda_reg=lambda_reg, solver=solver
-        ),
-        'PerArmTS': PerArmThompsonSamplingAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            lambda_reg=lambda_reg, sigma=1.0, solver=solver, seed=seed
-        ),
-        'CN-UCB': CNUCBAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, lambda_reg=lambda_reg, gamma=gamma,
-            per_arm_context=True, solver=solver, seed=seed
-        ),
-        'CN-TS': CNTSAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, lambda_reg=lambda_reg, nu=nu,
-            per_arm_context=True, solver=solver, seed=seed
-        ),
-        'PerArmBayesianSPO': PerArmBayesianSPOAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, beta=beta, lambda_reg=lambda_reg,
-            solver=solver, seed=seed
-        ),
-        'PerArmBayesianMSE': PerArmBayesianMSEAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, beta=beta, lambda_reg=lambda_reg,
-            solver=solver, seed=seed
-        ),
-        'PerArmEpsilonGreedy': PerArmEpsilonGreedyAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, epsilon=epsilon, decay_epsilon=decay_epsilon,
-            solver=solver, seed=seed
-        )
-    }
-
 
 def run_evaluation(
     dataset: str,
@@ -338,10 +268,7 @@ def run_evaluation(
                             print(f'  Warning: Could not create {agent_name}: {e}')
             else:
                 # Use default hyperparameters
-                if env_base.per_arm_context:
-                    agents = get_per_arm_agents(env_base, seed, config, n_rounds)
-                else:
-                    agents = get_agents(env_base, seed, config, n_rounds)
+                agents = get_agents(env_base, seed, config, n_rounds)
 
                 if agents_filter:
                     agents = {k: v for k, v in agents.items() if k in agents_filter}
@@ -349,16 +276,14 @@ def run_evaluation(
             # Pre-generate episode data once per seed — all agents replay
             # the same (context, true_values, optimal_action) sequence,
             # avoiding redundant solver calls.
-            use_pregenerated = not getattr(env_base, 'per_arm_context', False)
-            if use_pregenerated:
-                ep_env = create_env(dataset, seed=seed, **dataset_config)
-                pregen_start = time.perf_counter()
-                episode = pregenerate_episode(
-                    ep_env, n_rounds, full_feedback=full_feedback,
-                )
-                pregen_time = time.perf_counter() - pregen_start
-                if verbose:
-                    print(f'  (episode pregenerated in {pregen_time:.1f}s)')
+            ep_env = create_env(dataset, seed=seed, **dataset_config)
+            pregen_start = time.perf_counter()
+            episode = pregenerate_episode(
+                ep_env, n_rounds, full_feedback=full_feedback,
+            )
+            pregen_time = time.perf_counter() - pregen_start
+            if verbose:
+                print(f'  (episode pregenerated in {pregen_time:.1f}s)')
 
             for agent_name, agent in agents.items():
                 if verbose:
@@ -375,17 +300,10 @@ def run_evaluation(
                 # Time the experiment
                 start_time = time.perf_counter()
 
-                if use_pregenerated:
-                    result = run_agent_on_episode(
-                        agent, episode, n_rounds,
-                        lr=lr, full_feedback=full_feedback,
-                    )
-                else:
-                    env = create_env(dataset, seed=seed, **dataset_config)
-                    result = run_experiment(
-                        env, agent, n_rounds,
-                        lr=lr, full_feedback=full_feedback,
-                    )
+                result = run_agent_on_episode(
+                    agent, episode, n_rounds,
+                    lr=lr, full_feedback=full_feedback,
+                )
 
                 wall_time = time.perf_counter() - start_time
                 result['wall_time_seconds'] = wall_time
@@ -1180,16 +1098,15 @@ def main():
         epilog="""
 Two-Stage Workflow Example:
   # Stage 1: Coarse HP search (3 seeds, 1k rounds, 30 trials)
-  python experiments/tune_hyperparams.py --all --dataset fantasy --n-seeds 3 --n-rounds 1000 --n-trials 30
+  python experiments/tune_hyperparams.py --all --dataset knapsack --n-seeds 3 --n-rounds 1000 --n-trials 30
 
   # Stage 2: Full evaluation with tuned HPs (10 seeds, full rounds)
-  python experiments/evaluate.py --datasets fantasy --use-tuned-params --full --n_seeds 10
+  python experiments/evaluate.py --datasets knapsack --use-tuned-params --full --n_seeds 10
 
 Examples:
-  python experiments/evaluate.py --datasets synthetic --quick
-  python experiments/evaluate.py --datasets fantasy --full
-  python experiments/evaluate.py --datasets fantasy --use-tuned-params --full
-  python experiments/evaluate.py --datasets fantasy --use-tuned-params --agents PerArmBayesianSPO,CN-UCB
+  python experiments/evaluate.py --datasets knapsack --quick
+  python experiments/evaluate.py --datasets knapsack,shortest_path_8x8 --full
+  python experiments/evaluate.py --datasets knapsack --use-tuned-params --agents BayesianSPO,BayesianSPO-DFE
         """
     )
     parser.add_argument('--config', type=str, default=DEFAULT_CONFIG_PATH)

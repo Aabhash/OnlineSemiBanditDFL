@@ -1,3 +1,5 @@
+"""Combinatorial optimization solvers."""
+
 from src.solvers.knapsack import (
     solve_knapsack,
     solve_knapsack_gurobi,
@@ -14,7 +16,6 @@ from src.solvers.shortest_path import (
     edge_to_nodes,
     ShortestPathSolver,
 )
-from src.solvers.fantasy import solve_fantasy_lineup
 
 __all__ = [
     'solve_knapsack',
@@ -29,5 +30,4 @@ __all__ = [
     'down_edge_idx',
     'edge_to_nodes',
     'ShortestPathSolver',
-    'solve_fantasy_lineup',
 ]

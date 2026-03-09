@@ -96,10 +96,6 @@ class ShortestPathEdgeEnv:
     def minimize(self) -> bool:
         return True
 
-    @property
-    def per_arm_context(self) -> bool:
-        return False
-
     # -- core interface -----------------------------------------------------
 
     def reset(self) -> np.ndarray:
