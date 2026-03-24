@@ -33,6 +33,10 @@ class BayesianSPOAgent:
         minimize: bool = False,
         solver=None,
         seed: int = None,
+        # Phased training (Weber-style)
+        phased: bool = False,
+        phase_length: int = 50,
+        phase_epochs: int = 5,
     ):
         self.context_dim = context_dim
         self.n_arms = n_arms
@@ -88,6 +92,29 @@ class BayesianSPOAgent:
 
         self.A, self.b_bayes, self.A_inv = init_per_arm_regression(n_arms, hidden_dim, lambda_reg)
 
+        # Phased training state
+        self.phased = phased
+        self.phase_length = phase_length
+        self.phase_epochs = phase_epochs
+        if phased:
+            self._phase_buffer_X = []
+            self._phase_buffer_Y = []
+            self._phase_buffer_sel = []
+            self._phase_buffer_prob = []
+            self._rounds_since_retrain = 0
+
+    def _get_params(self):
+        if self.nonlinear:
+            return {'W1': self.W1, 'b1': self.b1, 'W2': self.W2, 'b2': self.b2}
+        return {'W1': self.W1, 'b1': self.b1}
+
+    def _set_params(self, params):
+        self.W1 = jnp.clip(params['W1'], -10, 10)
+        self.b1 = params['b1']
+        if self.nonlinear:
+            self.W2 = jnp.clip(params['W2'], -10, 10)
+            self.b2 = params['b2']
+
     def _features(self, X):
         X = jnp.asarray(X)
         if self.nonlinear:
@@ -114,6 +141,68 @@ class BayesianSPOAgent:
         ucb_values = compute_ucb_values(h, self.A_inv, self.b_bayes, self.beta)
         return self.solver(np.asarray(ucb_values))
 
+    def _compute_spo_grad_h(self, X, h, Y_target, selection_mask, full_feedback):
+        """Compute SPO+ feature gradient for one data point."""
+        pred = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
+
+        spo_grad_val = self.loss_grad_fn(pred, Y_target)
+
+        if self.mask_grad and not full_feedback:
+            spo_grad_val = jnp.where(selection_mask, spo_grad_val, 0.0)
+
+        theta = jnp.einsum('nij,nj->ni', self.A_inv, self.b_bayes)
+        return jnp.einsum('n,ni->i', spo_grad_val, theta)
+
+    def _backprop_and_step(self, X, grad_h):
+        """Backprop grad_h through features and apply optimizer step."""
+        X = jnp.asarray(X)
+        if self.nonlinear:
+            z = X @ self.W1 + self.b1
+            a = jnp.maximum(0, z)
+            grad_a = grad_h @ self.W2.T
+            grad_z = grad_a * (z > 0)
+            grads = {
+                'W1': jnp.outer(X, grad_z), 'b1': grad_z,
+                'W2': jnp.outer(a, grad_h), 'b2': grad_h,
+            }
+        else:
+            grads = {'W1': jnp.outer(X, grad_h), 'b1': grad_h}
+
+        params = self._get_params()
+        updates, self.opt_state = self.optimizer.update(grads, self.opt_state, params)
+        self._set_params(optax.apply_updates(params, updates))
+
+    def _phased_retrain(self):
+        """Batch-retrain features over the buffer, then replay to rebuild posteriors."""
+        for _epoch in range(self.phase_epochs):
+            for i in range(len(self._phase_buffer_X)):
+                X_buf = self._phase_buffer_X[i]
+                Y_buf = self._phase_buffer_Y[i]
+                sel_buf = self._phase_buffer_sel[i]
+                prob_buf = self._phase_buffer_prob[i]
+
+                h = self._features(X_buf)
+                pred = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
+
+                sel_mask = jnp.asarray(sel_buf) > 0.5
+                if prob_buf is not None:
+                    Y_target = jnp.asarray(prob_buf)
+                else:
+                    Y_target = jnp.where(sel_mask, jnp.asarray(Y_buf), pred)
+
+                grad_h = self._compute_spo_grad_h(X_buf, h, Y_target, sel_mask, False)
+                self._backprop_and_step(X_buf, grad_h)
+
+        # Replay buffer to rebuild posteriors with updated features
+        self.A, self.b_bayes, self.A_inv = init_per_arm_regression(
+            self.n_arms, self.hidden_dim, self.lambda_reg)
+        for i in range(len(self._phase_buffer_X)):
+            h = self._features(self._phase_buffer_X[i])
+            sel_mask = jnp.asarray(self._phase_buffer_sel[i]) > 0.5
+            rewards = jnp.asarray(self._phase_buffer_Y[i])
+            self.A, self.b_bayes, self.A_inv = update_bayesian_stats(
+                self.A, self.b_bayes, self.A_inv, h, rewards, sel_mask)
+
     def update(self, X, selection, rewards, lr: float = None, full_feedback: bool = False,
                prob_values=None):
         X = jnp.asarray(X)
@@ -127,44 +216,27 @@ class BayesianSPOAgent:
             self.A, self.b_bayes, self.A_inv, h, rewards, selection_mask
         )
 
-        pred = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
+        if self.phased:
+            # Buffer data, freeze features until phase boundary
+            self._phase_buffer_X.append(X)
+            self._phase_buffer_Y.append(rewards)
+            self._phase_buffer_sel.append(selection)
+            self._phase_buffer_prob.append(prob_values)
 
-        # Use smooth probabilities for SPO gradient when available
-        if prob_values is not None:
-            Y_target = jnp.asarray(prob_values)
-        elif full_feedback:
-            Y_target = rewards
+            self._rounds_since_retrain += 1
+            if self._rounds_since_retrain >= self.phase_length:
+                self._phased_retrain()
+                self._rounds_since_retrain = 0
         else:
-            Y_target = jnp.where(selection > 0.5, rewards, pred)
+            # Per-round: compute gradient and update immediately
+            pred = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
 
-        spo_grad_val = self.loss_grad_fn(pred, Y_target)
+            if prob_values is not None:
+                Y_target = jnp.asarray(prob_values)
+            elif full_feedback:
+                Y_target = rewards
+            else:
+                Y_target = jnp.where(selection > 0.5, rewards, pred)
 
-        # Zero gradient on unobserved arms when mask_grad is enabled
-        if self.mask_grad and not full_feedback:
-            spo_grad_val = jnp.where(selection > 0.5, spo_grad_val, 0.0)
-
-        theta = jnp.einsum('nij,nj->ni', self.A_inv, self.b_bayes)
-        grad_h = jnp.einsum('n,ni->i', spo_grad_val, theta)
-
-        if self.nonlinear:
-            # Backprop: grad_h -> W2 -> ReLU -> W1
-            z = X @ self.W1 + self.b1
-            a = jnp.maximum(0, z)
-            grad_a = grad_h @ self.W2.T  # through W2
-            grad_z = grad_a * (z > 0)     # through ReLU
-            grads = {
-                'W1': jnp.outer(X, grad_z), 'b1': grad_z,
-                'W2': jnp.outer(a, grad_h), 'b2': grad_h,
-            }
-            params = {'W1': self.W1, 'b1': self.b1, 'W2': self.W2, 'b2': self.b2}
-        else:
-            grads = {'W1': jnp.outer(X, grad_h), 'b1': grad_h}
-            params = {'W1': self.W1, 'b1': self.b1}
-
-        updates, self.opt_state = self.optimizer.update(grads, self.opt_state, params)
-        new_params = optax.apply_updates(params, updates)
-        self.W1 = jnp.clip(new_params['W1'], -10, 10)
-        self.b1 = new_params['b1']
-        if self.nonlinear:
-            self.W2 = jnp.clip(new_params['W2'], -10, 10)
-            self.b2 = new_params['b2']
+            grad_h = self._compute_spo_grad_h(X, h, Y_target, selection_mask, full_feedback)
+            self._backprop_and_step(X, grad_h)

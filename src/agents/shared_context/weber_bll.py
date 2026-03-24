@@ -50,6 +50,7 @@ class WeberBLLAgent:
         # Weber-specific
         noise_var: float = 1.0,
         fisher_beta: float = 0.1,
+        phased: bool = True,
         phase_length: int = 50,
         phase_epochs: int = 5,
         fisher_eps: float = 1e-8,
@@ -86,6 +87,7 @@ class WeberBLLAgent:
         # Weber-specific
         self.noise_var = noise_var
         self.fisher_beta = fisher_beta
+        self.phased = phased
         self.phase_length = phase_length
         self.phase_epochs = phase_epochs
         self.fisher_eps = fisher_eps
@@ -330,19 +332,24 @@ class WeberBLLAgent:
 
         h = self._features(X)
 
-        # Online phase: update Bayesian posterior only (features frozen)
         selection_mask = selection > 0.5
         self.A, self.b_bayes, self.A_inv = update_bayesian_stats(
             self.A, self.b_bayes, self.A_inv, h, rewards, selection_mask)
 
-        # Buffer for replay and retraining
-        self._phase_buffer_X.append(X)
-        self._phase_buffer_Y.append(rewards)
-        self._phase_buffer_sel.append(selection)
-        self._phase_buffer_prob.append(prob_values)
+        if self.phased:
+            # Online phase: posterior update only, features frozen until phase boundary
+            self._phase_buffer_X.append(X)
+            self._phase_buffer_Y.append(rewards)
+            self._phase_buffer_sel.append(selection)
+            self._phase_buffer_prob.append(prob_values)
 
-        # Trigger offline retraining at phase boundary
-        self._rounds_since_retrain += 1
-        if self._rounds_since_retrain >= self.phase_length:
-            self._phased_retrain()
-            self._rounds_since_retrain = 0
+            self._rounds_since_retrain += 1
+            if self._rounds_since_retrain >= self.phase_length:
+                self._phased_retrain()
+                self._rounds_since_retrain = 0
+        else:
+            # Per-round: update features immediately with marginalized gradient
+            r = jnp.asarray(prob_values) if prob_values is not None else rewards
+            grad_h = self._marginalized_grad_h(h, r, selection_mask, full_feedback)
+            grads = self._backprop_features(X, grad_h)
+            self._apply_gradient_step(grads)

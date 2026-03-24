@@ -19,6 +19,27 @@ class BayesianSPO_Weber_Agent:
     and average the resulting SPO+ feature gradients. This makes the
     feature gradient uncertainty-aware: uncertain arms contribute more
     diverse gradient signals, preventing premature feature collapse.
+
+    Supports two marginalization modes (``marginalization`` parameter):
+
+    - ``'mc'`` (default): Full MC marginalization — sample theta from the
+      posterior and average the SPO+ gradient across samples.
+    - ``'hybrid'``: Closed-form hybrid — uses the SPO+ gradient at the
+      posterior mean for the signal term, plus Weber's closed-form
+      uncertainty correction ``sum_n Sigma_n @ h``.  No MC sampling,
+      so it is faster and deterministic.
+    - ``'selective'``: SPO+ on observed arms (where we have ground-truth
+      feedback) + Weber uncertainty correction on unobserved arms only.
+      Avoids using SPO+ on imputed targets; the uncertainty term drives
+      feature learning toward reducing posterior uncertainty on unseen arms.
+    - ``'interpolated'``: Uses Weber's full marginalized gradient structure
+      (signal + Sigma_n h) but replaces the residual with an interpolation:
+      ``alpha * spo_grad + (1-alpha) * mse_grad`` where alpha = spo_weight.
+      MSE provides continuous base signal; SPO+ steers toward decisions.
+    - ``'perturbed_fy'``: Perturbed Fenchel-Young loss (Berthet et al. 2020).
+      Smooths the SPO+ gradient by averaging solver(2*pred - y + eps) over
+      N Gaussian perturbations.  Gives continuous, decision-focused gradients
+      that combine naturally with Weber's uncertainty correction.
     """
 
     def __init__(
@@ -44,6 +65,11 @@ class BayesianSPO_Weber_Agent:
         n_mc_samples: int = 5,
         fisher_beta: float = 0.0,
         cholesky_jitter: float = 1e-6,
+        uncertainty_weight: float = 1.0,
+        spo_weight: float = 0.5,
+        n_perturbations: int = 10,
+        perturbation_sigma: float = 0.5,
+        marginalization: str = 'mc',
         # Phased mode parameters
         phased: bool = False,
         phase_length: int = 50,
@@ -85,6 +111,11 @@ class BayesianSPO_Weber_Agent:
         self.n_mc_samples = n_mc_samples
         self.fisher_beta = fisher_beta
         self.cholesky_jitter = cholesky_jitter
+        self.uncertainty_weight = uncertainty_weight
+        self.spo_weight = spo_weight
+        self.n_perturbations = n_perturbations
+        self.perturbation_sigma = perturbation_sigma
+        self.marginalization = marginalization
 
         # Phased mode
         self.phased = phased
@@ -189,6 +220,164 @@ class BayesianSPO_Weber_Agent:
 
         return grad_h_accum / self.n_mc_samples
 
+    def _hybrid_weber_gradient(self, h, Y_target, selection_mask, full_feedback):
+        """Closed-form hybrid: SPO+ signal at posterior mean + Weber Σh correction.
+
+        Term 1 (signal):      sum_n  spo_grad(mu^T h, y)_n  *  mu_n
+        Term 2 (uncertainty):  sum_n  Sigma_n @ h
+
+        Term 1 is identical to standard BayesianSPO's feature gradient.
+        Term 2 is Weber's closed-form uncertainty correction that pushes
+        features toward directions where the posterior is uncertain.
+        """
+        mu = jnp.einsum('nij,nj->ni', self.A_inv, self.b_bayes)  # (n_arms, hidden_dim)
+        pred = mu @ h  # (n_arms,)
+
+        # SPO+ gradient at posterior mean predictions
+        spo_grad = self.loss_grad_fn(pred, Y_target)
+        if self.mask_grad and not full_feedback:
+            spo_grad = jnp.where(selection_mask, spo_grad, 0.0)
+
+        # Term 1: SPO+ signal through posterior mean
+        signal_term = jnp.einsum('n,ni->i', spo_grad, mu)
+
+        # Term 2: Weber uncertainty correction  sum_n Sigma_n @ h
+        sigma_h = jnp.einsum('nij,j->ni', self.A_inv, h)  # (n_arms, hidden_dim)
+        if self.mask_grad and not full_feedback:
+            sigma_h = jnp.where(selection_mask[:, None], sigma_h, 0.0)
+        uncertainty_term = jnp.sum(sigma_h, axis=0)
+
+        return signal_term + self.uncertainty_weight * uncertainty_term
+
+    def _selective_weber_gradient(self, h, Y_target, selection_mask, full_feedback):
+        """SPO+ on observed arms, Weber uncertainty on unobserved.
+
+        Observed arms have ground-truth feedback, so the SPO+ gradient is
+        meaningful.  Unobserved arms only have imputed (model-mean) targets,
+        so instead of a noisy SPO+ signal we use Weber's closed-form
+        uncertainty correction Sigma_n @ h, which directly pushes features
+        toward directions that reduce posterior uncertainty on those arms.
+        """
+        mu = jnp.einsum('nij,nj->ni', self.A_inv, self.b_bayes)
+        pred = mu @ h
+
+        # SPO+ gradient — only on observed arms
+        spo_grad = self.loss_grad_fn(pred, Y_target)
+        if not full_feedback:
+            spo_grad = jnp.where(selection_mask, spo_grad, 0.0)
+        signal_term = jnp.einsum('n,ni->i', spo_grad, mu)
+
+        # Weber uncertainty correction — only on unobserved arms
+        sigma_h = jnp.einsum('nij,j->ni', self.A_inv, h)
+        if full_feedback:
+            # No unobserved arms
+            uncertainty_term = jnp.zeros(self.hidden_dim)
+        else:
+            sigma_h_unobs = jnp.where(selection_mask[:, None], 0.0, sigma_h)
+            uncertainty_term = jnp.sum(sigma_h_unobs, axis=0)
+
+        return signal_term + self.uncertainty_weight * uncertainty_term
+
+    def _interpolated_weber_gradient(self, h, Y_target, selection_mask, full_feedback):
+        """Interpolated SPO-MSE with Weber's marginalized gradient structure.
+
+        Uses Weber's closed-form marginalized gradient (MSE term + Sigma_n h)
+        as the backbone, but replaces the pure MSE residual with a blend:
+
+            residual_n = alpha * spo_grad_n + (1 - alpha) * mse_grad_n
+
+        where alpha = self.spo_weight.  This gives:
+        - Continuous, always-nonzero gradients (from MSE) that work with phasing
+        - Decision focus (from SPO+) that steers learning toward flip-set arms
+        - Weber's uncertainty correction (Sigma_n h) that prevents feature collapse
+        """
+        mu = jnp.einsum('nij,nj->ni', self.A_inv, self.b_bayes)
+        pred = mu @ h
+
+        # MSE gradient: 2 * (pred - y) / n_arms  (always nonzero, continuous)
+        mse_grad = 2.0 * (pred - Y_target) / self.n_arms
+
+        # SPO+ gradient: piecewise constant, decision-focused
+        spo_grad = self.loss_grad_fn(pred, Y_target)
+
+        # Interpolate
+        alpha = self.spo_weight
+        blended_grad = alpha * spo_grad + (1.0 - alpha) * mse_grad
+
+        # Mask unobserved if requested
+        if self.mask_grad and not full_feedback:
+            blended_grad = jnp.where(selection_mask, blended_grad, 0.0)
+
+        # Term 1: blended signal through posterior mean (Weber Eq. 5, modified)
+        signal_term = jnp.einsum('n,ni->i', blended_grad, mu)
+
+        # Term 2: Weber uncertainty correction  sum_n Sigma_n @ h
+        sigma_h = jnp.einsum('nij,j->ni', self.A_inv, h)
+        if self.mask_grad and not full_feedback:
+            sigma_h = jnp.where(selection_mask[:, None], sigma_h, 0.0)
+        uncertainty_term = jnp.sum(sigma_h, axis=0)
+
+        return signal_term + self.uncertainty_weight * uncertainty_term
+
+    def _perturbed_fy_gradient(self, h, Y_target, selection_mask, full_feedback):
+        """Perturbed Fenchel-Young loss gradient + Weber uncertainty correction.
+
+        Replaces SPO+'s piecewise-constant gradient with a smooth approximation:
+        instead of solving w*(2*pred - y) once, we solve w*(2*pred - y + eps)
+        for N perturbations eps ~ N(0, sigma^2 I) and average.  This gives a
+        continuous gradient that is still decision-focused (uses the solver).
+
+        Reference: Berthet et al. (2020), "Learning with Differentiable
+        Perturbed Optimizers".
+        """
+        mu = jnp.einsum('nij,nj->ni', self.A_inv, self.b_bayes)
+        pred = mu @ h
+
+        spo_input = np.asarray(2.0 * pred - Y_target, dtype=np.float64)
+        y_true_np = np.asarray(Y_target, dtype=np.float64)
+        w_true = np.asarray(self.solver(y_true_np), dtype=np.float64)
+
+        # Average solver output over perturbations
+        avg_sol = np.zeros(self.n_arms, dtype=np.float64)
+        for _ in range(self.n_perturbations):
+            self.rng_key, subkey = jax.random.split(self.rng_key)
+            eps = self.perturbation_sigma * np.asarray(
+                jax.random.normal(subkey, (self.n_arms,)))
+            avg_sol += np.asarray(self.solver(spo_input + eps), dtype=np.float64)
+        avg_sol /= self.n_perturbations
+
+        # Smooth per-arm gradient (same structure as SPO+ but continuous)
+        if self.minimize:
+            fy_grad = jnp.asarray(2.0 * (w_true - avg_sol) / self.n_arms)
+        else:
+            fy_grad = jnp.asarray(2.0 * (avg_sol - w_true) / self.n_arms)
+
+        if self.mask_grad and not full_feedback:
+            fy_grad = jnp.where(selection_mask, fy_grad, 0.0)
+
+        # Term 1: smooth decision-focused signal through posterior mean
+        signal_term = jnp.einsum('n,ni->i', fy_grad, mu)
+
+        # Term 2: Weber uncertainty correction
+        sigma_h = jnp.einsum('nij,j->ni', self.A_inv, h)
+        if self.mask_grad and not full_feedback:
+            sigma_h = jnp.where(selection_mask[:, None], sigma_h, 0.0)
+        uncertainty_term = jnp.sum(sigma_h, axis=0)
+
+        return signal_term + self.uncertainty_weight * uncertainty_term
+
+    def _compute_weber_gradient(self, h, Y_target, selection_mask, full_feedback):
+        """Dispatch to the selected marginalization mode."""
+        if self.marginalization == 'hybrid':
+            return self._hybrid_weber_gradient(h, Y_target, selection_mask, full_feedback)
+        elif self.marginalization == 'selective':
+            return self._selective_weber_gradient(h, Y_target, selection_mask, full_feedback)
+        elif self.marginalization == 'interpolated':
+            return self._interpolated_weber_gradient(h, Y_target, selection_mask, full_feedback)
+        elif self.marginalization == 'perturbed_fy':
+            return self._perturbed_fy_gradient(h, Y_target, selection_mask, full_feedback)
+        return self._mc_marginalized_gradient(h, Y_target, selection_mask, full_feedback)
+
     def _backprop_features(self, X, grad_h):
         """Backprop grad_h through the feature extractor to get parameter gradients."""
         X = jnp.asarray(X)
@@ -272,7 +461,7 @@ class BayesianSPO_Weber_Agent:
                     Y_target = jnp.where(sel_mask, jnp.asarray(Y_buf), pred)
 
                 sel_mask = jnp.asarray(sel_buf) > 0.5
-                grad_h = self._mc_marginalized_gradient(h, Y_target, sel_mask, False)
+                grad_h = self._compute_weber_gradient(h, Y_target, sel_mask, False)
                 grads = self._backprop_features(X_buf, grad_h)
                 self._apply_gradient_step(grads)
 
@@ -318,7 +507,7 @@ class BayesianSPO_Weber_Agent:
             if len(self._phase_buffer_X) >= self.phase_length:
                 self._phased_retrain(lr)
         else:
-            # Per-round: one MC-marginalized gradient step
-            grad_h = self._mc_marginalized_gradient(h, Y_target, selection_mask, full_feedback)
+            # Per-round: one Weber gradient step (MC or hybrid)
+            grad_h = self._compute_weber_gradient(h, Y_target, selection_mask, full_feedback)
             grads = self._backprop_features(X, grad_h)
             self._apply_gradient_step(grads)
