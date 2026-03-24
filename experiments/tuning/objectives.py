@@ -238,6 +238,7 @@ def create_agent_from_params(
         EpsilonGreedyAgent,
         BayesianMSEAgent,
         RandomAgent,
+        WeberBLLAgent,
     )
     from src.models import BayesianLinearModel
 
@@ -344,6 +345,18 @@ def create_agent_from_params(
             minimize=minimize, solver=solver, seed=seed,
             co_solver=co_solver, nonlinear=False,
             **agent_params,
+        )
+    elif agent_name == 'WeberBLL':
+        agent_params = {k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
+        if minimize and 'beta' in agent_params:
+            agent_params['beta'] = -agent_params['beta']
+        agent_lr = params.get('init_lr', 0.001)
+        return WeberBLLAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            lr=agent_lr,
+            decay_rounds=n_rounds, minimize=minimize, solver=solver, seed=seed,
+            mask_grad=True, nonlinear=False,
+            **agent_params
         )
     else:
         raise ValueError(f"Unknown agent: {agent_name}")
