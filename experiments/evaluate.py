@@ -19,6 +19,7 @@ from src.agents.shared_context import (
     LinUCBAgent,
     NeuralUCBAgent,
     BayesianMSEAgent,
+    WeberBLLAgent,
     ThompsonSamplingAgent,
     UCBAgent,
     EpsilonGreedyAgent,
@@ -151,6 +152,12 @@ def get_agents(env, seed, config, n_rounds):
             hidden_dim=hidden_dim, beta=bayes_beta, lambda_reg=lambda_reg,
             decay_rounds=n_rounds, solver=solver, seed=seed,
             nonlinear=nonlinear,
+        ),
+        'WeberBLL': WeberBLLAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            hidden_dim=hidden_dim, beta=bayes_beta, decay_rounds=n_rounds,
+            lambda_reg=lambda_reg, minimize=minimize, solver=solver, seed=seed,
+            mask_grad=True, nonlinear=nonlinear,
         ),
     }
 

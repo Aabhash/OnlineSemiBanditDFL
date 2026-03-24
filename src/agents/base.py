@@ -302,6 +302,7 @@ def run_agent_on_episode(
     from src.agents.shared_context.bayesian_spo import BayesianSPOAgent
     from src.agents.shared_context.bayesian_spo_dfe import BayesianSPO_DFE_Agent
     from src.agents.shared_context.bayesian_spo_weber import BayesianSPO_Weber_Agent
+    from src.agents.shared_context.weber_bll import WeberBLLAgent
 
     _solver_module._GUROBI_ENV = None
 
@@ -383,7 +384,7 @@ def run_agent_on_episode(
         if isinstance(agent, (ThompsonSamplingAgent, UCBAgent, LinUCBAgent,
                               NeuralUCBAgent, RandomAgent)):
             agent.update(X, selection, observed, full_feedback=full_feedback)
-        elif isinstance(agent, (BayesianSPOAgent, BayesianSPO_DFE_Agent, BayesianSPO_Weber_Agent)):
+        elif isinstance(agent, (BayesianSPOAgent, BayesianSPO_DFE_Agent, BayesianSPO_Weber_Agent, WeberBLLAgent)):
             prob_vals = rd.get('prob_values')
             agent.update(X, selection, observed, lr, full_feedback=full_feedback,
                          prob_values=prob_vals)
@@ -434,6 +435,8 @@ def run_experiment(
     from src.agents.shared_context.ucb_agents import LinUCBAgent, NeuralUCBAgent, UCBAgent
     from src.agents.shared_context.bayesian_spo import BayesianSPOAgent
     from src.agents.shared_context.bayesian_spo_weber import BayesianSPO_Weber_Agent
+    from src.agents.shared_context.weber_bll import WeberBLLAgent
+    from src.agents.shared_context.neural_agents import BayesianMSEAgent
 
     rewards = []
     optimal_rewards = []
@@ -482,7 +485,7 @@ def run_experiment(
                               NeuralUCBAgent, RandomAgent)):
             agent.update(X, selection, observed_values, full_feedback=full_feedback)
 
-        elif isinstance(agent, (BayesianSPOAgent, BayesianSPO_Weber_Agent)):
+        elif isinstance(agent, (BayesianSPOAgent, BayesianSPO_Weber_Agent, WeberBLLAgent, BayesianMSEAgent)):
             agent.update(X, selection, observed_values, lr, full_feedback=full_feedback)
 
         elif isinstance(agent, GreedyAgent):
