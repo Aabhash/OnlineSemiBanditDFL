@@ -326,6 +326,8 @@ def create_agent_from_params(
             co_solver = KnapsackSolver(env.weights, env.capacity)
         # Pop keys handled explicitly so they don't duplicate in **kwargs
         agent_params = {k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
+        if minimize and 'beta' in agent_params:
+            agent_params['beta'] = -agent_params['beta']
 
         # Map agent name to constructor kwargs
         if agent_name == 'BayesianSPO-DI':
@@ -361,6 +363,8 @@ def create_env_for_tuning(
     dataset_config.pop('eval_interval', None)
     dataset_config.pop('log_interval', None)
     dataset_config.pop('eval_metric', None)
+    dataset_config.pop('skip_tuning', None)
+    dataset_config.pop('tuning_year', None)
 
     return create_env(dataset, seed=seed, **dataset_config)
 

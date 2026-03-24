@@ -105,7 +105,6 @@ class ShortestPathEdgeEnv:
         return self._current_context
 
     def get_context(self) -> np.ndarray:
-        self._current_context, self._current_costs = self.data.sample()
         return self._current_context
 
     def solve(self, predicted_costs: np.ndarray) -> np.ndarray:
@@ -157,16 +156,6 @@ class ShortestPathEdgeEnv:
         self._current_context, self._current_costs = self.data.sample()
 
         return observed_costs, reward, info
-
-    # -- evaluation helpers -------------------------------------------------
-
-    def generate_test_set(self, n_samples: int = 100) -> Tuple[np.ndarray, np.ndarray]:
-        X_test, Y_test = [], []
-        for _ in range(n_samples):
-            context, costs = self.data.sample()
-            X_test.append(context)
-            Y_test.append(costs)
-        return np.array(X_test), np.array(Y_test)
 
     def get_config(self) -> Dict[str, Any]:
         return {

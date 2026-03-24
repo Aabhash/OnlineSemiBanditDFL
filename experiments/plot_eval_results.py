@@ -34,7 +34,6 @@ AGENT_DISPLAY = {
 
 DATASET_LABELS = {
     'knapsack':            'Knapsack',
-    'knapsack_unit_weight':'Knapsack (Unit Wt)',
     'shortest_path_8x8':  'Shortest Path 8×8',
     'shortest_path_20x20':'Shortest Path 20×20',
 }
@@ -45,7 +44,7 @@ COLORS = {
     'BayesianSPO':       '#1f77b4',   # blue
     'BSPO-DFE':     '#9467bd',   # purple
     'BSPO-DI':      '#2ca02c',   # green
-    'NeuralUCB':    '#17becf',   # cyan
+    'NeuralUCB':    '#7f7f7f',   # grey
     'LinUCB':       '#8c564b',   # brown
     'UCB-Bayesian':    '#e377c2',   # pink
     'TS':           '#7f7f7f',   # grey
@@ -55,8 +54,8 @@ COLORS = {
 }
 
 LINESTYLES = {
-    'BayesianMSE':       'dotted',
-    'BayesianSPO':       'dashed',
+    'BayesianMSE':       'solid',
+    'BayesianSPO':       'solid',
     'BSPO-DFE':     'solid',
     'BSPO-DI':      'solid',
     'NeuralUCB':    'dotdash',
@@ -83,10 +82,10 @@ BAR_COLORS = {
     'Random':       '#aaaaaa',
 }
 
-WINDOW = 5  # smoothing window for per-round regret
+WINDOW = 100 # smoothing window for per-round regret
 
 # Agents to include in LINE plots (None = all agents present)
-LINE_AGENTS = ['NeuralUCB', 'BayesianMSE', 'BayesianSPO']
+LINE_AGENTS = ['LinUCB', 'NeuralUCB', 'BayesianMSE', 'BayesianSPO']
 BAR_AGENTS = [
     'NeuralUCB',
     'LinUCB',
@@ -99,9 +98,20 @@ BAR_AGENTS = [
     'BayesianMSE',
 ]
 
-LINE_LEGEND_THEME = theme(
-    legend_position='bottom', legend_title=element_blank(),
-    legend_text=element_text(size=8),
+from lets_plot import element_rect
+
+LINE_LEGEND_THEME_TL = theme(
+    legend_position=[0.02, 0.98], legend_justification=[0, 1],
+    legend_title=element_blank(),
+    legend_text=element_text(size=14),
+    legend_background=element_rect(fill='white', color='#cccccc', size=0.5),
+)
+
+LINE_LEGEND_THEME_TR = theme(
+    legend_position=[0.98, 0.98], legend_justification=[1, 1],
+    legend_title=element_blank(),
+    legend_text=element_text(size=14),
+    legend_background=element_rect(fill='white', color='#cccccc', size=0.5),
 )
 
 
@@ -216,16 +226,22 @@ def make_line_plots(df_cum_agg, df_pr_agg, datasets, feedback='semi_bandit',
         if d_cum.empty:
             continue
 
+        # Scale cumulative regret to K
+        d_cum = d_cum.copy()
+        d_cum['mean_k'] = d_cum['mean'] / 1e3
+        d_cum['ymin_k'] = d_cum['ymin'] / 1e3
+        d_cum['ymax_k'] = d_cum['ymax'] / 1e3
+
         p_cum = (
-            ggplot(d_cum, aes(x='round', y='mean', color='agent', fill='agent'))
-            + geom_ribbon(aes(ymin='ymin', ymax='ymax'), alpha=0.15, color='rgba(0,0,0,0)')
+            ggplot(d_cum, aes(x='round', y='mean_k', color='agent', fill='agent'))
+            + geom_ribbon(aes(ymin='ymin_k', ymax='ymax_k'), alpha=0.15, color='rgba(0,0,0,0)')
             + geom_line(aes(linetype='agent'), size=1.0)
             + scale_color_manual(values=colors)
             + scale_fill_manual(values=colors)
             + scale_linetype_manual(values=linetypes)
-            + guides(color=guide_legend(nrow=2), fill='none', linetype=guide_legend(nrow=2))
-            + labs(title=f'{label}: Cumulative Regret', x='Round', y='Cumulative Regret')
-            + theme_minimal() + LINE_LEGEND_THEME
+            + guides(color=guide_legend(nrow=1), fill='none', linetype=guide_legend(nrow=1))
+            + labs(title=f'{label}: Cumulative Regret', x='Round', y='Cumulative Regret (×1k)')
+            + theme_minimal() + LINE_LEGEND_THEME_TL
         )
 
         p_pr = (
@@ -235,9 +251,9 @@ def make_line_plots(df_cum_agg, df_pr_agg, datasets, feedback='semi_bandit',
             + scale_color_manual(values=colors)
             + scale_fill_manual(values=colors)
             + scale_linetype_manual(values=linetypes)
-            + guides(color=guide_legend(nrow=2), fill='none', linetype=guide_legend(nrow=2))
+            + guides(color=guide_legend(nrow=1), fill='none', linetype=guide_legend(nrow=1))
             + labs(title=f'{label}: Per-Round Regret', x='Round', y='Per-Round Regret')
-            + theme_minimal() + LINE_LEGEND_THEME
+            + theme_minimal() + LINE_LEGEND_THEME_TR
         )
 
         fig = gggrid([p_cum, p_pr], ncol=2, align=True, hspace=30) + ggsize(1400, 450)
@@ -275,7 +291,8 @@ def make_bar_charts(df_bar, datasets, feedback='semi_bandit',
         bar_colors = {a: BAR_COLORS.get(a, '#aaaaaa') for a in agent_order}
 
         n_agents = len(agent_order)
-        plot_height = max(300, 20 * n_agents + 80)
+        plot_height = max(300, 22 * n_agents + 80)
+        plot_width = 1200
 
         from lets_plot import scale_x_discrete
 
@@ -291,7 +308,7 @@ def make_bar_charts(df_bar, datasets, feedback='semi_bandit',
             + theme(legend_position='none',
                     axis_text_y=element_text(size=9),
                     plot_title=element_text(size=12, face='bold'))
-            + ggsize(700, plot_height)
+            + ggsize(plot_width, plot_height)
         )
 
         outpath = os.path.abspath(os.path.join(output_dir, f'regret_barplot_{ds}.{fmt}'))

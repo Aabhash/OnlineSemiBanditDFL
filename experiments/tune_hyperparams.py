@@ -144,6 +144,13 @@ Examples:
     if args.no_wandb:
         config['wandb'] = {'enabled': False}
 
+    # Check if dataset has skip_tuning flag
+    dataset_config = config['datasets'].get(args.dataset, {})
+    if dataset_config.get('skip_tuning', False):
+        print(f"Dataset '{args.dataset}' has skip_tuning=true. "
+              f"Use default HPs and run evaluation directly.")
+        sys.exit(0)
+
     # Get dataset-specific n_rounds (can be overridden by CLI args below)
     effective_n_rounds = get_n_rounds_for_dataset(config, args.dataset)
 

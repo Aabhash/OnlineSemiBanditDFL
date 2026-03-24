@@ -114,7 +114,8 @@ class BayesianSPOAgent:
         ucb_values = compute_ucb_values(h, self.A_inv, self.b_bayes, self.beta)
         return self.solver(np.asarray(ucb_values))
 
-    def update(self, X, selection, rewards, lr: float = None, full_feedback: bool = False):
+    def update(self, X, selection, rewards, lr: float = None, full_feedback: bool = False,
+               prob_values=None):
         X = jnp.asarray(X)
         selection = jnp.asarray(selection)
         rewards = jnp.asarray(rewards)
@@ -128,10 +129,12 @@ class BayesianSPOAgent:
 
         pred = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
 
-        if full_feedback:
+        # Use smooth probabilities for SPO gradient when available
+        if prob_values is not None:
+            Y_target = jnp.asarray(prob_values)
+        elif full_feedback:
             Y_target = rewards
         else:
-            # Model-mean imputation: use pred on unobserved
             Y_target = jnp.where(selection > 0.5, rewards, pred)
 
         spo_grad_val = self.loss_grad_fn(pred, Y_target)

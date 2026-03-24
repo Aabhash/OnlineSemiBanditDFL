@@ -61,21 +61,20 @@ analysis:
 
 datasets:
 
-  # Knapsack with heterogeneous weights (uniform [1, 5])
-  knapsack:
+  # Knapsack with 32 items, heterogeneous weights (uniform [1, 5])
+  knapsack_32:
     n_items: 32
     context_dim: 5
     capacity: 20.0
     noise_width: 0.25
     env_type: shared_context
 
-  # Knapsack with unit weights (cardinality-constrained selection)
-  knapsack_unit_weight:
-    n_items: 32
+  # Knapsack with 100 items, heterogeneous weights
+  knapsack_100:
+    n_items: 100
     context_dim: 5
-    capacity: 12.0
+    capacity: 50.0
     noise_width: 0.25
-    unit_weights: true
     env_type: shared_context
 
   # Shortest path 8x8 grid
@@ -92,14 +91,40 @@ datasets:
     noise_width: 0.25
     env_type: shared_context
 
+  # Energy cost scheduling: binary scheduling over 24 hourly slots
+  energy_24:
+    min_periods: 11
+    max_periods: 12
+    min_consecutive: 2
+    max_consecutive: 5
+    context_dim: 0        # 0 = no PCA, use raw features
+    noise_width: 0.0
+    maximize: true        # maximize revenue
+    data_dir: "data/Germany 2023-2025 Energy"
+    context_type: yesterday_prices  # previous day's 24h price profile as context
+    env_type: energy
+    n_rounds: 1000
+    skip_tuning: true
+
   # Criteo Ad Bidding: real-world shared context benchmark
   criteo:
     n_campaigns: 25
     n_select: 10
     context_dim: 50
     subsample_rate: 1.0    # Full dataset (16M rows)
-    n_estimators: 200      # XGBoost surrogate trees
-    max_depth: 6           # XGBoost tree depth
+    n_estimators: 500      # XGBoost surrogate trees
+    max_depth: 10          # XGBoost tree depth
+    env_type: shared_context
+
+  # Criteo Hard: tighter constraint + amplified weights
+  criteo_hard:
+    n_campaigns: 25
+    n_select: 4            # k/n = 0.16 (was 0.4)
+    context_dim: 50
+    subsample_rate: 1.0
+    n_estimators: 500
+    max_depth: 10
+    weight_power: 2.0      # Amplify cost heterogeneity (~10-20x spread)
     env_type: shared_context
 
 
@@ -155,6 +180,46 @@ ablations:
     n_rounds: 200
     n_seeds: 3
     output_dir: "results/ablations/training_paradigm"
+
+  kn_ratio:
+    dataset: knapsack_32
+    n_items: 32
+    capacities: [4, 8, 12, 16, 20, 24, 28]
+    n_rounds: 2500
+    n_seeds: 5
+    output_dir: "results/ablations/kn_ratio"
+
+  exploration_strategy:
+    datasets: [knapsack_32, shortest_path_8x8]
+    n_rounds: 2500
+    n_seeds: 5
+    output_dir: "results/ablations/exploration"
+
+  feature_sharing:
+    datasets: [knapsack_32, shortest_path_8x8]
+    hidden_dims: [1, 4, 8, 16, 32, 64]
+    n_rounds: 2500
+    n_seeds: 5
+    output_dir: "results/ablations/feature_sharing"
+
+  context_variation:
+    dataset: knapsack_32
+    noise_widths: [0.0, 0.05, 0.1, 0.25, 0.5, 1.0]
+    n_rounds: 2500
+    n_seeds: 5
+    output_dir: "results/ablations/context_variation"
+
+  imputation_strategy:
+    datasets: [knapsack_32, shortest_path_8x8]
+    n_rounds: 2500
+    n_seeds: 5
+    output_dir: "results/ablations/imputation"
+
+  flip_set_collapse:
+    datasets: [knapsack_32, shortest_path_8x8]
+    n_rounds: 2500
+    n_seeds: 5
+    output_dir: "results/ablations/flip_set"
 
 plotting:
   colors:

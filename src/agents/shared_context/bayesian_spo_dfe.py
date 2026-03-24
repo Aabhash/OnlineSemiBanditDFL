@@ -278,39 +278,25 @@ class BayesianSPO_DFE_Agent:
             means_np = np.asarray(means, dtype=np.float64)
             stds_np = np.asarray(stds, dtype=np.float64)
 
+            slacks = self.co_solver.compute_slacks(means_np)
+            phi = np.exp(-slacks / (stds_np + self.contested_eps))
+
+            if self.adaptive_dfe:
+                delta_t = self._compute_delta_t(means_np, stds_np)
+                gamma_t = self.dfe_gamma_0 * delta_t
+                self.delta_history.append(delta_t)
+                self.gamma_history.append(gamma_t)
+            else:
+                gamma_t = self.dfe_gamma_0
+
+            on_solution = slacks < 1e-8
+            phi[on_solution] = 1.0 - gamma_t
+
+            phi_j = jnp.array(phi, dtype=jnp.float32)
             if self.minimize:
-                slacks = self.co_solver.compute_slacks(means_np)
-                phi = np.exp(-slacks / (stds_np + self.contested_eps))
-
-                if self.adaptive_dfe:
-                    delta_t = self._compute_delta_t(means_np, stds_np)
-                    gamma_t = self.dfe_gamma_0 * delta_t
-                    self.delta_history.append(delta_t)
-                    self.gamma_history.append(gamma_t)
-                else:
-                    gamma_t = self.dfe_gamma_0
-
-                on_solution = slacks < 1e-8
-                phi[on_solution] = 1.0 - gamma_t
-
-                phi_j = jnp.array(phi, dtype=jnp.float32)
                 values = means - jnp.abs(self.beta) * stds * phi_j
             else:
-                opt_sol, alts = self.co_solver.extract_k_alternatives(
-                    means_np, self.disc_K)
-                bonus = np.ones(self.n_arms)
-                if alts:
-                    disc_edges = np.zeros(self.n_arms, dtype=bool)
-                    for _, _, sym_diff in alts:
-                        disc_edges |= sym_diff
-                    on_solution = opt_sol > 0.5
-                    disc_off_sol = disc_edges & (~on_solution)
-                    if disc_off_sol.any():
-                        slacks = self.co_solver.compute_slacks(means_np)
-                        bonus[disc_off_sol] = 1.0 + self.contested_alpha * np.exp(
-                            -slacks[disc_off_sol] / (stds_np[disc_off_sol] + self.contested_eps))
-                bonus_j = jnp.array(bonus, dtype=jnp.float32)
-                values = means + self.beta * stds * bonus_j
+                values = means + jnp.abs(self.beta) * stds * phi_j
 
             return self.solver(np.asarray(values))
 
@@ -340,11 +326,18 @@ class BayesianSPO_DFE_Agent:
             values = means + self.beta * stds * bonus_j
         return self.solver(np.asarray(values))
 
-    def update(self, X, selection, rewards, lr=None, full_feedback=False):
+    def update(self, X, selection, rewards, lr=None, full_feedback=False,
+               prob_values=None):
         X_j = jnp.asarray(X, dtype=jnp.float32)
         sel_j = jnp.asarray(selection, dtype=jnp.float32)
         rew_j = jnp.asarray(rewards, dtype=jnp.float32)
         sel_mask = sel_j > 0.5
+
+        # Use smooth probabilities for SPO gradient when available
+        if prob_values is not None:
+            spo_targets_j = jnp.asarray(prob_values, dtype=jnp.float32)
+        else:
+            spo_targets_j = None
 
         if full_feedback:
             obs_mask = jnp.ones(self.n_arms, dtype=jnp.bool_)
@@ -384,18 +377,19 @@ class BayesianSPO_DFE_Agent:
             delta_t = self._compute_delta_t(means_np, stds_np)
             self.delta_history.append(delta_t)
 
+            spo_rew = spo_targets_j if spo_targets_j is not None else rew_j
             if delta_t < self.di_gate_threshold:
-                grad_pred = self._grad_disc_impute(pred, rew_j, obs_mask, stds)
+                grad_pred = self._grad_disc_impute(pred, spo_rew, obs_mask, stds)
                 self.di_gated_history.append(1)
             else:
-                grad_pred = self._grad_disc_explore(pred, rew_j, obs_mask)
+                grad_pred = self._grad_disc_explore(pred, spo_rew, obs_mask)
                 self.di_gated_history.append(0)
 
         elif self.imputation == 'disc_explore':
-            grad_pred = self._grad_disc_explore(pred, rew_j, obs_mask)
+            grad_pred = self._grad_disc_explore(pred, spo_targets_j if spo_targets_j is not None else rew_j, obs_mask)
 
         elif self.imputation == 'disc_impute':
-            grad_pred = self._grad_disc_impute(pred, rew_j, obs_mask, stds)
+            grad_pred = self._grad_disc_impute(pred, spo_targets_j if spo_targets_j is not None else rew_j, obs_mask, stds)
 
         else:
             raise ValueError(f"Unknown imputation mode: {self.imputation}")

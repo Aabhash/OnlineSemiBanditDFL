@@ -1,7 +1,123 @@
+import warnings
 import numpy as np
 import jax.numpy as jnp
 from typing import Dict, List
-from src.agents.bayesian_utils import compute_bayesian_predictions
+from scipy.stats import spearmanr, ConstantInputWarning
+from src.agents.bayesian_utils import compute_bayesian_predictions, compute_uncertainties
+
+
+def _get_sigma(agent, X):
+    if hasattr(agent, '_features') and hasattr(agent, 'A_inv'):
+        h = agent._features(X)
+        return np.asarray(compute_uncertainties(h, agent.A_inv))
+
+    if hasattr(agent, 'model') and hasattr(agent.model, 'predict_ucb') and hasattr(agent.model, 'predict_mean'):
+        minimize = getattr(agent, 'minimize', False)
+        ucb = np.asarray(agent.model.predict_ucb(X, 1.0, minimize))
+        mean = np.asarray(agent.model.predict_mean(X))
+        return np.abs(ucb - mean)
+
+    if hasattr(agent, 'A_inv') and hasattr(agent, 'b') and not hasattr(agent, '_features'):
+        features = jnp.asarray(X)
+        return np.asarray(compute_uncertainties(features, agent.A_inv))
+
+    return None
+
+
+def _compute_contested_mask(true_vals, co_solver=None, contested_frac=0.25):
+    true_vals = np.asarray(true_vals).flatten()
+    n = len(true_vals)
+
+    if co_solver is not None and hasattr(co_solver, 'compute_slacks'):
+        try:
+            slacks = co_solver.compute_slacks(true_vals)
+            threshold = np.percentile(slacks, contested_frac * 100)
+            return slacks <= threshold
+        except Exception:
+            pass
+
+    ranks = np.argsort(np.argsort(true_vals))
+    lo = int(n * (0.5 - contested_frac / 2))
+    hi = int(n * (0.5 + contested_frac / 2))
+    return (ranks >= lo) & (ranks < hi)
+
+
+def _compute_flip_set(pred, true_vals, solver):
+    pred = np.asarray(pred).flatten()
+    true_vals = np.asarray(true_vals).flatten()
+    w_true = np.asarray(solver(true_vals)).flatten()
+    c_bar = 2.0 * pred - true_vals
+    w_spo = np.asarray(solver(c_bar)).flatten()
+    flip_mask = np.abs(w_spo - w_true) > 0.5
+    return flip_mask
+
+
+def _compute_round_diagnostics(agent, X, true_vals, co_solver=None,
+                                solver=None, optimal_action=None):
+    true_vals = np.asarray(true_vals).flatten()
+    pred = _get_prediction(agent, X)
+    sigmas = _get_sigma(agent, X)
+    contested = _compute_contested_mask(true_vals, co_solver)
+    noncontested = ~contested
+
+    result = {
+        'contested_mae': np.nan,
+        'noncontested_mae': np.nan,
+        'rank_corr': np.nan,
+        'mean_sigma': np.nan,
+        'contested_sigma': np.nan,
+        'flip_set_size': np.nan,
+        'decision_correct': np.nan,
+        'contested_sigma_sum': np.nan,
+        'flip_contested_mae': np.nan,
+    }
+
+    if pred is not None:
+        pred = np.asarray(pred).flatten()
+
+        if contested.any():
+            result['contested_mae'] = float(np.mean(np.abs(pred[contested] - true_vals[contested])))
+        if noncontested.any():
+            result['noncontested_mae'] = float(np.mean(np.abs(pred[noncontested] - true_vals[noncontested])))
+        if len(pred) > 1:
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore', ConstantInputWarning)
+                corr, _ = spearmanr(pred, true_vals)
+            result['rank_corr'] = float(corr) if np.isfinite(corr) else np.nan
+
+        if solver is not None:
+            try:
+                flip_mask = _compute_flip_set(pred, true_vals, solver)
+                result['flip_set_size'] = int(flip_mask.sum())
+
+                if flip_mask.any():
+                    result['flip_contested_mae'] = float(
+                        np.mean(np.abs(pred[flip_mask] - true_vals[flip_mask])))
+
+                    if sigmas is not None:
+                        sigmas_arr = np.asarray(sigmas).flatten()
+                        result['contested_sigma_sum'] = float(np.sum(sigmas_arr[flip_mask]))
+            except Exception:
+                pass
+
+        if optimal_action is not None:
+            try:
+                agent_decision = np.asarray(solver(pred)).flatten()
+                opt = np.asarray(optimal_action).flatten()
+                result['decision_correct'] = int(np.array_equal(
+                    (agent_decision > 0.5).astype(int),
+                    (opt > 0.5).astype(int),
+                ))
+            except Exception:
+                pass
+
+    if sigmas is not None:
+        sigmas = np.asarray(sigmas).flatten()
+        result['mean_sigma'] = float(np.mean(sigmas))
+        if contested.any():
+            result['contested_sigma'] = float(np.mean(sigmas[contested]))
+
+    return result
 
 
 def _get_prediction(agent, X):
@@ -119,13 +235,11 @@ def _compute_test_regret(agent, X_test, Y_test, weights, capacity, solver=None, 
 
 
 def pregenerate_episode(
-    env, n_rounds: int, full_feedback: bool = False, n_test_samples: int = 100,
+    env, n_rounds: int, full_feedback: bool = False,
 ) -> dict:
     import src.solver as _solver_module
 
     _solver_module._GUROBI_ENV = None
-
-    test_set = env.generate_test_set(n_test_samples)
 
     solver = env.solve
     minimize = getattr(env, 'minimize', False)
@@ -143,20 +257,29 @@ def pregenerate_episode(
         optimal = solver(true_vals)
         optimal_val = float(np.sum(true_vals * np.asarray(optimal)))
 
-        rounds_data.append({
+        rd = {
             'context': X.copy(),
             'true_values': true_vals,
             'optimal_action': np.asarray(optimal).copy(),
             'optimal_value': optimal_val,
-        })
+        }
 
-        # Advance env without redundant solver call
+        if getattr(env, 'bernoulli_feedback', False):
+            rd['prob_values'] = true_vals  # XGBoost probabilities
+            true_vals = env.rng.binomial(1, true_vals).astype(float)
+            optimal = solver(true_vals)
+            optimal_val = float(np.sum(true_vals * np.asarray(optimal)))
+            rd['true_values'] = true_vals
+            rd['optimal_action'] = np.asarray(optimal).copy()
+            rd['optimal_value'] = optimal_val
+
+        rounds_data.append(rd)
+
         env._advance()
         X = env.get_context()
 
     return {
         'rounds_data': rounds_data,
-        'test_set': test_set,
         'env': env,
         'minimize': minimize,
     }
@@ -168,6 +291,8 @@ def run_agent_on_episode(
     n_rounds: int,
     lr: float = 0.01,
     full_feedback: bool = False,
+    diagnostics: bool = False,
+    co_solver=None,
 ) -> Dict[str, List[float]]:
     import src.solver as _solver_module
     from src.agents.shared_context.baselines import RandomAgent
@@ -175,6 +300,8 @@ def run_agent_on_episode(
     from src.agents.shared_context.ts_agents import ThompsonSamplingAgent
     from src.agents.shared_context.ucb_agents import LinUCBAgent, NeuralUCBAgent, UCBAgent
     from src.agents.shared_context.bayesian_spo import BayesianSPOAgent
+    from src.agents.shared_context.bayesian_spo_dfe import BayesianSPO_DFE_Agent
+    from src.agents.shared_context.bayesian_spo_weber import BayesianSPO_Weber_Agent
 
     _solver_module._GUROBI_ENV = None
 
@@ -191,6 +318,19 @@ def run_agent_on_episode(
     total_reward = 0.0
     total_optimal = 0.0
 
+    diag_keys = ['contested_mae', 'noncontested_mae', 'rank_corr', 'mean_sigma',
+                  'contested_sigma', 'flip_set_size', 'decision_correct',
+                  'contested_sigma_sum', 'flip_contested_mae']
+    diag_accum = {k: [] for k in diag_keys} if diagnostics else None
+
+    # Resolve solver for flip set computation
+    _diag_solver = None
+    if diagnostics:
+        if co_solver is not None and hasattr(co_solver, 'solve'):
+            _diag_solver = co_solver.solve
+        elif hasattr(agent, 'solver'):
+            _diag_solver = agent.solver
+
     for t in range(n_rounds):
         rd = rounds_data[t]
         X = rd['context']
@@ -200,6 +340,14 @@ def run_agent_on_episode(
 
         selection = agent.act(X)
         selection = np.asarray(selection).flatten()
+
+        if diagnostics:
+            rd_diag = _compute_round_diagnostics(
+                agent, X, true_vals, co_solver,
+                solver=_diag_solver, optimal_action=optimal_action,
+            )
+            for k in diag_keys:
+                diag_accum[k].append(rd_diag[k])
 
         agent_val = float(np.sum(true_vals * selection))
         if minimize:
@@ -232,8 +380,10 @@ def run_agent_on_episode(
         if isinstance(agent, (ThompsonSamplingAgent, UCBAgent, LinUCBAgent,
                               NeuralUCBAgent, RandomAgent)):
             agent.update(X, selection, observed, full_feedback=full_feedback)
-        elif isinstance(agent, BayesianSPOAgent):
-            agent.update(X, selection, observed, lr, full_feedback=full_feedback)
+        elif isinstance(agent, (BayesianSPOAgent, BayesianSPO_DFE_Agent, BayesianSPO_Weber_Agent)):
+            prob_vals = rd.get('prob_values')
+            agent.update(X, selection, observed, lr, full_feedback=full_feedback,
+                         prob_values=prob_vals)
         elif isinstance(agent, GreedyAgent):
             if full_feedback:
                 Y_target = true_vals
@@ -250,7 +400,7 @@ def run_agent_on_episode(
                 except TypeError:
                     agent.update(X, selection, observed, full_feedback=full_feedback)
 
-    return {
+    result = {
         'rewards': rewards,
         'optimal_rewards': optimal_rewards,
         'regrets': regrets,
@@ -261,6 +411,9 @@ def run_agent_on_episode(
         'actions': actions,
         'optimal_actions': optimal_actions,
     }
+    if diagnostics and diag_accum is not None:
+        result.update(diag_accum)
+    return result
 
 
 def run_experiment(
@@ -276,6 +429,7 @@ def run_experiment(
     from src.agents.shared_context.ts_agents import ThompsonSamplingAgent
     from src.agents.shared_context.ucb_agents import LinUCBAgent, NeuralUCBAgent, UCBAgent
     from src.agents.shared_context.bayesian_spo import BayesianSPOAgent
+    from src.agents.shared_context.bayesian_spo_weber import BayesianSPO_Weber_Agent
 
     rewards = []
     optimal_rewards = []
@@ -324,7 +478,7 @@ def run_experiment(
                               NeuralUCBAgent, RandomAgent)):
             agent.update(X, selection, observed_values, full_feedback=full_feedback)
 
-        elif isinstance(agent, BayesianSPOAgent):
+        elif isinstance(agent, (BayesianSPOAgent, BayesianSPO_Weber_Agent)):
             agent.update(X, selection, observed_values, lr, full_feedback=full_feedback)
 
         elif isinstance(agent, GreedyAgent):
