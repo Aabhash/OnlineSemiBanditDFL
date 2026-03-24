@@ -25,10 +25,8 @@ from src.agents.shared_context import (
     RandomAgent,
 )
 from src.solver import ShortestPathSolver, KnapsackSolver
-from experiments.ablations.agents import (
-    DecisionUCBAgent,
-)
 from src.models import BayesianLinearModel
+from experiments.ablations.common import make_co_solver
 
 
 DEFAULT_CONFIG_PATH = 'experiments/configs/experiment.yaml'
@@ -166,7 +164,7 @@ def get_agents(env, seed, config, n_rounds):
     dfe_common = dict(
         context_dim=env.context_dim, n_arms=env.n_arms,
         weights=env.weights, capacity=env.capacity,
-        hidden_dim=hidden_dim, beta=beta,
+        hidden_dim=hidden_dim, beta=bayes_beta,
         lambda_reg=lambda_reg, minimize=minimize,
         solver=solver, seed=seed, nonlinear=nonlinear,
     )
@@ -200,6 +198,8 @@ def run_evaluation(
 ):
     dataset_config = config['datasets'][dataset].copy()
     dataset_config.pop('env_type', None)
+    dataset_config.pop('tuning_year', None)
+    dataset_config.pop('skip_tuning', None)
 
     if dataset == 'synthetic' and noise != 0.0:
         dataset_config['noise_width'] = noise
@@ -268,6 +268,9 @@ def run_evaluation(
             if verbose:
                 print(f'  (episode pregenerated in {pregen_time:.1f}s)')
 
+            # Resolve co_solver for diagnostics
+            co_solver = make_co_solver(env_base)
+
             for agent_name, agent in agents.items():
                 if verbose:
                     print(f'  {agent_name}...', end=' ', flush=True)
@@ -286,6 +289,7 @@ def run_evaluation(
                 result = run_agent_on_episode(
                     agent, episode, n_rounds,
                     lr=lr, full_feedback=full_feedback,
+                    diagnostics=True, co_solver=co_solver,
                 )
 
                 wall_time = time.perf_counter() - start_time
@@ -306,6 +310,15 @@ def run_evaluation(
                     'spo_losses': result.get('spo_losses', []),
                     'wall_time_seconds': result.get('wall_time_seconds', 0.0),
                     'hyperparameters': result.get('hyperparameters', {}),
+                    'contested_mae': result.get('contested_mae', []),
+                    'noncontested_mae': result.get('noncontested_mae', []),
+                    'rank_corr': result.get('rank_corr', []),
+                    'mean_sigma': result.get('mean_sigma', []),
+                    'contested_sigma': result.get('contested_sigma', []),
+                    'flip_set_size': result.get('flip_set_size', []),
+                    'decision_correct': result.get('decision_correct', []),
+                    'contested_sigma_sum': result.get('contested_sigma_sum', []),
+                    'flip_contested_mae': result.get('flip_contested_mae', []),
                 }
 
                 # Log to wandb if enabled

@@ -317,6 +317,8 @@ def run_agent_on_episode(
     total_regret = 0.0
     total_reward = 0.0
     total_optimal = 0.0
+    n_arms = len(rounds_data[0]['true_values'])
+    obs_counts = np.zeros(n_arms)
 
     diag_keys = ['contested_mae', 'noncontested_mae', 'rank_corr', 'mean_sigma',
                   'contested_sigma', 'flip_set_size', 'decision_correct',
@@ -367,6 +369,7 @@ def run_agent_on_episode(
         cumulative_regret.append(total_regret)
         actions.append(selection.copy())
         optimal_actions.append(optimal_action.flatten().copy())
+        obs_counts += (selection > 0.5).astype(float)
 
         # Compute observed values (semi-bandit or full)
         if full_feedback:
@@ -410,6 +413,7 @@ def run_agent_on_episode(
         'final_optimal': total_optimal,
         'actions': actions,
         'optimal_actions': optimal_actions,
+        'obs_counts': obs_counts,
     }
     if diagnostics and diag_accum is not None:
         result.update(diag_accum)
