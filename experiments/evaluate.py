@@ -15,6 +15,7 @@ from src.agents.base import pregenerate_episode, run_agent_on_episode
 
 from src.agents.shared_context import (
     BayesianSPOAgent,
+    BayesianPFYAgent,
     BayesianSPO_DFE_Agent,
     LinUCBAgent,
     NeuralUCBAgent,
@@ -112,7 +113,7 @@ def get_agents(env, seed, config, n_rounds):
     minimize = getattr(env, 'minimize', False)
 
     # Negate beta for minimization (LCB instead of UCB)
-    # BayesianSPO/MSE agents use means + beta*stds, so beta < 0 gives LCB
+    # BayesianSPO/PFY/MSE agents use means + beta*stds, so beta < 0 gives LCB
     bayes_beta = -beta if minimize else beta
 
     agents = {
@@ -142,6 +143,12 @@ def get_agents(env, seed, config, n_rounds):
             minimize=minimize, solver=solver, seed=seed
         ),
         'BayesianSPO': BayesianSPOAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            hidden_dim=hidden_dim, beta=bayes_beta, decay_rounds=n_rounds,
+            lambda_reg=lambda_reg, minimize=minimize, solver=solver, seed=seed,
+            mask_grad=True, nonlinear=nonlinear,
+        ),
+        'BayesianPFY': BayesianPFYAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             hidden_dim=hidden_dim, beta=bayes_beta, decay_rounds=n_rounds,
             lambda_reg=lambda_reg, minimize=minimize, solver=solver, seed=seed,

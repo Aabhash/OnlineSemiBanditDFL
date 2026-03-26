@@ -1,4 +1,5 @@
 from src.agents.shared_context.bayesian_spo import BayesianSPOAgent
+from src.agents.shared_context.bayesian_pfy import BayesianPFYAgent
 from src.agents.shared_context.bayesian_spo_dfe import BayesianSPO_DFE_Agent
 from src.agents.shared_context.bayesian_spo_weber import BayesianSPO_Weber_Agent
 from src.agents.shared_context.weber_bll import WeberBLLAgent
@@ -10,6 +11,7 @@ from src.agents.shared_context.baselines import RandomAgent
 
 __all__ = [
     'BayesianSPOAgent',
+    'BayesianPFYAgent',
     'BayesianSPO_DFE_Agent',
     'BayesianSPO_Weber_Agent',
     'WeberBLLAgent',
