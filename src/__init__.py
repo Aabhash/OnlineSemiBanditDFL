@@ -2,6 +2,7 @@ from src.envs import (
     ConstrainedBanditEnv,
     KnapsackEnv,
     ShortestPathEdgeEnv,
+    TopKEnv,
     create_env,
 )
 
@@ -20,6 +21,9 @@ from src.models import (
 from src.agents import (
     BayesianSPOAgent,
     BayesianSPO_DFE_Agent,
+    BayesianPFYAgent,
+    WeberBLLAgent,
+    BayesianMSEAgent,
     RandomAgent,
     GreedyAgent,
     ThompsonSamplingAgent,
@@ -27,7 +31,6 @@ from src.agents import (
     LinUCBAgent,
     NeuralUCBAgent,
     EpsilonGreedyAgent,
-    BayesianMSEAgent,
     run_experiment,
 )
 
@@ -35,28 +38,29 @@ from src.solver import solve_knapsack
 
 from src.losses import (
     spo_plus_grad,
-    spo_plus_grad_balanced,
-    spo_plus_grad_bandit,
-    nce_grad_bandit,
+    make_spo_grad_fn,
+    make_pfy_grad_fn,
+    mse_loss,
+    mse_grad,
 )
 
 __all__ = [
-
     "ConstrainedBanditEnv",
     "KnapsackEnv",
     "ShortestPathEdgeEnv",
+    "TopKEnv",
     "create_env",
-
     "KnapsackData",
     "SyntheticGridData",
-
     "LinearModel",
     "MLPModel",
     "BayesianLinearModel",
     "create_model",
-
     "BayesianSPOAgent",
     "BayesianSPO_DFE_Agent",
+    "BayesianPFYAgent",
+    "WeberBLLAgent",
+    "BayesianMSEAgent",
     "RandomAgent",
     "GreedyAgent",
     "ThompsonSamplingAgent",
@@ -64,13 +68,11 @@ __all__ = [
     "LinUCBAgent",
     "NeuralUCBAgent",
     "EpsilonGreedyAgent",
-    "BayesianMSEAgent",
     "run_experiment",
-
     "solve_knapsack",
-
     "spo_plus_grad",
-    "spo_plus_grad_balanced",
-    "spo_plus_grad_bandit",
-    "nce_grad_bandit",
+    "make_spo_grad_fn",
+    "make_pfy_grad_fn",
+    "mse_loss",
+    "mse_grad",
 ]

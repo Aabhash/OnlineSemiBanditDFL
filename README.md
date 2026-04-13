@@ -35,7 +35,7 @@ Or run individual steps:
 
 ```bash
 # Tune HPs for one dataset
-uv run python experiments/tune_hyperparams.py --all --dataset knapsack_32 --feedback semi_bandit --n-rounds 1000 --no-wandb --analyze
+uv run python experiments/tune_hyperparams.py --all --dataset knapsack_32 --feedback semi_bandit --n-rounds 1000 --analyze
 
 # Evaluate online agents
 uv run python experiments/evaluate_online.py --datasets knapsack_32 --feedback semi_bandit --full --output_dir results/eval_online
@@ -53,6 +53,7 @@ uv run python experiments/compute_analysis.py
 | Dataset | Arms | Selection | Obs. rate | Description |
 |---------|------|-----------|-----------|-------------|
 | `knapsack_32` | 32 | ~6-7 | ~19-22% | Heterogeneous weights, capacity 20 |
+| `knapsack_100` | 100 | ~6-7 | ~19-22% | Heterogeneous weights, larger-scale knapsack |
 | `shortest_path_8x8` | 112 | ~14 | ~12% | 8×8 grid shortest path |
 | `shortest_path_20x20` | 760 | ~38 | ~5% | 20×20 grid shortest path |
 | `topk_2arm` | 2 | 1 | 50% | 2-arm toy (sigmoid costs) |

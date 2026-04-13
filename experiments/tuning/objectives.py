@@ -83,20 +83,7 @@ def run_tuning_experiment(
         cumulative_regret += instant_regret
 
 
-        try:
-            if uses_lr:
-                agent.update(X, selection, observed_values, lr=lr, full_feedback=full_feedback)
-            else:
-                agent.update(X, selection, observed_values, full_feedback=full_feedback)
-        except TypeError:
-
-            try:
-                agent.update(X, selection, observed_values, full_feedback=full_feedback)
-            except TypeError:
-                try:
-                    agent.update(X, selection, observed_values, lr)
-                except TypeError:
-                    agent.update(X, selection, observed_values)
+        agent.update(X, selection, observed_values, lr=lr, full_feedback=full_feedback)
 
         X = env.get_context()
 
@@ -412,6 +399,7 @@ class ObjectiveFactory:
 
         use_late_stage = pruning_config.get('use_late_stage', False)
         late_stage_fraction = pruning_config.get('late_stage_fraction', 0.25)
+        trial_logger = None
 
         def objective(trial: 'optuna.Trial') -> float:
             params = sample_hyperparameters(trial, search_space)
@@ -432,6 +420,7 @@ class ObjectiveFactory:
 
             n_seeds = len(seeds)
             for seed_idx, seed in enumerate(seeds):
+                seed_logger = None
 
                 if trial_logger is not None:
                     seed_logger = trial_logger.create_seed_logger(seed)
@@ -571,6 +560,7 @@ class ObjectiveFactory:
         uses_lr = search_space.get('tune_lr', False) or 'lr' in search_space or 'init_lr' in search_space
         use_holdout = uses_holdout_for_selection(config, dataset)
         is_online = is_online_dataset(config, dataset)
+        trial_logger = None
 
         def objective(trial: 'optuna.Trial') -> float:
             params = sample_hyperparameters(trial, search_space)
@@ -583,6 +573,7 @@ class ObjectiveFactory:
             n_seeds = len(seeds)
 
             for seed_idx, seed in enumerate(seeds):
+                seed_logger = None
 
                 if trial_logger is not None:
                     seed_logger = trial_logger.create_seed_logger(seed)

@@ -159,19 +159,18 @@ Examples:
         else:
             config['tuning']['n_rounds'] = 100
         effective_n_rounds = 100
-        print("Quick mode: 10 trials, 3 seeds, 100 rounds")
-    else:
-        if args.n_trials:
-            config['tuning']['n_trials'] = args.n_trials
-        if args.n_seeds:
-            config['tuning_seeds'] = list(range(args.n_seeds))
-        if args.n_rounds:
+        print("Quick mode baseline applied")
 
-            if 'n_rounds' in config['datasets'].get(args.dataset, {}):
-                config['datasets'][args.dataset]['n_rounds'] = args.n_rounds
-            else:
-                config['tuning']['n_rounds'] = args.n_rounds
-            effective_n_rounds = args.n_rounds
+    if args.n_trials:
+        config['tuning']['n_trials'] = args.n_trials
+    if args.n_seeds:
+        config['tuning_seeds'] = list(range(args.n_seeds))
+    if args.n_rounds:
+        if 'n_rounds' in config['datasets'].get(args.dataset, {}):
+            config['datasets'][args.dataset]['n_rounds'] = args.n_rounds
+        else:
+            config['tuning']['n_rounds'] = args.n_rounds
+        effective_n_rounds = args.n_rounds
 
     if args.parallel:
         config['compute']['max_parallel_trials'] = args.parallel

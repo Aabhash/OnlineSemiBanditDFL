@@ -521,12 +521,12 @@ def main():
     df_bar_extra = None
     regrets_path = args.regrets_json
     if regrets_path is None:
-        candidate_paths = [
-            'results/eval/metrics/final_eval_regrets.json',
-            'results/final_eval_regrets.json',
-            'results/eval_online/metrics/final_eval_regrets.json',
-            'results/eval_phased/metrics/final_eval_regrets.json',
-        ]
+        candidate_paths = []
+        for input_path in input_dirs:
+            normalized = os.path.dirname(input_path) if os.path.isfile(input_path) else input_path
+            candidate_path = os.path.join(normalized, 'final_eval_regrets.json')
+            if candidate_path not in candidate_paths:
+                candidate_paths.append(candidate_path)
         for candidate_path in candidate_paths:
             if os.path.exists(candidate_path):
                 regrets_path = candidate_path

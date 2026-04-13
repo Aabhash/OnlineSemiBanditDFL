@@ -22,6 +22,13 @@ spo_plus_grad = losses_module.spo_plus_grad
 spo_plus_grad_smooth = getattr(losses_module, 'spo_plus_grad_smooth', None)
 
 
+def safe_nanmean(values):
+    arr = np.asarray(values, dtype=float)
+    if arr.size == 0 or np.all(np.isnan(arr)):
+        return np.nan
+    return float(np.nanmean(arr))
+
+
 def analyze_gradients(dataset='knapsack_32', n_rounds=500, seed=42):
     with open('experiments/configs/experiment.yaml') as f:
         config = yaml.safe_load(f)
@@ -186,15 +193,15 @@ def print_summary(metrics):
     print(f"MSE (DM imp) vs true:         {np.mean(metrics['mse_dm_vs_true_cosine']):.4f}")
     print(f"SPO+ (UCB imp) vs true:       {np.mean(metrics['spo_ucb_vs_true_cosine']):.4f}")
     print(f"SPO+ (DM imp) vs true:        {np.mean(metrics['spo_dm_vs_true_cosine']):.4f}")
-    smooth_cos = np.nanmean(metrics['smooth_spo_ucb_vs_true_cosine'])
+    smooth_cos = safe_nanmean(metrics['smooth_spo_ucb_vs_true_cosine'])
     if np.isnan(smooth_cos):
         print("Smooth SPO+ (UCB) vs true:    unavailable")
     else:
         print(f"Smooth SPO+ (UCB) vs true:    {smooth_cos:.4f}")
 
     print("\n--- Smooth SPO+ Gradient Magnitudes ---")
-    smooth_ucb = np.nanmean(metrics['smooth_spo_grad_ucb_norm'])
-    smooth_true = np.nanmean(metrics['smooth_spo_grad_true_norm'])
+    smooth_ucb = safe_nanmean(metrics['smooth_spo_grad_ucb_norm'])
+    smooth_true = safe_nanmean(metrics['smooth_spo_grad_true_norm'])
     if np.isnan(smooth_ucb) or np.isnan(smooth_true):
         print("Smooth SPO+ metrics: unavailable")
     else:

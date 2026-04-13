@@ -16,6 +16,9 @@ cd "$SCRIPT_DIR"
 # Knapsack 32
 uv run python experiments/tune_hyperparams.py --all --dataset knapsack_32 --feedback semi_bandit --n-rounds 1000 --analyze
 
+# Knapsack 100
+uv run python experiments/tune_hyperparams.py --all --dataset knapsack_100 --feedback semi_bandit --n-rounds 1000 --analyze
+
 # Shortest path 8x8
 uv run python experiments/tune_hyperparams.py --all --dataset shortest_path_8x8 --feedback semi_bandit --n-rounds 1000 --analyze
 
