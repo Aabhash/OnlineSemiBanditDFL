@@ -242,7 +242,7 @@ def create_agent_from_params(
         noise_var = params.get('noise_var', 0.1)
         return ThompsonSamplingAgent(
             BayesianLinearModel(env.context_dim, env.n_arms, prior_var=prior_var, noise_var=noise_var),
-            env.weights, env.capacity, minimize=minimize, solver=solver
+            env.weights, env.capacity, minimize=minimize, solver=solver, seed=seed
         )
     elif agent_name == 'EpsilonGreedy':
         agent_lr = params.get('init_lr', 0.001)

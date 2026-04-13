@@ -27,6 +27,7 @@ class AgentBase(ABC):
         self._phase_buffer_Y = []
         self._phase_buffer_sel = []
         self._phase_buffer_prob = []
+        self._phase_buffer_obs = []
 
     def _append_phase_buffer(
         self,
@@ -34,6 +35,7 @@ class AgentBase(ABC):
         rewards,
         selection,
         prob_values=None,
+        obs_mask=None,
     ) -> None:
         if self.max_buffer_size is not None and self.max_buffer_size > 0:
             if len(self._phase_buffer_X) >= self.max_buffer_size:
@@ -41,14 +43,17 @@ class AgentBase(ABC):
                 self._phase_buffer_Y.pop(0)
                 self._phase_buffer_sel.pop(0)
                 self._phase_buffer_prob.pop(0)
+                self._phase_buffer_obs.pop(0)
 
         self._phase_buffer_X.append(X)
         self._phase_buffer_Y.append(rewards)
         self._phase_buffer_sel.append(selection)
         self._phase_buffer_prob.append(prob_values)
+        self._phase_buffer_obs.append(obs_mask)
 
     def _clear_phase_buffer(self) -> None:
         self._phase_buffer_X.clear()
         self._phase_buffer_Y.clear()
         self._phase_buffer_sel.clear()
         self._phase_buffer_prob.clear()
+        self._phase_buffer_obs.clear()

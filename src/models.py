@@ -21,6 +21,9 @@ class LinearModel:
         grad = 2 * jnp.outer(error, X) / self.n_arms
         return grad
 
+    def gradient_spo(self, X: jnp.ndarray, grad_out: jnp.ndarray) -> jnp.ndarray:
+        return jnp.outer(jnp.asarray(grad_out), jnp.asarray(X))
+
     def update(self, grad: jnp.ndarray, lr: float):
         grad = jnp.clip(grad, -1, 1)
         self.theta = self.theta - lr * grad
@@ -131,6 +134,15 @@ class MLPModel:
             'W1': grad_W1, 'b1': grad_b1,
             'W2': grad_W2, 'b2': grad_b2,
         }
+
+    def gradient_mse(self, X, Y_true) -> Dict[str, jnp.ndarray]:
+        Y_pred = self.forward_with_cache(X)
+        grad_out = 2 * (Y_pred - jnp.asarray(Y_true)) / self.n_arms
+        return self.backward(grad_out)
+
+    def gradient_spo(self, X, grad_out) -> Dict[str, jnp.ndarray]:
+        self.forward_with_cache(X)
+        return self.backward(grad_out)
 
     def update(self, grads: Dict[str, jnp.ndarray], lr: float = None):
         grads = {k: jnp.asarray(v) for k, v in grads.items()}

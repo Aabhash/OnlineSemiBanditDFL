@@ -208,8 +208,8 @@ class WeberBLLAgent(AgentBase):
         for i in range(N):
             h = self._features(self._phase_buffer_X[i])
             rewards = jnp.asarray(self._phase_buffer_Y[i])
-            sel_mask = jnp.asarray(self._phase_buffer_sel[i]) > 0.5
-            grad_h = self._marginalized_grad_h(h, rewards, sel_mask, full_feedback=False)
+            obs_mask = jnp.asarray(self._phase_buffer_obs[i], dtype=jnp.bool_)
+            grad_h = self._marginalized_grad_h(h, rewards, obs_mask, full_feedback=False)
             grads = self._backprop_features(self._phase_buffer_X[i], grad_h)
             for k in fisher:
                 fisher[k] = fisher[k] + grads[k] ** 2
@@ -242,10 +242,10 @@ class WeberBLLAgent(AgentBase):
         self._reset_bayesian_stats()
         for i in range(len(self._phase_buffer_X)):
             h = self._features(self._phase_buffer_X[i])
-            sel_mask = jnp.asarray(self._phase_buffer_sel[i]) > 0.5
+            obs_mask = jnp.asarray(self._phase_buffer_obs[i], dtype=jnp.bool_)
             rewards = jnp.asarray(self._phase_buffer_Y[i])
             self.A, self.b_bayes, self.A_inv = update_bayesian_stats(
-                self.A, self.b_bayes, self.A_inv, h, rewards, sel_mask)
+                self.A, self.b_bayes, self.A_inv, h, rewards, obs_mask)
 
     def _phased_retrain(self):
 
@@ -259,16 +259,16 @@ class WeberBLLAgent(AgentBase):
             for i in range(len(self._phase_buffer_X)):
                 X_buf = self._phase_buffer_X[i]
                 Y_buf = self._phase_buffer_Y[i]
-                sel_buf = self._phase_buffer_sel[i]
                 prob_buf = self._phase_buffer_prob[i]
+                obs_buf = self._phase_buffer_obs[i]
 
                 h = self._features(X_buf)
 
 
                 rewards = jnp.asarray(prob_buf) if prob_buf is not None else jnp.asarray(Y_buf)
-                sel_mask = jnp.asarray(sel_buf) > 0.5
+                obs_mask = jnp.asarray(obs_buf, dtype=jnp.bool_)
 
-                grad_h = self._marginalized_grad_h(h, rewards, sel_mask, full_feedback=False)
+                grad_h = self._marginalized_grad_h(h, rewards, obs_mask, full_feedback=False)
                 grads = self._backprop_features(X_buf, grad_h)
                 self._apply_gradient_step(grads)
 
@@ -292,7 +292,7 @@ class WeberBLLAgent(AgentBase):
 
         if self.phased:
 
-            self._append_phase_buffer(X, rewards, selection, prob_values)
+            self._append_phase_buffer(X, rewards, selection, prob_values, obs_mask)
 
             self._rounds_since_retrain += 1
             if self._rounds_since_retrain >= self.phase_length:

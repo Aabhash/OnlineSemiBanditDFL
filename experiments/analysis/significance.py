@@ -215,7 +215,7 @@ def generate_significance_report(
     lines.append(f"Dataset: {dataset}")
     lines.append(f"Feedback: {feedback_type}")
     lines.append(f"Agents: {len(agents)}")
-    lines.append(f"Selection metric: {'holdout cumulative regret' if use_holdout else 'train cumulative regret'}")
+    lines.append(f"Selection metric: {'holdout cumulative regret' if use_holdout else 'tuning/train cumulative regret'}")
     lines.append("")
 
     results, p_matrix = pairwise_significance_matrix(

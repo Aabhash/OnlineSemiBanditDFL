@@ -12,7 +12,7 @@ tuning:
   # Seed-aware pruning: prune trials that are clearly worse than median
   pruning:
     enabled: true
-    min_seeds_before_pruning: 0  # Run at least 1 seed before pruning
+    min_seeds_before_pruning: 1  # Run at least 2 seeds before pruning
     warmup_trials: 5             # Don't prune first N trials (need baseline)
     percentile_threshold: 75     # Prune if worse than this percentile of completed trials
     # Late-stage pruning: only consider performance in the last fraction of rounds

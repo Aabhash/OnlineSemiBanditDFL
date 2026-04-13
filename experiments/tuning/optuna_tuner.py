@@ -205,7 +205,7 @@ class BanditHyperparameterTuner:
         print(f"\n{'='*70}")
         print("BEST HYPERPARAMETERS")
         print(f"{'='*70}")
-        print(f"{'Agent':<25} {'Val Regret':>15} {'Params'}")
+        print(f"{'Agent':<25} {'Sel. Regret':>15} {'Params'}")
         print("-" * 70)
 
         sorted_agents = sorted(

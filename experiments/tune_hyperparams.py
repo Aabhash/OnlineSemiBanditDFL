@@ -55,7 +55,7 @@ def run_analysis(
     feedback_type: str,
 ):
     print(f"\n{'='*70}")
-    print("RUNNING ANALYSIS")
+    print("RUNNING TUNING ANALYSIS")
     print(f"{'='*70}")
 
     results_store = ResultsStore(output_dir)
@@ -66,7 +66,7 @@ def run_analysis(
     significance_config = config['analysis']['significance']
     use_holdout = uses_holdout_for_selection(config, dataset)
 
-    print(f"Selection metric: {'holdout cumulative regret' if use_holdout else 'train cumulative regret'}")
+    print(f"Selection metric: {'holdout cumulative regret' if use_holdout else 'tuning/train cumulative regret'}")
 
     print("\n1. Computing bootstrap confidence intervals...")
     all_cis = compute_all_confidence_intervals(

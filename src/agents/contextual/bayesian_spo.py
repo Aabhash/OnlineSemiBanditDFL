@@ -179,19 +179,19 @@ class BayesianSPOAgent(AgentBase):
             for i in range(len(self._phase_buffer_X)):
                 X_buf = self._phase_buffer_X[i]
                 Y_buf = self._phase_buffer_Y[i]
-                sel_buf = self._phase_buffer_sel[i]
                 prob_buf = self._phase_buffer_prob[i]
+                obs_buf = self._phase_buffer_obs[i]
 
                 h = self._features(X_buf)
                 pred = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
 
-                sel_mask = jnp.asarray(sel_buf) > 0.5
+                obs_mask = jnp.asarray(obs_buf, dtype=jnp.bool_)
                 if prob_buf is not None:
                     Y_target = jnp.asarray(prob_buf)
                 else:
-                    Y_target = jnp.where(sel_mask, jnp.asarray(Y_buf), pred)
+                    Y_target = jnp.where(obs_mask, jnp.asarray(Y_buf), pred)
 
-                grad_h = self._compute_spo_grad_h(X_buf, h, Y_target, sel_mask, False)
+                grad_h = self._compute_spo_grad_h(X_buf, h, Y_target, obs_mask, False)
                 self._backprop_and_step(X_buf, grad_h)
 
 
@@ -199,10 +199,10 @@ class BayesianSPOAgent(AgentBase):
             self.n_arms, self.hidden_dim, self.lambda_reg)
         for i in range(len(self._phase_buffer_X)):
             h = self._features(self._phase_buffer_X[i])
-            sel_mask = jnp.asarray(self._phase_buffer_sel[i]) > 0.5
+            obs_mask = jnp.asarray(self._phase_buffer_obs[i], dtype=jnp.bool_)
             rewards = jnp.asarray(self._phase_buffer_Y[i])
             self.A, self.b_bayes, self.A_inv = update_bayesian_stats(
-                self.A, self.b_bayes, self.A_inv, h, rewards, sel_mask)
+                self.A, self.b_bayes, self.A_inv, h, rewards, obs_mask)
 
     def update(self, X, selection, rewards, lr: float = None, full_feedback: bool = False,
                **kwargs):
@@ -221,7 +221,7 @@ class BayesianSPOAgent(AgentBase):
 
         if self.phased:
 
-            self._append_phase_buffer(X, rewards, selection, prob_values)
+            self._append_phase_buffer(X, rewards, selection, prob_values, obs_mask)
 
             self._rounds_since_retrain += 1
             if self._rounds_since_retrain >= self.phase_length:

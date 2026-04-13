@@ -135,7 +135,7 @@ def get_agents(env, seed, config, n_rounds):
         ),
         'TS': ThompsonSamplingAgent(
             BayesianLinearModel(env.context_dim, env.n_arms),
-            env.weights, env.capacity, minimize=minimize, solver=solver
+            env.weights, env.capacity, minimize=minimize, solver=solver, seed=seed
         ),
         'LinUCB': LinUCBAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
