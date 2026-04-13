@@ -17,7 +17,6 @@ from .objectives import (
 )
 from .results_store import ResultsStore
 from .timing import ComputeTimer
-from .wandb_logger import WandbStudyLogger
 
 
 def load_config(config_path: str) -> Dict[str, Any]:
@@ -79,14 +78,13 @@ class BanditHyperparameterTuner:
 
         sampler_seed = self.config['tuning']['sampler_seed']
 
-        # Configure pruner based on config
+
         pruning_config = self.config.get('tuning', {}).get('pruning', {})
         pruning_enabled = pruning_config.get('enabled', False)
 
         if pruning_enabled:
-            # PercentilePruner: prune if trial is worse than given percentile of completed trials
-            # n_startup_trials: don't prune first N trials (need baseline data)
-            # n_warmup_steps: don't prune until this many intermediate values reported (i.e., seeds completed)
+
+
             percentile = pruning_config.get('percentile_threshold', 75)
             warmup_trials = pruning_config.get('warmup_trials', 5)
             min_seeds = pruning_config.get('min_seeds_before_pruning', 1)
@@ -94,7 +92,7 @@ class BanditHyperparameterTuner:
             pruner = PercentilePruner(
                 percentile=percentile,
                 n_startup_trials=warmup_trials,
-                n_warmup_steps=min_seeds,  # Don't consider pruning until min_seeds completed
+                n_warmup_steps=min_seeds,
             )
         else:
             pruner = optuna.pruners.NopPruner()
@@ -135,7 +133,6 @@ class BanditHyperparameterTuner:
             print(f"    - Percentile threshold: {pruning_config.get('percentile_threshold', 75)}%")
             print(f"    - Min seeds before pruning: {pruning_config.get('min_seeds_before_pruning', 1)}")
             print(f"    - Warmup trials: {pruning_config.get('warmup_trials', 5)}")
-        print(f"  Wandb: {self.config.get('wandb', {}).get('enabled', False)}")
 
         self.timer.start()
         study.optimize(
@@ -147,23 +144,6 @@ class BanditHyperparameterTuner:
         )
         elapsed = self.timer.stop()
 
-        # Log study summary to wandb
-        wandb_enabled = self.config.get('wandb', {}).get('enabled', False)
-        if wandb_enabled and len(study.trials) > 0:
-            is_minimize = self.config.get('datasets', {}).get(dataset, {}).get('minimize', False)
-            study_logger = WandbStudyLogger(
-                config=self.config,
-                agent_name=agent_name,
-                dataset=dataset,
-                feedback_type=feedback_type,
-                minimize=is_minimize,
-            )
-            study_logger.log_study_summary(
-                best_params=study.best_params,
-                best_value=study.best_value,
-                n_trials=len(study.trials),
-                total_time_minutes=elapsed / 60,
-            )
 
         print(f"\nCompleted {agent_name} tuning in {elapsed/60:.1f} minutes")
         print(f"  Best trial: {study.best_trial.number}")
@@ -191,7 +171,6 @@ class BanditHyperparameterTuner:
         print(f"Trials per agent: {self.config['tuning']['n_trials']}")
         print(f"Tuning seeds: {self.config.get('tuning_seeds', [0, 1, 2, 3, 4])}")
         print(f"Max rounds: {effective_n_rounds}")
-        print(f"Wandb: {self.config.get('wandb', {}).get('enabled', False)}")
         print(f"Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"{'='*70}\n")
 

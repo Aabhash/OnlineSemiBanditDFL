@@ -1,5 +1,5 @@
 from src.losses import make_pfy_grad_fn
-from src.agents.shared_context.bayesian_spo import BayesianSPOAgent
+from src.agents.contextual.bayesian_spo import BayesianSPOAgent
 
 
 class BayesianPFYAgent(BayesianSPOAgent):
@@ -23,11 +23,12 @@ class BayesianPFYAgent(BayesianSPOAgent):
         minimize: bool = False,
         solver=None,
         seed: int = None,
-        # Phased training (Weber-style)
+
         phased: bool = False,
         phase_length: int = 50,
         phase_epochs: int = 5,
-        # PFY-specific
+        max_buffer_size: int = None,
+
         pfy_n_samples: int = 1,
         pfy_sigma: float = 1.0,
         pfy_noise: str = 'normal'
@@ -53,6 +54,7 @@ class BayesianPFYAgent(BayesianSPOAgent):
             phased=phased,
             phase_length=phase_length,
             phase_epochs=phase_epochs,
+            max_buffer_size=max_buffer_size,
         )
 
         self.loss_grad_fn = make_pfy_grad_fn(

@@ -169,7 +169,7 @@ class BayesianLinearModel:
 
     def predict_mean(self, X) -> jnp.ndarray:
         X = jnp.asarray(X)
-        return self.mu @ X  # (n_arms,)
+        return self.mu @ X
 
     def predict_sample(self, X, key=None) -> jnp.ndarray:
         X = jnp.asarray(X)
@@ -187,8 +187,8 @@ class BayesianLinearModel:
         variances = jnp.einsum('i,ni->n', X, Sx)
         stds = jnp.sqrt(jnp.maximum(variances, 0.0))
         if minimize:
-            return means - beta * stds  # LCB for cost minimization
-        return means + beta * stds  # UCB for reward maximization
+            return means - beta * stds
+        return means + beta * stds
 
     def update(self, X, arm: int, reward: float):
         X = jnp.asarray(X)

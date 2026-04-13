@@ -1,21 +1,14 @@
 #!/usr/bin/env python
-"""Ablation: Context Variation.
-
-Hypothesis: SPO+ advantage grows when context matters more (low noise).
-
-Sweep noise_width in {0.0, 0.05, 0.1, 0.25, 0.5, 1.0}.
-Each noise level gets its own env/episode.
-
-Agents: BayesianSPO, BayesianMSE, UCB-Bayesian, LinUCB
-
-Plot: X=noise_width, Y=final regret. Show SPO-MSE gap.
-"""
 import argparse
+import importlib
+import importlib.util
 import sys
 import os
 import numpy as np
 
 sys.path.insert(0, '.')
+
+plt = importlib.import_module('matplotlib.pyplot') if importlib.util.find_spec('matplotlib.pyplot') is not None else None
 
 from experiments.ablations.common import (
     load_config, make_co_solver, make_dataset_config,
@@ -23,11 +16,11 @@ from experiments.ablations.common import (
 )
 from src.envs import create_env
 from src.agents.base import pregenerate_episode, run_agent_on_episode
-from src.agents.shared_context import (
+from src.agents.contextual import (
     BayesianSPOAgent, BayesianMSEAgent, LinUCBAgent,
 )
 from src.models import BayesianLinearModel
-from src.agents.shared_context.ucb_agents import UCBAgent
+from src.agents.contextual.ucb_agents import UCBAgent
 
 
 def make_agents(env, seed, config):
@@ -67,9 +60,7 @@ def make_agents(env, seed, config):
 
 
 def plot_results(all_results, noise_widths, seeds, output_dir):
-    try:
-        import matplotlib.pyplot as plt
-    except ImportError:
+    if plt is None:
         print('matplotlib not available, skipping plots')
         return
 
@@ -77,7 +68,7 @@ def plot_results(all_results, noise_widths, seeds, output_dir):
 
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
 
-    # Panel 1: Final regret vs noise_width
+
     ax = axes[0]
     for name in agent_names:
         means = []
@@ -94,7 +85,7 @@ def plot_results(all_results, noise_widths, seeds, output_dir):
     ax.set_title('Context Variation: Regret vs Noise')
     ax.legend()
 
-    # Panel 2: SPO-MSE gap
+
     ax = axes[1]
     gaps = []
     for nw in noise_widths:
@@ -127,6 +118,7 @@ def main():
     parser.add_argument('--config', default='experiments/configs/experiment.yaml')
     parser.add_argument('--mode', choices=['quick', 'full'], default='quick')
     parser.add_argument('--output', default=None)
+    parser.add_argument('--no-plot', action='store_true', help='Save data only, skip plotting')
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -173,7 +165,8 @@ def main():
                 print(f'regret={result["final_regret"]:.0f}', flush=True)
 
     save_results(all_results, os.path.join(output_dir, 'results.pkl'))
-    plot_results(all_results, noise_widths, seeds, output_dir)
+    if not args.no_plot:
+        plot_results(all_results, noise_widths, seeds, output_dir)
 
 
 if __name__ == '__main__':

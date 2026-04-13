@@ -5,7 +5,7 @@ experiment:
 tuning:
   n_trials: 50
   n_seeds: 3
-  n_rounds: 2500
+  n_rounds: 1000
   timeout_per_trial: 3600
   sampler_seed: 42
   default_lr: 0.01
@@ -34,11 +34,7 @@ compute:
 wandb:
   enabled: true
   entity: null
-  log_interval: 10  # Log training metrics every N rounds
-  # Separate projects for HP tuning vs final evaluation
-  tuning:
-    project: "constrained-bandits-tuning-new"
-    tags: ["hp-tuning"]
+  log_interval: 10
   evaluation:
     project: "constrained-bandits-eval-new"
     tags: ["evaluation"]
@@ -91,41 +87,48 @@ datasets:
     noise_width: 0.25
     env_type: shared_context
 
-  # Energy cost scheduling: binary scheduling over 24 hourly slots
-  energy_24:
-    min_periods: 11
-    max_periods: 12
-    min_consecutive: 2
-    max_consecutive: 5
-    context_dim: 0        # 0 = no PCA, use raw features
-    noise_width: 0.0
-    maximize: true        # maximize revenue
-    data_dir: "data/Germany 2023-2025 Energy"
-    context_type: yesterday_prices  # previous day's 24h price profile as context
-    env_type: energy
-    n_rounds: 1000
-    skip_tuning: true
+  # Top-K toy problems (for toy dissection / Section 5 analysis)
+  topk_2arm:
+    n_arms: 2
+    k: 1
+    context_dim: 1
+    cost_fn: sigmoid
+    w_spread: 0.0
+    env_type: topk
 
-  # Criteo Ad Bidding: real-world shared context benchmark
-  criteo:
-    n_campaigns: 25
-    n_select: 10
-    context_dim: 50
-    subsample_rate: 1.0    # Full dataset (16M rows)
-    n_estimators: 500      # XGBoost surrogate trees
-    max_depth: 10          # XGBoost tree depth
-    env_type: shared_context
+  topk_8arm:
+    n_arms: 8
+    k: 2
+    context_dim: 5
+    cost_fn: sigmoid
+    w_spread: 0.4
+    env_type: topk
 
-  # Criteo Hard: tighter constraint + amplified weights
-  criteo_hard:
-    n_campaigns: 25
-    n_select: 4            # k/n = 0.16 (was 0.4)
-    context_dim: 50
-    subsample_rate: 1.0
-    n_estimators: 500
-    max_depth: 10
-    weight_power: 2.0      # Amplify cost heterogeneity (~10-20x spread)
-    env_type: shared_context
+  topk_16arm:
+    n_arms: 16
+    k: 4
+    context_dim: 5
+    cost_fn: sigmoid
+    w_spread: 0.4
+    env_type: topk
+
+  # Linear cost variants (well-specified: linear features can fit perfectly)
+  topk_2arm_linear:
+    n_arms: 2
+    k: 1
+    context_dim: 1
+    cost_fn: linear
+    w_spread: 0.0
+    env_type: topk
+
+  topk_8arm_linear:
+    n_arms: 8
+    k: 2
+    context_dim: 5
+    cost_fn: linear
+    w_spread: 0.4
+    env_type: topk
+
 
 
 feedback_types:
@@ -137,7 +140,7 @@ evaluation:
     n_rounds: 1000
     n_seeds: 3
   full:
-    n_rounds: 10000
+    n_rounds: 5000
     n_seeds: 10
   output_dir: "results/eval"
 
@@ -148,39 +151,11 @@ agent_defaults:
   lambda_reg: 1.0
   alpha: 1.0
   beta: 1.0
-  gamma: 1.0
-  nu: 1.0
   epsilon: 0.1
   decay_epsilon: true
   nonlinear: false
 
 ablations:
-  observation_rate:
-    player_counts: [30, 50, 75, 100, 150, 200, 300, 494]
-    player_counts_full: [30, 40, 50, 75, 100, 125, 150, 200, 250, 300, 400, 494]
-    player_counts_quick: [50, 100, 200, 494]
-    n_rounds: 200
-    n_rounds_full: 500
-    n_rounds_quick: 100
-    n_seeds: 3
-    n_seeds_full: 5
-    n_seeds_quick: 2
-    ntk_methods: []
-    bayesian_methods: []
-    output_dir: "results/ablations/obs_rate"
-  imputation:
-    n_rounds: 200
-    n_seeds: 3
-    output_dir: "results/ablations/imputation"
-  uncertainty:
-    n_rounds: 200
-    n_seeds: 3
-    output_dir: "results/ablations/uncertainty"
-  training_paradigm:
-    n_rounds: 200
-    n_seeds: 3
-    output_dir: "results/ablations/training_paradigm"
-
   kn_ratio:
     dataset: knapsack_32
     n_items: 32
@@ -194,6 +169,12 @@ ablations:
     n_rounds: 2500
     n_seeds: 5
     output_dir: "results/ablations/exploration"
+
+  mechanism:
+    datasets: [knapsack_32, shortest_path_8x8]
+    n_rounds: 2500
+    n_seeds: 5
+    output_dir: "results/ablations/mechanism"
 
   feature_sharing:
     datasets: [knapsack_32, shortest_path_8x8]

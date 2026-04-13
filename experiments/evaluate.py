@@ -1,19 +1,30 @@
 import argparse
-import numpy as np
-import sys
+import csv
+import importlib
+import importlib.util
+import json
 import os
-import yaml
+import pickle
+import sys
 import time
 from datetime import datetime
 from typing import Dict, Any, Optional
 
+import numpy as np
+import yaml
+from scipy import stats
+
 sys.path.insert(0, '.')
 
+wandb = importlib.import_module('wandb') if importlib.util.find_spec('wandb') is not None else None
+
+from experiments.tuning.objectives import create_agent_from_params, uses_holdout_for_selection
+from experiments.tuning.results_store import ResultsStore
 from src.envs import create_env
 from src.agents import run_experiment
 from src.agents.base import pregenerate_episode, run_agent_on_episode
 
-from src.agents.shared_context import (
+from src.agents.contextual import (
     BayesianSPOAgent,
     BayesianPFYAgent,
     BayesianSPO_DFE_Agent,
@@ -46,15 +57,11 @@ def load_tuned_params(
     feedback_type: str,
     config: Dict[str, Any],
 ) -> Dict[str, Dict[str, Any]]:
-    from experiments.tuning.results_store import ResultsStore
-    from experiments.tuning.objectives import uses_holdout_for_selection
-
     results_store = ResultsStore(tuning_dir)
     use_holdout = uses_holdout_for_selection(config, dataset)
 
     best_params_file = results_store.output_dir / f"best_hyperparams_{dataset}_{feedback_type}.json"
     if best_params_file.exists():
-        import json
         with open(best_params_file) as f:
             data = json.load(f)
         return {agent: info['params'] for agent, info in data.items()}
@@ -84,8 +91,6 @@ def create_agent_with_tuned_params(
     n_rounds: int,
     config: Dict[str, Any],
 ):
-    from experiments.tuning.objectives import create_agent_from_params
-
     lr = tuned_params.get('lr', config['agent_defaults']['lr'])
 
     return create_agent_from_params(
@@ -112,8 +117,7 @@ def get_agents(env, seed, config, n_rounds):
     solver = env.solve
     minimize = getattr(env, 'minimize', False)
 
-    # Negate beta for minimization (LCB instead of UCB)
-    # BayesianSPO/PFY/MSE agents use means + beta*stds, so beta < 0 gives LCB
+
     bayes_beta = -beta if minimize else beta
 
     agents = {
@@ -168,7 +172,7 @@ def get_agents(env, seed, config, n_rounds):
         ),
     }
 
-    # Add DFE/DI agents with appropriate combinatorial solver
+
     grid_size = getattr(env, 'grid_size', None)
     if grid_size is not None:
         co_solver = ShortestPathSolver(grid_size)
@@ -194,7 +198,6 @@ def get_agents(env, seed, config, n_rounds):
     return agents
 
 
-
 def run_evaluation(
     dataset: str,
     n_rounds: int,
@@ -215,7 +218,7 @@ def run_evaluation(
     dataset_config.pop('tuning_year', None)
     dataset_config.pop('skip_tuning', None)
 
-    if dataset == 'synthetic' and noise != 0.0:
+    if noise != 0.0 and 'noise_width' in dataset_config:
         dataset_config['noise_width'] = noise
 
     if feedback_types is None:
@@ -228,13 +231,13 @@ def run_evaluation(
         print(f'\n{"=" * 60}')
         print(f'DATASET: {dataset.upper()}')
         print(f'{"=" * 60}')
-        noise_info = f', Noise: {dataset_config.get("noise_width", 0.0)}' if dataset == 'synthetic' else ''
+        noise_info = f', Noise: {dataset_config["noise_width"]}' if 'noise_width' in dataset_config else ''
         tuned_info = ' (using tuned HPs)' if tuned_params else ' (using default HPs)'
         print(f'Rounds: {n_rounds}, Seeds: {n_seeds}{noise_info}{tuned_info}')
 
     feedback_map = {'semi_bandit': False, 'full': True}
 
-    # Use provided seeds or fall back to range(n_seeds)
+
     seed_list = seeds if seeds is not None else list(range(n_seeds))
 
     for feedback_mode in feedback_types:
@@ -248,9 +251,9 @@ def run_evaluation(
 
             env_base = create_env(dataset, seed=seed, **dataset_config)
 
-            # Create agents - use tuned params if available, else defaults
+
             if tuned_params:
-                # Only create agents that have tuned params
+
                 agents = {}
                 for agent_name, params in tuned_params.items():
                     if agents_filter and agent_name not in agents_filter:
@@ -264,15 +267,13 @@ def run_evaluation(
                         if verbose:
                             print(f'  Warning: Could not create {agent_name}: {e}')
             else:
-                # Use default hyperparameters
+
                 agents = get_agents(env_base, seed, config, n_rounds)
 
                 if agents_filter:
                     agents = {k: v for k, v in agents.items() if k in agents_filter}
 
-            # Pre-generate episode data once per seed — all agents replay
-            # the same (context, true_values, optimal_action) sequence,
-            # avoiding redundant solver calls.
+
             ep_env = create_env(dataset, seed=seed, **dataset_config)
             pregen_start = time.perf_counter()
             episode = pregenerate_episode(
@@ -282,14 +283,14 @@ def run_evaluation(
             if verbose:
                 print(f'  (episode pregenerated in {pregen_time:.1f}s)')
 
-            # Resolve co_solver for diagnostics
+
             co_solver = make_co_solver(env_base)
 
             for agent_name, agent in agents.items():
                 if verbose:
                     print(f'  {agent_name}...', end=' ', flush=True)
 
-                # Get LR and params from tuned params or default
+
                 if tuned_params and agent_name in tuned_params:
                     lr = tuned_params[agent_name].get('lr', config['agent_defaults']['lr'])
                     agent_params = tuned_params[agent_name]
@@ -297,7 +298,7 @@ def run_evaluation(
                     lr = config['agent_defaults']['lr']
                     agent_params = {}
 
-                # Time the experiment
+
                 start_time = time.perf_counter()
 
                 result = run_agent_on_episode(
@@ -335,7 +336,7 @@ def run_evaluation(
                     'flip_contested_mae': result.get('flip_contested_mae', []),
                 }
 
-                # Log to wandb if enabled
+
                 if wandb_enabled:
                     agent_params = tuned_params.get(agent_name, {}) if tuned_params else {}
                     is_minimize = config.get('datasets', {}).get(dataset, {}).get('minimize', False)
@@ -432,9 +433,6 @@ def print_summary(results, dataset, trajectories=None):
 
 
 def save_results(results, trajectories, output_dir):
-    import json
-    import pickle
-
     os.makedirs(f'{output_dir}/metrics', exist_ok=True)
 
     results_json = {}
@@ -455,21 +453,21 @@ def save_results(results, trajectories, output_dir):
     with open(f'{output_dir}/metrics/results.json', 'w') as f:
         json.dump(results_json, f, indent=2)
 
-    # Save combined trajectories (backwards compat) and per-dataset files
+
     with open(f'{output_dir}/metrics/trajectories.pkl', 'wb') as f:
         pickle.dump(trajectories, f)
 
-    # Split and save per-dataset trajectory files
+
     per_dataset = {}
     for key, data in trajectories.items():
-        dataset = key[1]  # (agent, dataset, feedback, seed)
+        dataset = key[1]
         per_dataset.setdefault(dataset, {})[key] = data
     for dataset, ds_trajectories in per_dataset.items():
         with open(f'{output_dir}/metrics/trajectories_{dataset}.pkl', 'wb') as f:
             pickle.dump(ds_trajectories, f)
         print(f'Saved trajectories_{dataset}.pkl ({len(ds_trajectories)} entries)')
 
-    # Compute and save results summary (mean/std, timing, hyperparameters per agent)
+
     results_summary = {}
     holdout_summary = {}
 
@@ -477,7 +475,7 @@ def save_results(results, trajectories, output_dir):
         agent_name, dataset, feedback_mode, seed = key
         run_key = f"{agent_name}_{dataset}_{feedback_mode}"
 
-        # Initialize if needed
+
         if run_key not in results_summary:
             results_summary[run_key] = {
                 'agent': agent_name,
@@ -488,26 +486,26 @@ def save_results(results, trajectories, output_dir):
             }
             holdout_summary[run_key] = []
 
-        # Collect final regret
+
         cumulative_regret = data.get('cumulative_regret', [])
         if cumulative_regret:
             results_summary[run_key]['final_regrets'].append(cumulative_regret[-1])
 
-        # Collect wall time
+
         results_summary[run_key]['wall_times'].append(data.get('wall_time_seconds', 0.0))
 
-        # Collect holdout regret if available
+
         holdout_evals = data.get('holdout_evals', [])
         if holdout_evals:
             final_holdout = holdout_evals[-1][1]
             holdout_summary[run_key].append(final_holdout.get('regret', 0.0))
 
-    # Compute statistics
+
     for run_key, summary in results_summary.items():
         regrets = summary['final_regrets']
         times = summary['wall_times']
 
-        # Rename to cumulative_regret for clarity
+
         summary['cumulative_regrets'] = regrets
         del summary['final_regrets']
 
@@ -523,17 +521,17 @@ def save_results(results, trajectories, output_dir):
         summary['mean_wall_time_seconds'] = float(np.mean(times)) if times else 0.0
         summary['total_wall_time_seconds'] = float(np.sum(times)) if times else 0.0
 
-        # Add holdout stats if available
+
         if holdout_summary.get(run_key):
             holdout_regrets = holdout_summary[run_key]
             summary['mean_cumulative_holdout_regret'] = float(np.mean(holdout_regrets))
             summary['std_cumulative_holdout_regret'] = float(np.std(holdout_regrets))
 
-        # Add hyperparameters if available (from first seed)
+
         if summary.get('hyperparameters'):
-            pass  # Already set from timing_summary logic
+            pass
         else:
-            # Find from trajectories
+
             for tkey, tdata in trajectories.items():
                 if f"{tkey[0]}_{tkey[1]}_{tkey[2]}" == run_key:
                     summary['hyperparameters'] = tdata.get('hyperparameters', {})
@@ -542,7 +540,7 @@ def save_results(results, trajectories, output_dir):
     with open(f'{output_dir}/metrics/results_summary.json', 'w') as f:
         json.dump(results_summary, f, indent=2)
 
-    # Build final_eval_regrets: {dataset: {agent: [regret_per_seed]}}
+
     eval_regrets = {}
     for run_key, summary in results_summary.items():
         ds = summary['dataset']
@@ -551,17 +549,15 @@ def save_results(results, trajectories, output_dir):
             float(r) for r in summary['cumulative_regrets']
         ]
 
-    # Save combined final_eval_regrets.json
+
     with open(f'{output_dir}/metrics/final_eval_regrets.json', 'w') as f:
         json.dump(eval_regrets, f, indent=2)
 
-    # Save per-dataset final_eval_regrets_<dataset>.json
+
     for ds, agent_regrets in eval_regrets.items():
         with open(f'{output_dir}/metrics/final_eval_regrets_{ds}.json', 'w') as f:
             json.dump({ds: agent_regrets}, f, indent=2)
 
-    # Build and save final_eval_summary.csv (combined + per-dataset)
-    import csv
     csv_rows = []
     for run_key, summary in results_summary.items():
         csv_rows.append({
@@ -580,7 +576,7 @@ def save_results(results, trajectories, output_dir):
         writer.writeheader()
         writer.writerows(csv_rows)
 
-    # Per-dataset summary CSVs
+
     datasets_in_results = sorted(set(r['Dataset'] for r in csv_rows))
     for ds in datasets_in_results:
         ds_rows = [r for r in csv_rows if r['Dataset'] == ds]
@@ -589,7 +585,7 @@ def save_results(results, trajectories, output_dir):
             writer.writeheader()
             writer.writerows(ds_rows)
 
-    # Compute overall timing
+
     total_time = sum(data.get('wall_time_seconds', 0.0) for data in trajectories.values())
     print(f'\nSaved results to {output_dir}/metrics/')
     print(f'  final_eval_regrets.json (+ per-dataset)')
@@ -607,9 +603,6 @@ def run_evaluation_analysis(
     confidence: float = 0.95,
     seed: int = 42,
 ):
-    from scipy import stats
-    import json
-
     analysis_dir = os.path.join(output_dir, 'analysis')
     os.makedirs(analysis_dir, exist_ok=True)
 
@@ -625,7 +618,7 @@ def run_evaluation_analysis(
 
         print(f"\n--- {feedback_type.replace('_', ' ').title()} Feedback ---")
 
-        # 1. Bootstrap confidence intervals
+
         print("\n1. Bootstrap Confidence Intervals:")
         print(f"{'Agent':<25} {'Mean':>10} {'95% CI':>20} {'N':>5}")
         print("-" * 65)
@@ -636,7 +629,7 @@ def run_evaluation_analysis(
             n = len(regrets_arr)
             mean = np.mean(regrets_arr)
 
-            # Bootstrap CI
+
             bootstrap_means = []
             for _ in range(n_bootstrap):
                 sample = rng.choice(regrets_arr, size=n, replace=True)
@@ -656,14 +649,14 @@ def run_evaluation_analysis(
 
             print(f"{agent_name:<25} {mean:>10.1f} [{ci_lower:>8.1f}, {ci_upper:>8.1f}] {n:>5}")
 
-        # 2. Pairwise significance tests (Wilcoxon signed-rank)
+
         print("\n2. Pairwise Significance Tests (Wilcoxon signed-rank, p < 0.05):")
 
         agents = list(agents_data.keys())
         significance_results = {}
 
         if len(agents) >= 2:
-            # Find best agent
+
             best_agent = min(agents, key=lambda a: np.mean(agents_data[a]))
             best_regrets = np.array(agents_data[best_agent])
 
@@ -678,7 +671,7 @@ def run_evaluation_analysis(
 
                 agent_regrets = np.array(agents_data[agent_name])
 
-                # Ensure same length (use min)
+
                 n_compare = min(len(best_regrets), len(agent_regrets))
                 if n_compare < 2:
                     continue
@@ -687,7 +680,7 @@ def run_evaluation_analysis(
                     stat, p_value = stats.wilcoxon(
                         agent_regrets[:n_compare],
                         best_regrets[:n_compare],
-                        alternative='greater'  # Test if agent is worse than best
+                        alternative='greater'
                     )
                     is_sig = bool(p_value < 0.05)
                     significance_results[agent_name] = {
@@ -700,7 +693,7 @@ def run_evaluation_analysis(
                 except Exception as e:
                     print(f"{agent_name:<25} {'error':>10} {str(e)[:12]:>12}")
 
-        # Save analysis results
+
         analysis_output = {
             'dataset': dataset,
             'feedback_type': feedback_type,
@@ -717,9 +710,7 @@ def run_evaluation_analysis(
         print(f"\nSaved analysis to {output_file}")
 
 
-
 class EvaluationWandbLogger:
-    """Logger for a single evaluation run (one agent, one seed)."""
 
     def __init__(
         self,
@@ -741,18 +732,16 @@ class EvaluationWandbLogger:
         self.use_tuned_params = use_tuned_params
         self.n_rounds = n_rounds
         self.params = params or {}
-        self.minimize = minimize  # For cost minimization problems (e.g., shortest path)
+        self.minimize = minimize
 
         self._wandb = None
         self._run = None
         self._enabled = config.get('wandb', {}).get('enabled', False)
 
-        if self._enabled:
-            try:
-                import wandb
-                self._wandb = wandb
-            except ImportError:
-                self._enabled = False
+        if self._enabled and wandb is not None:
+            self._wandb = wandb
+        else:
+            self._enabled = False
 
     def start(self):
         if not self._enabled:
@@ -793,17 +782,16 @@ class EvaluationWandbLogger:
         )
 
     def log_trajectory(self, result: Dict[str, Any]):
-        """Log full trajectory after experiment completes."""
         if not self._enabled or not self._run:
             return
 
-        # Log per-round metrics
+
         cumulative_regret = result.get('cumulative_regret', [])
         regrets = result.get('regrets', [])
         rewards = result.get('rewards', [])
         optimal_rewards = result.get('optimal_rewards', [])
 
-        # Compute cumulative reward
+
         cumulative_reward = []
         running_reward = 0.0
         for r in rewards:
@@ -818,7 +806,7 @@ class EvaluationWandbLogger:
         holdout_reward = [None] * n_rounds
 
         if holdout_evals:
-            # Accumulate holdout metrics across evaluations
+
             running_holdout_regret = 0.0
             running_holdout_reward = 0.0
 
@@ -828,11 +816,11 @@ class EvaluationWandbLogger:
             reward_lookup = {}
 
             for round_num, holdout_data in holdout_evals:
-                # Per-round metrics (from this evaluation)
+
                 eval_regret = holdout_data.get('regret', 0)
                 eval_reward = holdout_data.get('total_reward', holdout_data.get('reward', 0))
 
-                # Accumulate for cumulative metrics
+
                 running_holdout_regret += eval_regret
                 running_holdout_reward += eval_reward
 
@@ -841,7 +829,7 @@ class EvaluationWandbLogger:
                 cumulative_regret_lookup[round_num] = running_holdout_regret
                 cumulative_reward_lookup[round_num] = running_holdout_reward
 
-            # Fill arrays by carrying forward last known values
+
             last_cum_regret = None
             last_regret = None
             last_cum_reward = None
@@ -872,7 +860,7 @@ class EvaluationWandbLogger:
                 if i < len(regrets):
                     metrics['train/regret'] = regrets[i]
 
-                # For minimization problems, log cost (positive) instead of reward (negative)
+
                 if self.minimize:
                     if i < len(rewards):
                         metrics['train/cost'] = -rewards[i]
@@ -888,7 +876,7 @@ class EvaluationWandbLogger:
                     if i < len(optimal_rewards):
                         metrics['train/optimal_reward'] = optimal_rewards[i]
 
-                # Log holdout metrics at same frequency
+
                 if holdout_cumulative_regret[i] is not None:
                     metrics['holdout/cumulative_regret'] = holdout_cumulative_regret[i]
                 if holdout_regret[i] is not None:
@@ -915,19 +903,19 @@ class EvaluationWandbLogger:
         if not self._enabled or not self._run:
             return
 
-        # Extract final metrics from result
+
         cumulative_regret = result.get('cumulative_regret', [])
         regrets = result.get('regrets', [])
         rewards = result.get('rewards', [])
         holdout_evals = result.get('holdout_evals', [])
 
-        # Train metrics
+
         if cumulative_regret:
             self._wandb.summary['final_train_cumulative_regret'] = cumulative_regret[-1]
         if regrets:
             self._wandb.summary['final_train_regret_per_round'] = regrets[-1]
 
-        # For minimization, log cost (positive) instead of reward (negative)
+
         if rewards:
             if self.minimize:
                 self._wandb.summary['final_train_cumulative_cost'] = -sum(rewards)
@@ -937,13 +925,13 @@ class EvaluationWandbLogger:
                 self._wandb.summary['final_train_reward_per_round'] = rewards[-1]
 
         if holdout_evals:
-            # Compute cumulative metrics by summing all holdout evaluations
+
             cumulative_holdout_regret = sum(h[1].get('regret', 0) for h in holdout_evals)
             cumulative_holdout_reward = sum(
                 h[1].get('total_reward', h[1].get('reward', 0)) for h in holdout_evals
             )
 
-            # Per-round is from the last evaluation
+
             final_holdout = holdout_evals[-1][1]
             per_round_regret = final_holdout.get('regret', 0)
             per_round_reward = final_holdout.get('total_reward', final_holdout.get('reward', 0))
@@ -978,7 +966,6 @@ class EvaluationWandbLogger:
 
 
 class EvaluationSummaryLogger:
-    """Logger for evaluation summary across all agents and seeds."""
 
     def __init__(self, config: Dict[str, Any], dataset: str, feedback_type: str, use_tuned_params: bool):
         self.config = config
@@ -989,12 +976,10 @@ class EvaluationSummaryLogger:
         self._run = None
         self._enabled = config.get('wandb', {}).get('enabled', False)
 
-        if self._enabled:
-            try:
-                import wandb
-                self._wandb = wandb
-            except ImportError:
-                self._enabled = False
+        if self._enabled and wandb is not None:
+            self._wandb = wandb
+        else:
+            self._enabled = False
 
     def log_summary(
         self,
@@ -1003,7 +988,6 @@ class EvaluationSummaryLogger:
         holdout_cumulative_regrets: Optional[Dict[str, list]] = None,
         holdout_cumulative_rewards: Optional[Dict[str, list]] = None,
     ):
-        """Log summary table comparing all agents."""
         if not self._enabled:
             return
 
@@ -1034,34 +1018,34 @@ class EvaluationSummaryLogger:
             reinit=True,
         )
 
-        # Log summary statistics for each agent (train and holdout equally)
+
         for agent_name, regrets in train_cumulative_regrets.items():
             n_seeds = len(regrets)
             self._wandb.summary[f'{agent_name}/n_seeds'] = n_seeds
 
-            # Train cumulative regret
+
             self._wandb.summary[f'{agent_name}/mean_final_train_cumulative_regret'] = np.mean(regrets)
             self._wandb.summary[f'{agent_name}/std_final_train_cumulative_regret'] = np.std(regrets)
 
-            # Train cumulative reward
+
             if train_cumulative_rewards and agent_name in train_cumulative_rewards:
                 rewards = train_cumulative_rewards[agent_name]
                 self._wandb.summary[f'{agent_name}/mean_final_train_cumulative_reward'] = np.mean(rewards)
                 self._wandb.summary[f'{agent_name}/std_final_train_cumulative_reward'] = np.std(rewards)
 
-            # Holdout cumulative regret
+
             if holdout_cumulative_regrets and agent_name in holdout_cumulative_regrets:
                 holdout_reg = holdout_cumulative_regrets[agent_name]
                 self._wandb.summary[f'{agent_name}/mean_final_holdout_cumulative_regret'] = np.mean(holdout_reg)
                 self._wandb.summary[f'{agent_name}/std_final_holdout_cumulative_regret'] = np.std(holdout_reg)
 
-            # Holdout cumulative reward
+
             if holdout_cumulative_rewards and agent_name in holdout_cumulative_rewards:
                 holdout_rew = holdout_cumulative_rewards[agent_name]
                 self._wandb.summary[f'{agent_name}/mean_final_holdout_cumulative_reward'] = np.mean(holdout_rew)
                 self._wandb.summary[f'{agent_name}/std_final_holdout_cumulative_reward'] = np.std(holdout_rew)
 
-        # Log comparison table with both metrics
+
         if holdout_cumulative_regrets:
             table_data = [
                 [agent, np.mean(r), np.std(r),
@@ -1084,12 +1068,12 @@ class EvaluationSummaryLogger:
             )
         self._wandb.log({'results_table': table})
 
-        # Log best agent by train cumulative regret
+
         best_agent = min(train_cumulative_regrets.items(), key=lambda x: np.mean(x[1]))
         self._wandb.summary['best_train_agent'] = best_agent[0]
         self._wandb.summary['best_mean_final_train_cumulative_regret'] = np.mean(best_agent[1])
 
-        # Log best agent by holdout cumulative regret if available
+
         if holdout_cumulative_regrets:
             valid_holdout = {k: v for k, v in holdout_cumulative_regrets.items() if v}
             if valid_holdout:
@@ -1108,15 +1092,15 @@ def main():
         epilog="""
 Two-Stage Workflow Example:
   # Stage 1: Coarse HP search (3 seeds, 1k rounds, 30 trials)
-  python experiments/tune_hyperparams.py --all --dataset knapsack --n-seeds 3 --n-rounds 1000 --n-trials 30
+  python experiments/tune_hyperparams.py --all --dataset knapsack_32 --n-seeds 3 --n-rounds 1000 --n-trials 30
 
   # Stage 2: Full evaluation with tuned HPs (10 seeds, full rounds)
-  python experiments/evaluate.py --datasets knapsack --use-tuned-params --full --n_seeds 10
+  python experiments/evaluate.py --datasets knapsack_32 --use-tuned-params --full --n_seeds 10
 
 Examples:
-  python experiments/evaluate.py --datasets knapsack --quick
-  python experiments/evaluate.py --datasets knapsack,shortest_path_8x8 --full
-  python experiments/evaluate.py --datasets knapsack --use-tuned-params --agents BayesianSPO,BayesianSPO-DFE
+  python experiments/evaluate.py --datasets knapsack_32 --quick
+  python experiments/evaluate.py --datasets knapsack_32,shortest_path_8x8 --full
+  python experiments/evaluate.py --datasets knapsack_32 --use-tuned-params --agents BayesianSPO,BayesianSPO-DFE
         """
     )
     parser.add_argument('--config', type=str, default=DEFAULT_CONFIG_PATH)
@@ -1126,25 +1110,26 @@ Examples:
     parser.add_argument('--n_seeds', type=int, default=None, help='Number of seeds')
     parser.add_argument('--output_dir', type=str, default=None, help='Output directory')
     parser.add_argument('--no_save', action='store_true', help='Do not save results')
-    parser.add_argument('--datasets', type=str, default='synthetic', help='Comma-separated dataset names')
-    parser.add_argument('--noise', type=float, default=0.0, help='Noise width for synthetic dataset')
+    parser.add_argument('--datasets', type=str, default='knapsack_32', help='Comma-separated dataset names')
+    parser.add_argument('--noise', type=float, default=0.0,
+                        help='Override noise width for datasets with a noise_width config')
     parser.add_argument('--feedback', type=str, default='both',
                         choices=['semi_bandit', 'full', 'both'],
                         help='Feedback type to evaluate')
     parser.add_argument('--agents', type=str, default=None,
                         help='Comma-separated agent names to evaluate (default: all)')
 
-    # Tuned hyperparameters options
+
     parser.add_argument('--use-tuned-params', action='store_true',
                         help='Use tuned hyperparameters from HP search instead of defaults')
     parser.add_argument('--tuning-dir', type=str, default=DEFAULT_TUNING_DIR,
                         help='Directory containing tuning results (default: results/tuning)')
 
-    # Analysis options
+
     parser.add_argument('--analyze', action='store_true',
                         help='Run statistical analysis (bootstrap CIs, significance tests)')
 
-    # Wandb options
+
     parser.add_argument('--wandb', action='store_true',
                         help='Enable wandb logging for evaluation')
     parser.add_argument('--no-wandb', action='store_true',
@@ -1170,19 +1155,19 @@ Examples:
         default_n_rounds = args.n_rounds or eval_config['quick']['n_rounds']
         n_seeds = args.n_seeds or eval_config['quick']['n_seeds']
 
-    # Use evaluation_seeds (disjoint from tuning_seeds to avoid data leakage)
+
     default_eval_seeds = list(range(100, 100 + n_seeds))
     evaluation_seeds = config.get('evaluation_seeds', default_eval_seeds)
 
     output_dir = args.output_dir or eval_config['output_dir']
 
-    # Determine feedback types
+
     if args.feedback == 'both':
         feedback_types = ['semi_bandit', 'full']
     else:
         feedback_types = [args.feedback]
 
-    # Parse agents filter
+
     agents_filter = None
     if args.agents:
         agents_filter = [a.strip() for a in args.agents.split(',')]
@@ -1199,7 +1184,7 @@ Examples:
     print(f'Tuned params: {args.use_tuned_params} (from {args.tuning_dir})' if args.use_tuned_params else 'Tuned params: No (using defaults)')
     if agents_filter:
         print(f'Agents: {agents_filter}')
-    # Handle wandb configuration
+
     if args.no_wandb:
         config['wandb'] = {'enabled': False}
     elif args.wandb:
@@ -1209,7 +1194,7 @@ Examples:
 
     wandb_enabled = config.get('wandb', {}).get('enabled', False) and not args.no_wandb
     print(f'Wandb: {"enabled" if wandb_enabled else "disabled"}')
-    # Limit evaluation_seeds to n_seeds
+
     evaluation_seeds = evaluation_seeds[:n_seeds]
     print(f'Eval seeds: {evaluation_seeds}')
     print(f'Output: {output_dir}')
@@ -1219,21 +1204,21 @@ Examples:
     all_trajectories = {}
 
     for dataset in datasets:
-        # Determine n_rounds for this dataset (dataset config overrides default)
+
         dataset_config = config['datasets'][dataset]
         if args.n_rounds:
-            # Explicit CLI argument always wins
+
             n_rounds = args.n_rounds
         elif 'n_rounds' in dataset_config:
-            # Dataset-specific n_rounds
+
             n_rounds = dataset_config['n_rounds']
         else:
-            # Fall back to evaluation config default
+
             n_rounds = default_n_rounds
 
         print(f'\n[{dataset}] Using n_rounds={n_rounds}')
 
-        # Load tuned parameters if requested
+
         tuned_params = None
         if args.use_tuned_params:
             for ft in feedback_types:
@@ -1272,11 +1257,11 @@ Examples:
         all_results[dataset] = results
         all_trajectories.update(trajectories)
 
-        # Log summary to wandb if enabled
+
         if wandb_enabled:
             for ft in feedback_types:
                 if ft in results and results[ft]:
-                    # Extract all metrics from trajectories
+
                     train_cumulative_regrets = {}
                     train_cumulative_rewards = {}
                     holdout_cumulative_regrets = {}
@@ -1285,7 +1270,7 @@ Examples:
                     for key, data in trajectories.items():
                         agent_name, ds, mode, seed = key
                         if ds == dataset and mode == ft:
-                            # Train metrics
+
                             cumulative_regret = data.get('cumulative_regret', [])
                             if cumulative_regret:
                                 if agent_name not in train_cumulative_regrets:
@@ -1298,7 +1283,7 @@ Examples:
                                     train_cumulative_rewards[agent_name] = []
                                 train_cumulative_rewards[agent_name].append(sum(rewards))
 
-                            # Holdout metrics
+
                             holdout_evals = data.get('holdout_evals', [])
                             if holdout_evals:
                                 final_holdout = holdout_evals[-1][1]
@@ -1331,7 +1316,7 @@ Examples:
     if not args.no_save:
         save_results(all_results, all_trajectories, output_dir)
 
-    # Run statistical analysis if requested
+
     if args.analyze:
         for dataset in datasets:
             if dataset in all_results:

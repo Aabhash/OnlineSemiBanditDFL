@@ -1,14 +1,3 @@
-"""Feature robustness ablation: does SPO+ ignore decision-irrelevant features better than MSE?
-
-Trains BayesianSPO and BayesianMSE on the synthetic knapsack environment.
-At periodic evaluation points, generates a fixed test set, perturbs
-decision-irrelevant feature dimensions, and measures how much each agent's
-predictions and decisions change.
-
-Hypothesis: SPO+ learns to ignore irrelevant features → its decisions are
-stable under irrelevant perturbations, while MSE's predictions (and
-therefore decisions) are more sensitive.
-"""
 
 import sys
 sys.path.insert(0, '.')
@@ -24,27 +13,14 @@ import numpy as np
 import yaml
 
 from src.envs import create_env
-from src.agents.shared_context import BayesianSPOAgent, BayesianMSEAgent
-from src.agents.shared_context.weber_bll import WeberBLLAgent
+from src.agents.contextual import BayesianSPOAgent, BayesianMSEAgent
+from src.agents.contextual.weber_bll import WeberBLLAgent
 from src.agents.base import pregenerate_episode, run_agent_on_episode
 
 
-# ──────────────────────────────────────────────────────────────────────
-# Feature relevance analysis
-# ──────────────────────────────────────────────────────────────────────
-
 def compute_feature_relevance(env, n_samples=200):
-    """Compute per-feature decision relevance by measuring how perturbation
-    of each feature dimension changes the optimal knapsack solution.
-
-    Returns:
-        relevance: (context_dim,) array — fraction of test samples where
-                   perturbing feature j changes the optimal decision.
-        B_density: (context_dim,) array — fraction of items that depend on
-                   feature j (from the binary mask B).
-    """
     data = env.data
-    B = data.B  # (n_items, n_features) binary mask
+    B = data.B
     B_density = B.mean(axis=0)
 
     solver = env.solve
@@ -71,10 +47,6 @@ def compute_feature_relevance(env, n_samples=200):
 
 
 def select_feature_groups(relevance, B_density):
-    """Split features into 'relevant' and 'irrelevant' groups.
-
-    Irrelevant = bottom half by decision relevance score.
-    """
     n = len(relevance)
     order = np.argsort(relevance)
     mid = max(1, n // 2)
@@ -82,10 +54,6 @@ def select_feature_groups(relevance, B_density):
     relevant_dims = order[mid:].tolist()
     return relevant_dims, irrelevant_dims
 
-
-# ──────────────────────────────────────────────────────────────────────
-# Perturbation evaluation
-# ──────────────────────────────────────────────────────────────────────
 
 def evaluate_perturbation_robustness(
     agent,
@@ -97,21 +65,13 @@ def evaluate_perturbation_robustness(
     noise_scales=(0.5, 1.0, 2.0),
     rng=None,
 ):
-    """Evaluate how much an agent's decisions change under feature perturbation.
-
-    For each noise scale:
-      1. Perturb *irrelevant* features only → measure decision change
-      2. Perturb *relevant* features only   → measure decision change (control)
-
-    Returns dict of metrics.
-    """
     if rng is None:
         rng = np.random.default_rng(12345)
 
     n_test = len(X_test)
     solver = env.solve
 
-    # Baseline: agent decisions and predictions on clean test set
+
     decisions_clean = []
     preds_clean = []
     for i in range(n_test):
@@ -122,10 +82,10 @@ def evaluate_perturbation_robustness(
     decisions_clean = np.array(decisions_clean)
     preds_clean = np.array(preds_clean)
 
-    # Optimal decisions on clean test set
+
     opt_decisions = np.array([np.asarray(solver(Y_test[i])).flatten() for i in range(n_test)])
 
-    # Clean test regret
+
     clean_values = np.sum(Y_test * decisions_clean, axis=1)
     opt_values = np.sum(Y_test * opt_decisions, axis=1)
     clean_regret = np.mean(opt_values - clean_values)
@@ -142,24 +102,22 @@ def evaluate_perturbation_robustness(
             perturbed_regrets = []
 
             for i in range(n_test):
-                # Perturb only the specified dims
+
                 X_pert = X_test[i].copy()
                 noise = rng.standard_normal(len(dims)) * scale
                 X_pert[dims] += noise
 
-                # Agent decision on perturbed context
+
                 sel_pert = np.asarray(agent.act(X_pert)).flatten()
                 pred_pert = np.asarray(agent.predict_mean(X_pert)).flatten()
 
-                # Decision change: fraction of arms that flip
+
                 decision_changes.append(np.mean(np.abs(sel_pert - decisions_clean[i])))
 
-                # Prediction change: RMSE between clean and perturbed predictions
+
                 pred_changes.append(np.sqrt(np.mean((pred_pert - preds_clean[i]) ** 2)))
 
-                # Regret on TRUE values using perturbed decision
-                # (true values are still from clean context — we're testing
-                #  whether the agent's *internal model* is robust)
+
                 true_vals = Y_test[i]
                 perturbed_regrets.append(
                     np.sum(true_vals * opt_decisions[i]) - np.sum(true_vals * sel_pert)
@@ -173,12 +131,8 @@ def evaluate_perturbation_robustness(
     return metrics
 
 
-# ──────────────────────────────────────────────────────────────────────
-# Main experiment
-# ──────────────────────────────────────────────────────────────────────
-
 def run_feature_robustness(
-    dataset='synthetic',
+    dataset='knapsack_32',
     n_rounds=500,
     n_seeds=3,
     eval_interval=50,
@@ -210,7 +164,7 @@ def run_feature_robustness(
         solver = env.solve
         bayes_beta = -beta if minimize else beta
 
-        # ── Feature relevance analysis ──
+
         relevance, B_density = compute_feature_relevance(env)
         relevant_dims, irrelevant_dims = select_feature_groups(relevance, B_density)
 
@@ -220,15 +174,15 @@ def run_feature_robustness(
             print(f'Relevant dims: {relevant_dims}')
             print(f'Irrelevant dims: {irrelevant_dims}')
 
-        # ── Fixed test set (same across agents) ──
+
         test_rng = np.random.default_rng(seed + 7777)
         X_test = np.array([test_rng.standard_normal(env.context_dim) for _ in range(n_test)])
         Y_test = np.array([env.data._generate_values(X_test[i]) for i in range(n_test)])
 
-        # ── Pre-generate episode (same across agents) ──
+
         episode = pregenerate_episode(env, n_rounds)
 
-        # ── Create agents ──
+
         agents = {
             'BayesianSPO': BayesianSPOAgent(
                 env.context_dim, env.n_arms, env.weights, env.capacity,
@@ -277,7 +231,7 @@ def run_feature_robustness(
                 reward = np.sum(true_vals * selection)
                 cumulative_regret += optimal_val - reward
 
-                # Update agent
+
                 if isinstance(agent, BayesianSPOAgent):
                     agent.update(X, selection, observed, lr, full_feedback=False)
                 elif isinstance(agent, BayesianMSEAgent):
@@ -285,7 +239,7 @@ def run_feature_robustness(
                 elif isinstance(agent, WeberBLLAgent):
                     agent.update(X, selection, observed, lr, full_feedback=False)
 
-                # Periodic evaluation
+
                 if (t + 1) % eval_interval == 0:
                     m = evaluate_perturbation_robustness(
                         agent, env, X_test, Y_test,
@@ -316,7 +270,7 @@ def run_feature_robustness(
             'irrelevant_dims': irrelevant_dims,
         }
 
-    # ── Save results ──
+
     os.makedirs(output_dir, exist_ok=True)
     out_path = os.path.join(output_dir, f'{dataset}_n{n_rounds}_s{n_seeds}.json')
     with open(out_path, 'w') as f:
@@ -324,7 +278,7 @@ def run_feature_robustness(
     if verbose:
         print(f'\nResults saved to {out_path}')
 
-    # ── Print summary ──
+
     print('\n' + '=' * 70)
     print('SUMMARY: Feature Robustness (noise_scale=1.0)')
     print('=' * 70)

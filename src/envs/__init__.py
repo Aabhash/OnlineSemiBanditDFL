@@ -1,13 +1,13 @@
 from src.envs.base import ConstrainedBanditEnv
 from src.envs.knapsack import KnapsackEnv
 from src.envs.shortest_path import ShortestPathEdgeEnv
-from src.envs.criteo import CriteoEnv
+from src.envs.topk import TopKEnv
 
 __all__ = [
     'ConstrainedBanditEnv',
     'KnapsackEnv',
     'ShortestPathEdgeEnv',
-    'CriteoEnv',
+    'TopKEnv',
 ]
 
 
@@ -24,20 +24,18 @@ def create_env(env_type: str, seed: int = 42, **kwargs):
                     grid_size = int(part)
                     break
             if grid_size is None:
-                grid_size = 8  # default
+                grid_size = 8
         kwargs_copy.pop('data_type', None)
-        # Remove minimize as it's a property, not a parameter
         kwargs_copy.pop('minimize', None)
         return ShortestPathEdgeEnv(
             grid_size=grid_size,
             seed=seed,
             **kwargs_copy
         )
-    elif env_type.startswith('criteo'):
-        return CriteoEnv(seed=seed, **kwargs)
+    elif env_type.startswith('topk'):
+        return TopKEnv(seed=seed, **kwargs)
     else:
         raise ValueError(
             f"Unknown environment type: {env_type}. "
-            f"Available: knapsack, knapsack_unit_weight, "
-            f"shortest_path_*, criteo"
+            f"Available: knapsack, shortest_path_*, topk"
         )

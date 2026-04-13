@@ -17,14 +17,14 @@ class KnapsackEnv(ConstrainedBanditEnv):
         noise_width: float = 0.5,
         seed: int = 42,
         unit_weights: bool = False,
-        **kwargs,  # absorb legacy nonstationarity params
+        **kwargs,
     ):
         if context_dim is not None:
             effective_dim = context_dim
         elif n_features is not None:
             effective_dim = n_features
         else:
-            effective_dim = 5  # default
+            effective_dim = 5
 
         self.data = KnapsackData(
             n_items=n_items,

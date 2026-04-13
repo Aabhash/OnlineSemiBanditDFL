@@ -1,8 +1,10 @@
 import numpy as np
 from src.models import BayesianLinearModel
+from src.agents.agent_base import AgentBase
+from src.solver import solve_knapsack
 
 
-class ThompsonSamplingAgent:
+class ThompsonSamplingAgent(AgentBase):
 
     def __init__(
         self,
@@ -19,7 +21,6 @@ class ThompsonSamplingAgent:
         self.minimize = minimize
 
         if solver is None:
-            from src.solver import solve_knapsack
             self.solver = lambda v: solve_knapsack(np.asarray(v), weights, capacity)
         else:
             self.solver = solver
@@ -28,6 +29,12 @@ class ThompsonSamplingAgent:
         Y_sample = self.model.predict_sample(X)
         return self.solver(Y_sample)
 
+    def predict_mean(self, X: np.ndarray) -> np.ndarray:
+        return self.model.predict_mean(X)
+
+    def predict_uncertainty(self, X: np.ndarray) -> np.ndarray:
+        return self.model.get_uncertainty(X)
+
     def update(self, X: np.ndarray, selection: np.ndarray, rewards: np.ndarray,
-               full_feedback: bool = False):
+               lr: float = None, full_feedback: bool = False, **kwargs):
         self.model.update_batch(X, selection, rewards, full_feedback=full_feedback)

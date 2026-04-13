@@ -1,19 +1,14 @@
 #!/usr/bin/env python
-"""Ablation: k/n Ratio Sweep.
-
-Hypothesis: SPO+ advantage grows as k/n decreases (tighter capacity).
-
-Fix n_items=32, unit_weights=True. Sweep capacity [4,8,12,16,20,24,28].
-Pregenerate episode once (costs unchanged), recompute_optimals per capacity.
-
-Plot: X=k/n, Y=final regret per agent + SPO advantage % on secondary axis.
-"""
 import argparse
+import importlib
+import importlib.util
 import sys
 import os
 import numpy as np
 
 sys.path.insert(0, '.')
+
+plt = importlib.import_module('matplotlib.pyplot') if importlib.util.find_spec('matplotlib.pyplot') is not None else None
 
 from experiments.ablations.common import (
     load_config, make_dataset_config, recompute_optimals,
@@ -22,11 +17,11 @@ from experiments.ablations.common import (
 from src.envs import create_env
 from src.agents.base import pregenerate_episode, run_agent_on_episode
 from src.solvers.knapsack import KnapsackSolver
-from src.agents.shared_context import (
+from src.agents.contextual import (
     BayesianSPOAgent, BayesianMSEAgent, RandomAgent,
 )
 from src.models import BayesianLinearModel
-from src.agents.shared_context.ucb_agents import UCBAgent
+from src.agents.contextual.ucb_agents import UCBAgent
 
 
 def make_agents(env, seed, config, capacity):
@@ -64,9 +59,7 @@ def make_agents(env, seed, config, capacity):
 
 
 def plot_results(all_results, capacities, n_items, seeds, output_dir):
-    try:
-        import matplotlib.pyplot as plt
-    except ImportError:
+    if plt is None:
         print('matplotlib not available, skipping plots')
         return
 
@@ -88,7 +81,7 @@ def plot_results(all_results, capacities, n_items, seeds, output_dir):
     ax1.set_title('k/n Ratio Sweep: SPO+ Advantage vs Capacity Tightness')
     ax1.legend(loc='upper left')
 
-    # Secondary axis: SPO advantage %
+
     ax2 = ax1.twinx()
     spo_advantage = []
     for cap in capacities:
@@ -121,6 +114,7 @@ def main():
     parser.add_argument('--config', default='experiments/configs/experiment.yaml')
     parser.add_argument('--mode', choices=['quick', 'full'], default='quick')
     parser.add_argument('--output', default=None)
+    parser.add_argument('--no-plot', action='store_true', help='Save data only, skip plotting')
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -128,7 +122,7 @@ def main():
 
     if args.mode == 'quick':
         abl_cfg = get_quick_params(abl_cfg)
-        abl_cfg['capacities'] = [4, 16, 28]  # fewer capacities in quick mode
+        abl_cfg['capacities'] = [4, 16, 28]
 
     n_items = abl_cfg['n_items']
     capacities = abl_cfg['capacities']
@@ -146,12 +140,12 @@ def main():
     for seed_idx, seed in enumerate(seeds):
         print(f'\n  Seed {seed_idx + 1}/{len(seeds)} (seed={seed}):')
 
-        # Create env with unit weights and generous capacity for episode generation
+
         dc = make_dataset_config('knapsack_32', config,
                                  unit_weights=True, capacity=float(max(capacities)))
         env = create_env('knapsack_32', seed=seed, **dc)
 
-        # Pregenerate episode once with max capacity
+
         base_episode = pregenerate_episode(env, n_rounds)
 
         for cap in capacities:
@@ -175,7 +169,8 @@ def main():
                 print(f'regret={result["final_regret"]:.0f}', flush=True)
 
     save_results(all_results, os.path.join(output_dir, 'results.pkl'))
-    plot_results(all_results, capacities, n_items, seeds, output_dir)
+    if not args.no_plot:
+        plot_results(all_results, capacities, n_items, seeds, output_dir)
 
 
 if __name__ == '__main__':

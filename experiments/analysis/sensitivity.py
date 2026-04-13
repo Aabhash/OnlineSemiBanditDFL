@@ -126,7 +126,7 @@ def generate_all_sensitivity_plots(
     output_path.mkdir(parents=True, exist_ok=True)
 
     for agent_name, hp_space in search_spaces.items():
-        # Skip agents that don't have trials for this dataset
+
         trials = results_store.load_all_trials(agent_name=agent_name, dataset=dataset, feedback_type=feedback_type)
         if not trials:
             continue
@@ -192,7 +192,7 @@ def generate_sensitivity_report(
         if agent_name not in search_spaces:
             continue
 
-        # Skip agents that don't have trials for this dataset
+
         trials = results_store.load_all_trials(agent_name=agent_name, dataset=dataset, feedback_type=feedback_type)
         if not trials:
             continue
@@ -208,7 +208,7 @@ def generate_sensitivity_report(
                 )
                 agent_report[hp_name] = scores
             except ValueError:
-                # Skip HPs without enough data
+
                 continue
 
         if agent_report:

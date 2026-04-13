@@ -4,6 +4,7 @@ import numpy as np
 import optax
 from src.losses import make_spo_grad_fn
 from src.solver import ShortestPathSolver, KnapsackSolver
+from src.agents.agent_base import AgentBase
 from src.agents.bayesian_utils import (
     init_per_arm_regression,
     compute_bayesian_predictions,
@@ -24,7 +25,7 @@ def _fused_bayesian_core(X, W1, b1, A, b_bayes, A_inv, rewards, mask):
 @jax.jit
 def _fused_bayesian_core_nl(X, W1, b1, W2, b2, A, b_bayes, A_inv, rewards, mask):
     z = X @ W1 + b1
-    a = jnp.maximum(0, z)  # ReLU
+    a = jnp.maximum(0, z)
     h = a @ W2 + b2
     A_new, b_new, A_inv_new = update_bayesian_stats(
         A, b_bayes, A_inv, h, rewards, mask)
@@ -98,7 +99,7 @@ def compute_decision_disagreement(means_np, stds_np, solver, rng, M=10):
     return delta_t, solutions
 
 
-class BayesianSPO_DFE_Agent:
+class BayesianSPO_DFE_Agent(AgentBase):
     def __init__(
         self,
         context_dim: int,
@@ -146,7 +147,7 @@ class BayesianSPO_DFE_Agent:
         self.minimize = minimize
         self.t = 0
 
-        # Discriminative parameters
+
         self.disc_K = disc_K
         self.disc_lambda_0 = disc_lambda
         self.disc_lambda = disc_lambda
@@ -154,7 +155,7 @@ class BayesianSPO_DFE_Agent:
         self.contested_tau = contested_tau
         self.contested_eps = contested_eps
 
-        # DFE parameters
+
         self.mask_grad = mask_grad
         self.decision_focused_explore = decision_focused_explore
         self.adaptive_dfe = adaptive_dfe
@@ -163,7 +164,7 @@ class BayesianSPO_DFE_Agent:
         self.adaptive_lambda = adaptive_lambda
         self.di_gate_threshold = di_gate_threshold
 
-        # Diagnostic histories
+
         self.delta_history = []
         self.gamma_history = []
         self.lambda_history = []
@@ -171,7 +172,7 @@ class BayesianSPO_DFE_Agent:
         self.contested_history = []
         self.sym_diff_sizes_history = []
 
-        # Validation
+
         if imputation not in ('disc_explore', 'disc_impute'):
             raise ValueError(
                 f"BayesianSPO_DFE_Agent only supports 'disc_explore' and "
@@ -180,7 +181,7 @@ class BayesianSPO_DFE_Agent:
             raise ValueError(
                 'co_solver or grid_size required for DFE/DI agent')
 
-        # Combinatorial solver for alternatives/slacks
+
         if co_solver is not None:
             self.co_solver = co_solver
         elif grid_size is not None:
@@ -199,7 +200,7 @@ class BayesianSPO_DFE_Agent:
         else:
             self.loss_grad_fn = make_spo_grad_fn(self.solver, minimize=minimize)
 
-        # RNG
+
         key = jax.random.PRNGKey(seed if seed is not None else 0)
         key, init_key = jax.random.split(key)
         self.rng_key = key
@@ -218,7 +219,7 @@ class BayesianSPO_DFE_Agent:
             self.b1 = jnp.zeros(hidden_dim)
             init_params = {'W1': self.W1, 'b1': self.b1}
 
-        # LR schedule: init_lr / (t+1)^lr_power
+
         if lr_schedule is not None:
             schedule = lr_schedule
         else:
@@ -264,6 +265,10 @@ class BayesianSPO_DFE_Agent:
             return np.asarray(_fused_predict(X_j, self.W1, self.b1,
                                              self.A_inv, self.b_bayes))
 
+    def predict_uncertainty(self, X):
+        h = self._features(jnp.asarray(X, dtype=jnp.float32))
+        return np.asarray(self._compute_stds(h))
+
     def act(self, X):
         self.t += 1
         X_j = jnp.asarray(X, dtype=jnp.float32)
@@ -273,7 +278,7 @@ class BayesianSPO_DFE_Agent:
         means = theta @ h
         stds = self._compute_stds(h)
 
-        # --- DFE: slack-based exploration ---
+
         if self.decision_focused_explore:
             means_np = np.asarray(means, dtype=np.float64)
             stds_np = np.asarray(stds, dtype=np.float64)
@@ -300,7 +305,7 @@ class BayesianSPO_DFE_Agent:
 
             return self.solver(np.asarray(values))
 
-        # --- DI/DX: contested edge exploration ---
+
         means_np = np.asarray(means, dtype=np.float64)
         stds_np = np.asarray(stds, dtype=np.float64)
 
@@ -327,13 +332,14 @@ class BayesianSPO_DFE_Agent:
         return self.solver(np.asarray(values))
 
     def update(self, X, selection, rewards, lr=None, full_feedback=False,
-               prob_values=None):
+               **kwargs):
+        prob_values = kwargs.get("prob_values")
         X_j = jnp.asarray(X, dtype=jnp.float32)
         sel_j = jnp.asarray(selection, dtype=jnp.float32)
         rew_j = jnp.asarray(rewards, dtype=jnp.float32)
         sel_mask = sel_j > 0.5
 
-        # Use smooth probabilities for SPO gradient when available
+
         if prob_values is not None:
             spo_targets_j = jnp.asarray(prob_values, dtype=jnp.float32)
         else:
@@ -345,22 +351,22 @@ class BayesianSPO_DFE_Agent:
             obs_mask = sel_mask
 
         if self.nonlinear:
-            h, pred, theta, self.A, self.b_bayes, self.A_inv = \
+            h, pred, theta, self.A, self.b_bayes, self.A_inv =\
                 _fused_bayesian_core_nl(X_j, self.W1, self.b1, self.W2, self.b2,
                                         self.A, self.b_bayes, self.A_inv,
                                         rew_j, obs_mask)
         else:
-            h, pred, theta, self.A, self.b_bayes, self.A_inv = \
+            h, pred, theta, self.A, self.b_bayes, self.A_inv =\
                 _fused_bayesian_core(X_j, self.W1, self.b1,
                                      self.A, self.b_bayes, self.A_inv,
                                      rew_j, obs_mask)
 
-        # Compute stds for DI mode
+
         stds = None
         if self.imputation == 'disc_impute' or self.adaptive_lambda:
             stds = self._compute_stds(h)
 
-        # Adaptive lambda for DI
+
         if self.adaptive_lambda and self.imputation == 'disc_impute':
             means_np = np.asarray(pred, dtype=np.float64)
             stds_np = np.asarray(stds, dtype=np.float64)
@@ -368,7 +374,7 @@ class BayesianSPO_DFE_Agent:
             self.disc_lambda = self.disc_lambda_0 * delta_t
             self.lambda_history.append(self.disc_lambda)
 
-        # Confidence-gated DI
+
         if self.imputation == 'disc_impute' and self.di_gate_threshold > 0:
             if stds is None:
                 stds = self._compute_stds(h)
@@ -408,16 +414,13 @@ class BayesianSPO_DFE_Agent:
             self.W2 = jnp.clip(new_params['W2'], -10, 10)
             self.b2 = new_params['b2']
 
-    # --- Gradient methods ---
 
     def _grad_disc_explore(self, pred, rew_j, obs_mask):
-        """DX/DFE: Strictly masked gradient -- no imputed gradients."""
         Y_target = jnp.where(obs_mask, rew_j, pred)
         grad_pred = self.loss_grad_fn(pred, Y_target)
         return jnp.where(obs_mask, grad_pred, 0.0)
 
     def _grad_disc_impute(self, pred, rew_j, obs_mask, stds):
-        """DI: Adversarial imputation on discriminating edges per alternative."""
         pred_np = np.asarray(pred, dtype=np.float64)
         stds_np = np.asarray(stds, dtype=np.float64)
 

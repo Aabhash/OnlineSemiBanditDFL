@@ -1,8 +1,9 @@
 import jax.numpy as jnp
 import numpy as np
+from src.agents.agent_base import AgentBase
 
 
-class RandomAgent:
+class RandomAgent(AgentBase):
 
     def __init__(
         self,
@@ -37,8 +38,11 @@ class RandomAgent:
         pred = jnp.where(mask, self.reward_sum / jnp.maximum(self.reward_count, 1), pred)
         return pred
 
+    def predict_mean(self, X: np.ndarray) -> jnp.ndarray:
+        return self.predict(X)
+
     def update(self, X: np.ndarray, selection: np.ndarray, rewards: np.ndarray,
-               full_feedback: bool = False):
+               lr: float = None, full_feedback: bool = False, **kwargs):
         rewards = jnp.asarray(rewards)
         selection = jnp.asarray(selection)
 

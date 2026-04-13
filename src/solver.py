@@ -1,7 +1,6 @@
-"""Backwards-compatibility shim — imports forwarded from src.solvers."""
 
-from src.solvers import *  # noqa: F401,F403
-from src.solvers import (  # explicit re-exports for type checkers
+from src.solvers import *
+from src.solvers import (
     solve_knapsack,
     solve_knapsack_gurobi,
     get_capacity,

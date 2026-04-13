@@ -1,12 +1,16 @@
+import argparse
 import sys
 sys.path.insert(0, '.')
 
+import jax
 import numpy as np
 import jax.numpy as jnp
+import yaml
 from collections import defaultdict
 
 from src.envs import create_env
-from src.losses import spo_plus_grad, spo_plus_grad_smooth
+import src.losses as losses_module
+from src.solver import solve_knapsack
 from src.agents.bayesian_utils import (
     init_per_arm_regression,
     compute_ucb_values,
@@ -14,21 +18,19 @@ from src.agents.bayesian_utils import (
     update_bayesian_stats,
 )
 
+spo_plus_grad = losses_module.spo_plus_grad
+spo_plus_grad_smooth = getattr(losses_module, 'spo_plus_grad_smooth', None)
 
-def analyze_gradients(dataset='knapsack_low_noise', n_rounds=500, seed=42):
 
-    # Load config
-    import yaml
+def analyze_gradients(dataset='knapsack_32', n_rounds=500, seed=42):
     with open('experiments/configs/experiment.yaml') as f:
         config = yaml.safe_load(f)
 
-    # Create environment
+
     dataset_config = config['datasets'][dataset].copy()
-    dataset_config.pop('env_type', None)  # Remove env_type as it's passed separately
+    dataset_config.pop('env_type', None)
     env = create_env(dataset, seed, **dataset_config)
 
-    # Initialize model components (like MSENeuralAgent/BayesianSPOAgent)
-    import jax
     context_dim = env.context_dim
     n_arms = env.n_arms
     hidden_dim = 32
@@ -44,7 +46,7 @@ def analyze_gradients(dataset='knapsack_low_noise', n_rounds=500, seed=42):
     weights = jnp.asarray(env.weights)
     capacity = env.capacity
 
-    # Metrics to track
+
     metrics = defaultdict(list)
 
     X = env.reset()
@@ -52,23 +54,22 @@ def analyze_gradients(dataset='knapsack_low_noise', n_rounds=500, seed=42):
     for t in range(n_rounds):
         X_jax = jnp.asarray(X)
 
-        # Forward pass
+
         z1 = X_jax @ W1 + b1
         h = jnp.maximum(0, z1)
 
-        # Get predictions and UCB values
+
         pred = compute_bayesian_predictions(h, A_inv, b_bayes)
         ucb_values = compute_ucb_values(h, A_inv, b_bayes, beta)
 
-        # Act using UCB
-        from src.solver import solve_knapsack
+
         selection = solve_knapsack(np.asarray(ucb_values), np.asarray(env.weights), capacity)
 
-        # Step environment
+
         observed_values, reward, info = env.step(selection, full_feedback=False)
         true_values = info['true_values']
 
-        # Update Bayesian stats
+
         selection_jax = jnp.asarray(selection)
         rewards_jax = jnp.asarray(observed_values)
         selection_mask = selection_jax > 0.5
@@ -77,15 +78,14 @@ def analyze_gradients(dataset='knapsack_low_noise', n_rounds=500, seed=42):
             A, b_bayes, A_inv, h, rewards_jax, selection_mask
         )
 
-        # Compute imputed targets
-        # UCB imputation (what BayesianSPO uses)
+
         Y_ucb = jnp.where(selection_jax > 0.5, rewards_jax, ucb_values)
-        # DM imputation (what IERM-DM uses)
+
         Y_dm = jnp.where(selection_jax > 0.5, rewards_jax, pred)
-        # True values (oracle - what we'd have with full feedback)
+
         Y_true = jnp.asarray(true_values)
 
-        # Compute gradients with different targets
+
         mse_grad_ucb = 2 * (pred - Y_ucb) / n_arms
         mse_grad_dm = 2 * (pred - Y_dm) / n_arms
         mse_grad_true = 2 * (pred - Y_true) / n_arms
@@ -94,14 +94,20 @@ def analyze_gradients(dataset='knapsack_low_noise', n_rounds=500, seed=42):
         spo_grad_dm = spo_plus_grad(pred, Y_dm, weights, capacity)
         spo_grad_true = spo_plus_grad(pred, Y_true, weights, capacity)
 
-        # Smooth SPO+ gradients
-        smooth_spo_grad_ucb = spo_plus_grad_smooth(pred, Y_ucb, weights, capacity, temperature=1.0)
-        smooth_spo_grad_true = spo_plus_grad_smooth(pred, Y_true, weights, capacity, temperature=1.0)
 
-        # Analyze gradient properties
+        if spo_plus_grad_smooth is not None:
+            smooth_spo_grad_ucb = spo_plus_grad_smooth(
+                pred, Y_ucb, weights, capacity, temperature=1.0)
+            smooth_spo_grad_true = spo_plus_grad_smooth(
+                pred, Y_true, weights, capacity, temperature=1.0)
+        else:
+            smooth_spo_grad_ucb = None
+            smooth_spo_grad_true = None
+
+
         metrics['round'].append(t)
 
-        # Gradient magnitudes
+
         metrics['mse_grad_ucb_norm'].append(float(jnp.linalg.norm(mse_grad_ucb)))
         metrics['mse_grad_dm_norm'].append(float(jnp.linalg.norm(mse_grad_dm)))
         metrics['mse_grad_true_norm'].append(float(jnp.linalg.norm(mse_grad_true)))
@@ -109,17 +115,20 @@ def analyze_gradients(dataset='knapsack_low_noise', n_rounds=500, seed=42):
         metrics['spo_grad_dm_norm'].append(float(jnp.linalg.norm(spo_grad_dm)))
         metrics['spo_grad_true_norm'].append(float(jnp.linalg.norm(spo_grad_true)))
 
-        # Gradient sparsity (fraction of non-zero elements)
+
         metrics['spo_grad_ucb_sparsity'].append(float(jnp.mean(spo_grad_ucb != 0)))
         metrics['spo_grad_dm_sparsity'].append(float(jnp.mean(spo_grad_dm != 0)))
         metrics['spo_grad_true_sparsity'].append(float(jnp.mean(spo_grad_true != 0)))
 
-        # Smooth SPO+ metrics
-        metrics['smooth_spo_grad_ucb_norm'].append(float(jnp.linalg.norm(smooth_spo_grad_ucb)))
-        metrics['smooth_spo_grad_true_norm'].append(float(jnp.linalg.norm(smooth_spo_grad_true)))
 
-        # Alignment between imputed and true gradients
-        # Cosine similarity
+        if smooth_spo_grad_ucb is not None and smooth_spo_grad_true is not None:
+            metrics['smooth_spo_grad_ucb_norm'].append(float(jnp.linalg.norm(smooth_spo_grad_ucb)))
+            metrics['smooth_spo_grad_true_norm'].append(float(jnp.linalg.norm(smooth_spo_grad_true)))
+        else:
+            metrics['smooth_spo_grad_ucb_norm'].append(np.nan)
+            metrics['smooth_spo_grad_true_norm'].append(np.nan)
+
+
         def cosine_sim(a, b):
             norm_a = jnp.linalg.norm(a)
             norm_b = jnp.linalg.norm(b)
@@ -131,16 +140,20 @@ def analyze_gradients(dataset='knapsack_low_noise', n_rounds=500, seed=42):
         metrics['mse_dm_vs_true_cosine'].append(cosine_sim(mse_grad_dm, mse_grad_true))
         metrics['spo_ucb_vs_true_cosine'].append(cosine_sim(spo_grad_ucb, spo_grad_true))
         metrics['spo_dm_vs_true_cosine'].append(cosine_sim(spo_grad_dm, spo_grad_true))
-        metrics['smooth_spo_ucb_vs_true_cosine'].append(cosine_sim(smooth_spo_grad_ucb, smooth_spo_grad_true))
+        if smooth_spo_grad_ucb is not None and smooth_spo_grad_true is not None:
+            metrics['smooth_spo_ucb_vs_true_cosine'].append(
+                cosine_sim(smooth_spo_grad_ucb, smooth_spo_grad_true))
+        else:
+            metrics['smooth_spo_ucb_vs_true_cosine'].append(np.nan)
 
-        # Imputation error
+
         metrics['ucb_imputation_mse'].append(float(jnp.mean((Y_ucb - Y_true) ** 2)))
         metrics['dm_imputation_mse'].append(float(jnp.mean((Y_dm - Y_true) ** 2)))
 
-        # Prediction error
+
         metrics['pred_mse'].append(float(jnp.mean((pred - Y_true) ** 2)))
 
-        # Regret
+
         metrics['regret'].append(info['regret'])
 
         X = env.get_context()
@@ -149,14 +162,12 @@ def analyze_gradients(dataset='knapsack_low_noise', n_rounds=500, seed=42):
 
 
 def print_summary(metrics):
-    """Print summary statistics."""
-    import numpy as np
 
     print("\n" + "="*70)
     print("GRADIENT ANALYSIS SUMMARY")
     print("="*70)
 
-    # Average over all rounds
+
     print("\n--- Gradient Magnitudes (mean ± std) ---")
     print(f"MSE grad (UCB imp):  {np.mean(metrics['mse_grad_ucb_norm']):.4f} ± {np.std(metrics['mse_grad_ucb_norm']):.4f}")
     print(f"MSE grad (DM imp):   {np.mean(metrics['mse_grad_dm_norm']):.4f} ± {np.std(metrics['mse_grad_dm_norm']):.4f}")
@@ -175,11 +186,20 @@ def print_summary(metrics):
     print(f"MSE (DM imp) vs true:         {np.mean(metrics['mse_dm_vs_true_cosine']):.4f}")
     print(f"SPO+ (UCB imp) vs true:       {np.mean(metrics['spo_ucb_vs_true_cosine']):.4f}")
     print(f"SPO+ (DM imp) vs true:        {np.mean(metrics['spo_dm_vs_true_cosine']):.4f}")
-    print(f"Smooth SPO+ (UCB) vs true:    {np.mean(metrics['smooth_spo_ucb_vs_true_cosine']):.4f}")
+    smooth_cos = np.nanmean(metrics['smooth_spo_ucb_vs_true_cosine'])
+    if np.isnan(smooth_cos):
+        print("Smooth SPO+ (UCB) vs true:    unavailable")
+    else:
+        print(f"Smooth SPO+ (UCB) vs true:    {smooth_cos:.4f}")
 
     print("\n--- Smooth SPO+ Gradient Magnitudes ---")
-    print(f"Smooth SPO+ (UCB imp): {np.mean(metrics['smooth_spo_grad_ucb_norm']):.4f}")
-    print(f"Smooth SPO+ (true):    {np.mean(metrics['smooth_spo_grad_true_norm']):.4f}")
+    smooth_ucb = np.nanmean(metrics['smooth_spo_grad_ucb_norm'])
+    smooth_true = np.nanmean(metrics['smooth_spo_grad_true_norm'])
+    if np.isnan(smooth_ucb) or np.isnan(smooth_true):
+        print("Smooth SPO+ metrics: unavailable")
+    else:
+        print(f"Smooth SPO+ (UCB imp): {smooth_ucb:.4f}")
+        print(f"Smooth SPO+ (true):    {smooth_true:.4f}")
 
     print("\n--- Imputation Error (MSE) ---")
     print(f"UCB imputation: {np.mean(metrics['ucb_imputation_mse']):.4f}")
@@ -188,7 +208,7 @@ def print_summary(metrics):
     print("\n--- Prediction Error ---")
     print(f"Prediction MSE: {np.mean(metrics['pred_mse']):.4f}")
 
-    # Early vs late comparison
+
     n = len(metrics['round'])
     early = slice(0, n//4)
     late = slice(3*n//4, n)
@@ -203,9 +223,8 @@ def print_summary(metrics):
 
 
 if __name__ == '__main__':
-    import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', type=str, default='knapsack_low_noise')
+    parser.add_argument('--dataset', type=str, default='knapsack_32')
     parser.add_argument('--n_rounds', type=int, default=500)
     parser.add_argument('--seed', type=int, default=42)
     args = parser.parse_args()

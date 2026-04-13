@@ -6,11 +6,14 @@ from src.agents.bayesian_utils import (
     init_per_arm_regression,
     compute_ucb_values,
     compute_bayesian_predictions,
+    compute_uncertainties,
     update_bayesian_stats,
 )
+from src.agents.agent_base import AgentBase
+from src.solver import solve_knapsack
 
 
-class BayesianMSEAgent:
+class BayesianMSEAgent(AgentBase):
 
     def __init__(
         self,
@@ -31,6 +34,10 @@ class BayesianMSEAgent:
         nonlinear: bool = False,
         solver=None,
         seed: int = None,
+
+        phased: bool = False,
+        phase_length: int = 50,
+        phase_epochs: int = 5,
     ):
         self.context_dim = context_dim
         self.n_arms = n_arms
@@ -42,7 +49,6 @@ class BayesianMSEAgent:
         self.nonlinear = nonlinear
 
         if solver is None:
-            from src.solver import solve_knapsack
             self.solver = lambda v: solve_knapsack(np.asarray(v), self.weights_np, capacity)
         else:
             self.solver = solver
@@ -72,7 +78,7 @@ class BayesianMSEAgent:
             self.b1 = jnp.zeros(hidden_dim)
             init_params = {'W1': self.W1, 'b1': self.b1}
 
-        # Inverse-sqrt LR schedule: lr / sqrt(t+1)
+
         schedule = lambda count: lr / jnp.sqrt(count + 1)
         self.optimizer = optax.chain(
             optax.clip_by_global_norm(max_grad_norm),
@@ -82,11 +88,31 @@ class BayesianMSEAgent:
 
         self.A, self.b_bayes, self.A_inv = init_per_arm_regression(n_arms, hidden_dim, lambda_reg)
 
+
+        self.phased = phased
+        self.phase_length = phase_length
+        self.phase_epochs = phase_epochs
+        if phased:
+            self._init_phase_buffer()
+            self._rounds_since_retrain = 0
+
+    def _get_params(self):
+        if self.nonlinear:
+            return {'W1': self.W1, 'b1': self.b1, 'W2': self.W2, 'b2': self.b2}
+        return {'W1': self.W1, 'b1': self.b1}
+
+    def _set_params(self, params):
+        self.W1 = jnp.clip(params['W1'], -10, 10)
+        self.b1 = params['b1']
+        if self.nonlinear:
+            self.W2 = jnp.clip(params['W2'], -10, 10)
+            self.b2 = params['b2']
+
     def _features(self, X):
         X = jnp.asarray(X)
         if self.nonlinear:
             z = X @ self.W1 + self.b1
-            a = jnp.maximum(0, z)  # ReLU
+            a = jnp.maximum(0, z)
             h = a @ self.W2 + self.b2
             return h
         else:
@@ -96,6 +122,10 @@ class BayesianMSEAgent:
     def predict_mean(self, X):
         h = self._features(X)
         return compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
+
+    def predict_uncertainty(self, X):
+        h = self._features(X)
+        return compute_uncertainties(h, self.A_inv)
 
     def act(self, X: np.ndarray) -> np.ndarray:
         self.t += 1
@@ -108,8 +138,59 @@ class BayesianMSEAgent:
         ucb_values = compute_ucb_values(h, self.A_inv, self.b_bayes, self.beta)
         return self.solver(np.asarray(ucb_values))
 
+    def _compute_mse_grad_h(self, X, h, Y_target, selection_mask, full_feedback):
+        pred = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
+        mse_grad = 2 * (pred - Y_target) / self.n_arms
+        if self.mask_grad and not full_feedback:
+            mse_grad = jnp.where(selection_mask, mse_grad, 0.0)
+        theta = jnp.einsum('nij,nj->ni', self.A_inv, self.b_bayes)
+        return jnp.einsum('n,ni->i', mse_grad, theta)
+
+    def _backprop_and_step(self, X, grad_h):
+        X = jnp.asarray(X)
+        if self.nonlinear:
+            z = X @ self.W1 + self.b1
+            a = jnp.maximum(0, z)
+            grad_a = grad_h @ self.W2.T
+            grad_z = grad_a * (z > 0)
+            grads = {
+                'W1': jnp.outer(X, grad_z), 'b1': grad_z,
+                'W2': jnp.outer(a, grad_h), 'b2': grad_h,
+            }
+        else:
+            grads = {'W1': jnp.outer(X, grad_h), 'b1': grad_h}
+        params = self._get_params()
+        updates, self.opt_state = self.optimizer.update(grads, self.opt_state, params)
+        self._set_params(optax.apply_updates(params, updates))
+
+    def _phased_retrain(self):
+        for _ in range(self.phase_epochs):
+            for i in range(len(self._phase_buffer_X)):
+                X_buf = self._phase_buffer_X[i]
+                Y_buf = self._phase_buffer_Y[i]
+                sel_buf = self._phase_buffer_sel[i]
+
+                h = self._features(X_buf)
+                pred = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
+
+                sel_mask = jnp.asarray(sel_buf) > 0.5
+                Y_target = jnp.where(sel_mask, jnp.asarray(Y_buf), pred)
+
+                grad_h = self._compute_mse_grad_h(X_buf, h, Y_target, sel_mask, False)
+                self._backprop_and_step(X_buf, grad_h)
+
+
+        self.A, self.b_bayes, self.A_inv = init_per_arm_regression(
+            self.n_arms, self.hidden_dim, self.lambda_reg)
+        for i in range(len(self._phase_buffer_X)):
+            h = self._features(self._phase_buffer_X[i])
+            sel_mask = jnp.asarray(self._phase_buffer_sel[i]) > 0.5
+            rewards = jnp.asarray(self._phase_buffer_Y[i])
+            self.A, self.b_bayes, self.A_inv = update_bayesian_stats(
+                self.A, self.b_bayes, self.A_inv, h, rewards, sel_mask)
+
     def update(self, X: np.ndarray, selection: np.ndarray, rewards: np.ndarray,
-               lr: float = None, full_feedback: bool = False):
+               lr: float = None, full_feedback: bool = False, **kwargs):
         X = jnp.asarray(X)
         selection = jnp.asarray(selection)
         rewards = jnp.asarray(rewards)
@@ -121,42 +202,18 @@ class BayesianMSEAgent:
             self.A, self.b_bayes, self.A_inv, h, rewards, selection_mask
         )
 
-        pred = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
-
-        if full_feedback:
-            Y_target = rewards
+        if self.phased:
+            self._append_phase_buffer(X, rewards, selection)
+            self._rounds_since_retrain += 1
+            if self._rounds_since_retrain >= self.phase_length:
+                self._phased_retrain()
+                self._rounds_since_retrain = 0
         else:
-            # Model-mean imputation: use pred on unobserved
-            Y_target = jnp.where(selection > 0.5, rewards, pred)
+            pred = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
+            if full_feedback:
+                Y_target = rewards
+            else:
+                Y_target = jnp.where(selection > 0.5, rewards, pred)
 
-        mse_grad = 2 * (pred - Y_target) / self.n_arms
-
-        # Zero gradient on unobserved arms when mask_grad is enabled
-        if self.mask_grad and not full_feedback:
-            mse_grad = jnp.where(selection > 0.5, mse_grad, 0.0)
-
-        theta = jnp.einsum('nij,nj->ni', self.A_inv, self.b_bayes)
-        grad_h = jnp.einsum('n,ni->i', mse_grad, theta)
-
-        if self.nonlinear:
-            # Backprop: grad_h -> W2 -> ReLU -> W1
-            z = X @ self.W1 + self.b1
-            a = jnp.maximum(0, z)
-            grad_a = grad_h @ self.W2.T  # through W2
-            grad_z = grad_a * (z > 0)     # through ReLU
-            grads = {
-                'W1': jnp.outer(X, grad_z), 'b1': grad_z,
-                'W2': jnp.outer(a, grad_h), 'b2': grad_h,
-            }
-            params = {'W1': self.W1, 'b1': self.b1, 'W2': self.W2, 'b2': self.b2}
-        else:
-            grads = {'W1': jnp.outer(X, grad_h), 'b1': grad_h}
-            params = {'W1': self.W1, 'b1': self.b1}
-
-        updates, self.opt_state = self.optimizer.update(grads, self.opt_state, params)
-        new_params = optax.apply_updates(params, updates)
-        self.W1 = jnp.clip(new_params['W1'], -10, 10)
-        self.b1 = new_params['b1']
-        if self.nonlinear:
-            self.W2 = jnp.clip(new_params['W2'], -10, 10)
-            self.b2 = new_params['b2']
+            grad_h = self._compute_mse_grad_h(X, h, Y_target, selection_mask, full_feedback)
+            self._backprop_and_step(X, grad_h)

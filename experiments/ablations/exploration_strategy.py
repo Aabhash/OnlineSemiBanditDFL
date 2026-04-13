@@ -1,31 +1,20 @@
 #!/usr/bin/env python
-"""Ablation: Exploration Strategy.
-
-Hypothesis: UCB > DFE > Greedy for SPO+.
-
-Agents:
-- SPO+Greedy (beta=0)
-- SPO+UCB (beta=1)
-- SPO+UCB-strong (beta=3)
-- SPO+DFE (decision_focused_explore=True, adaptive_dfe=True)
-- SPO+DI (disc_impute)
-- MSE+Greedy (beta=0)
-- MSE+UCB (beta=1)
-
-Plot: Cumulative regret trajectories + bar chart. Contested_mae subplot.
-"""
 import argparse
-import sys
+import importlib
+import importlib.util
 import os
+import sys
 import numpy as np
 
 sys.path.insert(0, '.')
+
+plt = importlib.import_module('matplotlib.pyplot') if importlib.util.find_spec('matplotlib.pyplot') is not None else None
 
 from experiments.ablations.common import (
     load_config, make_co_solver, make_dataset_config,
     run_ablation_sweep, save_results, get_quick_params,
 )
-from src.agents.shared_context import (
+from src.agents.contextual import (
     BayesianSPOAgent, BayesianMSEAgent, BayesianSPO_DFE_Agent,
 )
 
@@ -79,9 +68,7 @@ def make_agents(env, seed, config):
 
 
 def plot_results(all_results, seeds, n_rounds, output_dir):
-    try:
-        import matplotlib.pyplot as plt
-    except ImportError:
+    if plt is None:
         print('matplotlib not available, skipping plots')
         return
 
@@ -89,7 +76,7 @@ def plot_results(all_results, seeds, n_rounds, output_dir):
 
     fig, axes = plt.subplots(2, 3, figsize=(18, 10))
 
-    # Row 1, Panel 1: Cumulative regret trajectories
+                                                    
     ax = axes[0, 0]
     for name in agent_names:
         trajs = [all_results[(name, s)]['cumulative_regret'] for s in seeds
@@ -102,7 +89,7 @@ def plot_results(all_results, seeds, n_rounds, output_dir):
     ax.set_title('Regret Trajectories')
     ax.legend(fontsize=7)
 
-    # Row 1, Panel 2: Flip set size trajectories
+                                                
     ax = axes[0, 1]
     for name in agent_names:
         trajs = []
@@ -114,7 +101,7 @@ def plot_results(all_results, seeds, n_rounds, output_dir):
                 trajs.append(fs)
         if trajs:
             mean_traj = np.mean(trajs, axis=0)
-            # Smooth with rolling window
+                                        
             window = min(50, len(mean_traj) // 5) or 1
             smoothed = np.convolve(mean_traj, np.ones(window)/window, mode='valid')
             ax.plot(smoothed, label=name)
@@ -123,7 +110,7 @@ def plot_results(all_results, seeds, n_rounds, output_dir):
     ax.set_title('Flip Set Dynamics')
     ax.legend(fontsize=7)
 
-    # Row 1, Panel 3: Decision accuracy trajectories
+                                                    
     ax = axes[0, 2]
     for name in agent_names:
         trajs = []
@@ -143,7 +130,7 @@ def plot_results(all_results, seeds, n_rounds, output_dir):
     ax.set_title('Decision Correctness')
     ax.legend(fontsize=7)
 
-    # Row 2, Panel 1: Final regret bar chart
+                                            
     ax = axes[1, 0]
     mean_regrets = {}
     std_regrets = {}
@@ -161,7 +148,7 @@ def plot_results(all_results, seeds, n_rounds, output_dir):
     ax.set_ylabel('Final Regret')
     ax.set_title('Final Regret')
 
-    # Row 2, Panel 2: Flip-set contested MAE (last 100 rounds)
+                                                              
     ax = axes[1, 1]
     mean_fcmae = {}
     for name in agent_names:
@@ -181,7 +168,7 @@ def plot_results(all_results, seeds, n_rounds, output_dir):
     ax.set_ylabel('Flip Set MAE (last 100)')
     ax.set_title('Flip Set Prediction Quality')
 
-    # Row 2, Panel 3: Contested sigma sum (last 100 rounds)
+                                                           
     ax = axes[1, 2]
     mean_css = {}
     for name in agent_names:
@@ -214,6 +201,7 @@ def main():
     parser.add_argument('--config', default='experiments/configs/experiment.yaml')
     parser.add_argument('--mode', choices=['quick', 'full'], default='quick')
     parser.add_argument('--output', default=None)
+    parser.add_argument('--no-plot', action='store_true', help='Save data only, skip plotting')
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -242,7 +230,8 @@ def main():
 
         ds_dir = os.path.join(output_dir, dataset)
         save_results(results, os.path.join(ds_dir, 'results.pkl'))
-        plot_results(results, seeds, n_rounds, ds_dir)
+        if not args.no_plot:
+            plot_results(results, seeds, n_rounds, ds_dir)
 
 
 if __name__ == '__main__':

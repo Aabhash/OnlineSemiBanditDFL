@@ -7,11 +7,14 @@ from src.agents.bayesian_utils import (
     init_per_arm_regression,
     compute_ucb_values,
     compute_bayesian_predictions,
+    compute_uncertainties,
     update_bayesian_stats,
 )
+from src.agents.agent_base import AgentBase
+from src.solver import solve_knapsack
 
 
-class BayesianSPOAgent:
+class BayesianSPOAgent(AgentBase):
 
     def __init__(
         self,
@@ -33,10 +36,11 @@ class BayesianSPOAgent:
         minimize: bool = False,
         solver=None,
         seed: int = None,
-        # Phased training (Weber-style)
+
         phased: bool = False,
         phase_length: int = 50,
         phase_epochs: int = 5,
+        max_buffer_size: int = None,
     ):
         self.context_dim = context_dim
         self.n_arms = n_arms
@@ -48,7 +52,6 @@ class BayesianSPOAgent:
         self.minimize = minimize
 
         if solver is None:
-            from src.solver import solve_knapsack
             self.solver = lambda v: solve_knapsack(np.asarray(v), self.weights_np, capacity)
         else:
             self.solver = solver
@@ -57,7 +60,7 @@ class BayesianSPOAgent:
         self.decay_rounds = decay_rounds
         self.t = 0
 
-        # SPO+ gradient using the correct solver and minimize direction
+
         self.loss_grad_fn = make_spo_grad_fn(self.solver, minimize)
 
         if beta_start is not None and beta_end is not None:
@@ -82,7 +85,7 @@ class BayesianSPOAgent:
             self.b1 = jnp.zeros(hidden_dim)
             init_params = {'W1': self.W1, 'b1': self.b1}
 
-        # Inverse-sqrt LR schedule: lr / sqrt(t+1)
+
         schedule = lambda count: lr / jnp.sqrt(count + 1)
         self.optimizer = optax.chain(
             optax.clip_by_global_norm(max_grad_norm),
@@ -92,15 +95,12 @@ class BayesianSPOAgent:
 
         self.A, self.b_bayes, self.A_inv = init_per_arm_regression(n_arms, hidden_dim, lambda_reg)
 
-        # Phased training state
+
         self.phased = phased
         self.phase_length = phase_length
         self.phase_epochs = phase_epochs
         if phased:
-            self._phase_buffer_X = []
-            self._phase_buffer_Y = []
-            self._phase_buffer_sel = []
-            self._phase_buffer_prob = []
+            self._init_phase_buffer(max_buffer_size)
             self._rounds_since_retrain = 0
 
     def _get_params(self):
@@ -119,7 +119,7 @@ class BayesianSPOAgent:
         X = jnp.asarray(X)
         if self.nonlinear:
             z = X @ self.W1 + self.b1
-            a = jnp.maximum(0, z)  # ReLU
+            a = jnp.maximum(0, z)
             h = a @ self.W2 + self.b2
             return h
         else:
@@ -129,6 +129,10 @@ class BayesianSPOAgent:
     def predict_mean(self, X):
         h = self._features(X)
         return compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
+
+    def predict_uncertainty(self, X):
+        h = self._features(X)
+        return compute_uncertainties(h, self.A_inv)
 
     def act(self, X):
         self.t += 1
@@ -142,7 +146,6 @@ class BayesianSPOAgent:
         return self.solver(np.asarray(ucb_values))
 
     def _compute_spo_grad_h(self, X, h, Y_target, selection_mask, full_feedback):
-        """Compute SPO+ feature gradient for one data point."""
         pred = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
 
         spo_grad_val = self.loss_grad_fn(pred, Y_target)
@@ -154,7 +157,6 @@ class BayesianSPOAgent:
         return jnp.einsum('n,ni->i', spo_grad_val, theta)
 
     def _backprop_and_step(self, X, grad_h):
-        """Backprop grad_h through features and apply optimizer step."""
         X = jnp.asarray(X)
         if self.nonlinear:
             z = X @ self.W1 + self.b1
@@ -173,7 +175,6 @@ class BayesianSPOAgent:
         self._set_params(optax.apply_updates(params, updates))
 
     def _phased_retrain(self):
-        """Batch-retrain features over the buffer, then replay to rebuild posteriors."""
         for _epoch in range(self.phase_epochs):
             for i in range(len(self._phase_buffer_X)):
                 X_buf = self._phase_buffer_X[i]
@@ -193,7 +194,7 @@ class BayesianSPOAgent:
                 grad_h = self._compute_spo_grad_h(X_buf, h, Y_target, sel_mask, False)
                 self._backprop_and_step(X_buf, grad_h)
 
-        # Replay buffer to rebuild posteriors with updated features
+
         self.A, self.b_bayes, self.A_inv = init_per_arm_regression(
             self.n_arms, self.hidden_dim, self.lambda_reg)
         for i in range(len(self._phase_buffer_X)):
@@ -204,7 +205,8 @@ class BayesianSPOAgent:
                 self.A, self.b_bayes, self.A_inv, h, rewards, sel_mask)
 
     def update(self, X, selection, rewards, lr: float = None, full_feedback: bool = False,
-               prob_values=None):
+               **kwargs):
+        prob_values = kwargs.get("prob_values")
         X = jnp.asarray(X)
         selection = jnp.asarray(selection)
         rewards = jnp.asarray(rewards)
@@ -212,23 +214,21 @@ class BayesianSPOAgent:
         h = self._features(X)
 
         selection_mask = selection > 0.5
+        obs_mask = jnp.ones(self.n_arms, dtype=jnp.bool_) if full_feedback else selection_mask
         self.A, self.b_bayes, self.A_inv = update_bayesian_stats(
-            self.A, self.b_bayes, self.A_inv, h, rewards, selection_mask
+            self.A, self.b_bayes, self.A_inv, h, rewards, obs_mask
         )
 
         if self.phased:
-            # Buffer data, freeze features until phase boundary
-            self._phase_buffer_X.append(X)
-            self._phase_buffer_Y.append(rewards)
-            self._phase_buffer_sel.append(selection)
-            self._phase_buffer_prob.append(prob_values)
+
+            self._append_phase_buffer(X, rewards, selection, prob_values)
 
             self._rounds_since_retrain += 1
             if self._rounds_since_retrain >= self.phase_length:
                 self._phased_retrain()
                 self._rounds_since_retrain = 0
         else:
-            # Per-round: compute gradient and update immediately
+
             pred = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
 
             if prob_values is not None:

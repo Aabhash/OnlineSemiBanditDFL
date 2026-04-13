@@ -32,7 +32,7 @@ def wilcoxon_test_agents(
     if not trials2:
         raise ValueError(f"No trials found for {agent2}")
 
-    # Use final_train_regret (cumulative regret) for comparison
+
     seed_to_regret1 = {t.seed: t.final_train_regret for t in trials1}
     seed_to_regret2 = {t.seed: t.final_train_regret for t in trials2}
 
@@ -93,7 +93,7 @@ def pairwise_significance_matrix(
                 )
                 results[(agent1, agent2)] = result
             except ValueError as e:
-                # Skip pairs without enough common seeds
+
                 print(f"  Skipping {agent1} vs {agent2}: {e}")
 
     matrix_data = np.ones((n_agents, n_agents))
@@ -187,7 +187,7 @@ def rank_agents(
             summary = results_store.compute_agent_summary(agent, dataset, feedback_type, use_holdout=use_holdout)
             mean_regrets[agent] = summary.mean_train_regret
         except Exception:
-            # Skip agents without results
+
             mean_regrets[agent] = float('inf')
 
     ranking = [

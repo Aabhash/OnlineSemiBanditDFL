@@ -23,7 +23,7 @@ class TrialResult:
     gpu_time_seconds: Optional[float] = None
     total_rounds: int = 0
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
-    # Cumulative metrics for online bandit evaluation
+
     cumulative_validation_regret: float = 0.0
     cumulative_holdout_regret: Optional[float] = None
 
@@ -40,7 +40,7 @@ class TrialResult:
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> 'TrialResult':
-        # Filter out legacy fields that no longer exist
+
         valid_fields = {f.name for f in cls.__dataclass_fields__.values()}
         filtered = {k: v for k, v in d.items() if k in valid_fields}
         return cls(**filtered)
@@ -133,7 +133,7 @@ class ResultsStore:
                 param_metrics[key] = []
                 param_map[key] = trial.params
 
-            # Use the appropriate metric based on use_holdout flag
+
             if use_holdout and trial.cumulative_holdout_regret is not None:
                 param_metrics[key].append(trial.cumulative_holdout_regret)
             else:
@@ -166,7 +166,7 @@ class ResultsStore:
         best_params = self.get_best_params(agent_name, dataset, feedback_type, use_holdout=use_holdout)
         best_trials = self.get_results_for_params(agent_name, dataset, best_params, feedback_type)
 
-        # Use final_train_regret (cumulative regret) for summary
+
         train_regrets = [t.final_train_regret for t in best_trials]
         holdout_regrets = [t.holdout_regret for t in best_trials if t.holdout_regret is not None]
 
@@ -181,7 +181,7 @@ class ResultsStore:
             dataset=dataset,
             feedback_type=feedback_type,
             best_params=best_params,
-            mean_validation_regret=mean_train,  # Same as train (no separate validation)
+            mean_validation_regret=mean_train,
             std_validation_regret=std_train,
             mean_train_regret=mean_train,
             std_train_regret=std_train,

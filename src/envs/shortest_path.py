@@ -18,7 +18,7 @@ class SyntheticEdgeData:
         deg: int = 6,
         noise_width: float = 0.5,
         seed: int = 42,
-        **kwargs,  # absorb legacy nonstationarity params
+        **kwargs,
     ):
         self.grid_size = grid_size
         self.n_edges = n_edges_grid(grid_size)
@@ -28,7 +28,7 @@ class SyntheticEdgeData:
 
         init_rng = np.random.default_rng(seed)
 
-        # Binary feature mask (PyEPO convention)
+
         self.B = init_rng.integers(0, 2, size=(self.n_edges, context_dim)).astype(float)
 
         self._sample_seed = seed + 7777
@@ -38,7 +38,7 @@ class SyntheticEdgeData:
         self.sample_rng = np.random.default_rng(self._sample_seed)
 
     def step(self):
-        pass  # stationary DGP
+        pass
 
     def sample(self) -> Tuple[np.ndarray, np.ndarray]:
         x = self.sample_rng.standard_normal(self.context_dim).astype(np.float32)
@@ -66,7 +66,7 @@ class ShortestPathEdgeEnv:
         deg: int = 6,
         noise_width: float = 0.5,
         seed: int = 42,
-        **kwargs,  # absorb legacy nonstationarity params
+        **kwargs,
     ):
         self.grid_size = grid_size
         self.n_arms = n_edges_grid(grid_size)
@@ -82,21 +82,19 @@ class ShortestPathEdgeEnv:
 
         self.sp_solver = ShortestPathSolver(grid_size)
 
-        # kept for interface compatibility (used by agent constructors)
+
         self.weights = np.ones(self.n_arms)
-        self.capacity = float(2 * (grid_size - 1))   # path length in edges
+        self.capacity = float(2 * (grid_size - 1))
 
         self._current_context = None
         self._current_costs = None
         self.t = 0
 
-    # -- properties ---------------------------------------------------------
 
     @property
     def minimize(self) -> bool:
         return True
 
-    # -- core interface -----------------------------------------------------
 
     def reset(self) -> np.ndarray:
         self.t = 0

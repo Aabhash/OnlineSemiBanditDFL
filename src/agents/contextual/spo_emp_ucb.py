@@ -1,17 +1,3 @@
-"""SPO+ agents with empirical (count-based) UCB exploration.
-
-Two variants:
-- BayesianSPO_EmpUCB_Agent: BayesianSPOAgent but with UCB1-style count-based
-  exploration bonus instead of Bayesian posterior uncertainty.  Keeps the
-  closed-form Bayesian prediction head for accurate mean estimates.
-- SPO_EmpUCB_Agent: No Bayesian head at all — point-estimate W_pred head
-  trained via SGD on MSE, plus count-based UCB exploration.  Fully
-  non-Bayesian variant for ablating the Bayesian prediction head's value.
-
-Both still use masked SPO+ for feature learning; only the exploration
-mechanism and (for SPO_EmpUCB_Agent) the prediction head differ from
-BayesianSPOAgent.
-"""
 
 import jax
 import jax.numpy as jnp
@@ -23,32 +9,24 @@ from src.agents.bayesian_utils import (
     compute_bayesian_predictions,
     update_bayesian_stats,
 )
+from src.agents.agent_base import AgentBase
+from src.solver import solve_knapsack
+
+
+def _empirical_bonus_width(obs_counts, t):
+    n = np.asarray(obs_counts, dtype=np.float64)
+    return np.sqrt(np.log(max(t, 2)) / np.maximum(n, 1.0))
 
 
 def _empirical_ucb_values(means, obs_counts, t, beta, minimize):
-    """UCB1-style bonus: beta * sqrt(log(t+1) / max(n_i, 1))."""
-    n = np.asarray(obs_counts, dtype=np.float64)
-    bonus = np.sqrt(np.log(max(t, 2)) / np.maximum(n, 1.0))
+    bonus = _empirical_bonus_width(obs_counts, t)
     means_np = np.asarray(means)
     if minimize:
-        return means_np - beta * bonus
-    return means_np + beta * bonus
+        return means_np - abs(beta) * bonus
+    return means_np + abs(beta) * bonus
 
 
-class BayesianSPO_EmpUCB_Agent:
-    """BayesianSPOAgent variant: closed-form Bayesian head + empirical (count-based) UCB.
-
-    Identical to BayesianSPOAgent except that the exploration bonus in ``act``
-    uses a UCB1-style count-based term ``beta * sqrt(log(t) / n_i)`` instead
-    of the Bayesian posterior std ``sqrt(h^T A_inv h)``.  The Bayesian head
-    is still used for prediction means (via closed-form ridge regression)
-    and for imputation in the SPO+ gradient computation.
-
-    Use this when the Bayesian uncertainty is miscalibrated relative to the
-    true prediction error (e.g. when shared features drift or collapse) and
-    you want a decoupled exploration signal that only depends on how many
-    times each arm has been observed.
-    """
+class BayesianSPO_EmpUCB_Agent(AgentBase):
 
     def __init__(
         self,
@@ -69,10 +47,11 @@ class BayesianSPO_EmpUCB_Agent:
         minimize: bool = False,
         solver=None,
         seed: int = None,
-        # Phased training (Weber-style)
+
         phased: bool = False,
         phase_length: int = 50,
         phase_epochs: int = 5,
+        max_buffer_size: int = None,
     ):
         self.context_dim = context_dim
         self.n_arms = n_arms
@@ -84,7 +63,6 @@ class BayesianSPO_EmpUCB_Agent:
         self.minimize = minimize
 
         if solver is None:
-            from src.solver import solve_knapsack
             self.solver = lambda v: solve_knapsack(np.asarray(v), self.weights_np, capacity)
         else:
             self.solver = solver
@@ -124,19 +102,16 @@ class BayesianSPO_EmpUCB_Agent:
         )
         self.opt_state = self.optimizer.init(init_params)
 
-        # Bayesian head (kept) and per-arm observation counts (new)
+
         self.A, self.b_bayes, self.A_inv = init_per_arm_regression(n_arms, hidden_dim, lambda_reg)
         self._obs_counts = np.zeros(n_arms, dtype=np.float64)
 
-        # Phased training state
+
         self.phased = phased
         self.phase_length = phase_length
         self.phase_epochs = phase_epochs
         if phased:
-            self._phase_buffer_X = []
-            self._phase_buffer_Y = []
-            self._phase_buffer_sel = []
-            self._phase_buffer_prob = []
+            self._init_phase_buffer(max_buffer_size)
             self._rounds_since_retrain = 0
 
     def _get_params(self):
@@ -163,6 +138,9 @@ class BayesianSPO_EmpUCB_Agent:
     def predict_mean(self, X):
         h = self._features(X)
         return compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
+
+    def predict_uncertainty(self, X):
+        return _empirical_bonus_width(self._obs_counts, self.t)
 
     def act(self, X):
         self.t += 1
@@ -231,7 +209,8 @@ class BayesianSPO_EmpUCB_Agent:
                 self.A, self.b_bayes, self.A_inv, h, rewards, sel_mask)
 
     def update(self, X, selection, rewards, lr: float = None, full_feedback: bool = False,
-               prob_values=None):
+               **kwargs):
+        prob_values = kwargs.get("prob_values")
         X = jnp.asarray(X)
         selection = jnp.asarray(selection)
         rewards = jnp.asarray(rewards)
@@ -239,22 +218,20 @@ class BayesianSPO_EmpUCB_Agent:
         h = self._features(X)
 
         selection_mask = selection > 0.5
+        obs_mask = jnp.ones(self.n_arms, dtype=jnp.bool_) if full_feedback else selection_mask
         self.A, self.b_bayes, self.A_inv = update_bayesian_stats(
-            self.A, self.b_bayes, self.A_inv, h, rewards, selection_mask
+            self.A, self.b_bayes, self.A_inv, h, rewards, obs_mask
         )
 
-        # Track per-arm observation counts for empirical UCB
-        obs_np = np.asarray(selection_mask).astype(np.float64)
+
+        obs_np = np.asarray(obs_mask).astype(np.float64)
         if full_feedback:
             self._obs_counts += 1.0
         else:
             self._obs_counts += obs_np
 
         if self.phased:
-            self._phase_buffer_X.append(X)
-            self._phase_buffer_Y.append(rewards)
-            self._phase_buffer_sel.append(selection)
-            self._phase_buffer_prob.append(prob_values)
+            self._append_phase_buffer(X, rewards, selection, prob_values)
 
             self._rounds_since_retrain += 1
             if self._rounds_since_retrain >= self.phase_length:
@@ -273,20 +250,7 @@ class BayesianSPO_EmpUCB_Agent:
             self._backprop_and_step(X, grad_h)
 
 
-class SPO_EmpUCB_Agent:
-    """SPO+ agent with point-estimate head (no Bayesian layer) and empirical UCB.
-
-    Fully non-Bayesian ablation:
-    - Prediction head: ``W_pred`` matrix of shape (n_arms, hidden_dim), trained
-      via SGD on MSE loss over observed arms.  Replaces the closed-form
-      Bayesian ridge regression.
-    - Exploration: empirical UCB1-style count-based bonus.
-    - Feature learning: SPO+ gradient on the feature extractor, chain rule
-      uses ``W_pred[i]`` as the per-arm multiplier.
-
-    Use this to ablate the value of the Bayesian prediction head itself
-    (separately from the Bayesian exploration uncertainty).
-    """
+class SPO_EmpUCB_Agent(AgentBase):
 
     def __init__(
         self,
@@ -317,7 +281,6 @@ class SPO_EmpUCB_Agent:
         self.minimize = minimize
 
         if solver is None:
-            from src.solver import solve_knapsack
             self.solver = lambda v: solve_knapsack(np.asarray(v), self.weights_np, capacity)
         else:
             self.solver = solver
@@ -347,7 +310,7 @@ class SPO_EmpUCB_Agent:
             self.W1 = jax.random.normal(key, (context_dim, hidden_dim)) * 0.1
             self.b1 = jnp.zeros(hidden_dim)
 
-        # Point-estimate prediction head: pred[i] = W_pred[i] @ h
+
         self.W_pred = jnp.zeros((n_arms, hidden_dim))
 
         init_params = self._get_params()
@@ -358,7 +321,7 @@ class SPO_EmpUCB_Agent:
         )
         self.opt_state = self.optimizer.init(init_params)
 
-        # Per-arm observation counts for empirical UCB
+
         self._obs_counts = np.zeros(n_arms, dtype=np.float64)
 
     def _get_params(self):
@@ -384,12 +347,15 @@ class SPO_EmpUCB_Agent:
         return X @ self.W1 + self.b1
 
     def _predict(self, h):
-        # pred[i] = W_pred[i] @ h   =>  W_pred @ h
+
         return self.W_pred @ h
 
     def predict_mean(self, X):
         h = self._features(X)
         return self._predict(h)
+
+    def predict_uncertainty(self, X):
+        return _empirical_bonus_width(self._obs_counts, self.t)
 
     def act(self, X):
         self.t += 1
@@ -404,7 +370,8 @@ class SPO_EmpUCB_Agent:
         return self.solver(values)
 
     def update(self, X, selection, rewards, lr: float = None, full_feedback: bool = False,
-               prob_values=None):
+               **kwargs):
+        prob_values = kwargs.get("prob_values")
         X = jnp.asarray(X)
         selection = jnp.asarray(selection)
         rewards = jnp.asarray(rewards)
@@ -413,13 +380,13 @@ class SPO_EmpUCB_Agent:
         pred = self._predict(h)
         selection_mask = selection > 0.5
 
-        # Track observation counts
+
         if full_feedback:
             self._obs_counts += 1.0
         else:
             self._obs_counts += np.asarray(selection_mask).astype(np.float64)
 
-        # --- SPO+ gradient on features (chain rule uses W_pred[i]) ---
+
         if prob_values is not None:
             Y_target = jnp.asarray(prob_values)
         elif full_feedback:
@@ -432,16 +399,15 @@ class SPO_EmpUCB_Agent:
             spo_grad_val = jnp.where(selection_mask, spo_grad_val, 0.0)
         grad_h = jnp.einsum('n,ni->i', spo_grad_val, self.W_pred)
 
-        # --- MSE gradient on W_pred (observed arms only) ---
-        # d MSE / d W_pred[i] = 2 * (pred[i] - y[i]) * h   (if observed)
+
         if full_feedback:
             head_mask = jnp.ones(self.n_arms)
         else:
             head_mask = selection_mask.astype(jnp.float32)
-        residual = (pred - rewards) * head_mask  # zero on unobserved
+        residual = (pred - rewards) * head_mask
         grad_W_pred = 2.0 * jnp.outer(residual, h) / self.n_arms
 
-        # --- Feature gradient through extractor ---
+
         if self.nonlinear:
             z = X @ self.W1 + self.b1
             a = jnp.maximum(0, z)

@@ -11,7 +11,7 @@ class SyntheticGridData:
         deg: int = 6,
         noise_width: float = 0.5,
         seed: int = 42,
-        **kwargs,  # absorb legacy nonstationarity params
+        **kwargs,
     ):
         self.grid_size = grid_size
         self.n_cells = grid_size * grid_size
@@ -20,7 +20,7 @@ class SyntheticGridData:
         self.noise_width = noise_width
         self.rng = np.random.default_rng(seed)
 
-        # Binary feature mask (PyEPO convention)
+
         self.B = self.rng.integers(0, 2, size=(self.n_cells, context_dim)).astype(float)
 
     def _compute_costs(self, context: np.ndarray) -> np.ndarray:
@@ -43,10 +43,10 @@ class SyntheticGridData:
         return context, costs
 
     def step(self):
-        pass  # stationary DGP
+        pass
 
     def reset(self):
-        pass  # stationary DGP, nothing to reset
+        pass
 
     def get_config(self) -> dict:
         return {

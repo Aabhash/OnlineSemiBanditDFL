@@ -5,9 +5,11 @@ import optax
 from typing import Union
 from src.models import LinearModel, MLPModel
 from src.losses import spo_plus_grad
+from src.agents.agent_base import AgentBase
+from src.solver import solve_knapsack
 
 
-class GreedyAgent:
+class GreedyAgent(AgentBase):
 
     def __init__(
         self,
@@ -24,7 +26,6 @@ class GreedyAgent:
         self.n_arms = len(weights)
 
         if solver is None:
-            from src.solver import solve_knapsack
             self.solver = lambda v: solve_knapsack(np.asarray(v), weights, capacity)
         else:
             self.solver = solver
@@ -33,20 +34,33 @@ class GreedyAgent:
         Y_pred = self.model.predict(X)
         return self.solver(np.asarray(Y_pred))
 
-    def update(self, X: np.ndarray, Y_true: np.ndarray, lr: float):
+    def predict_mean(self, X: np.ndarray):
+        return self.model.predict(X)
+
+    def update(self, X: np.ndarray, selection: np.ndarray, rewards: np.ndarray,
+               lr: float = None, full_feedback: bool = False, **kwargs):
+
+        if full_feedback:
+            Y_target = np.asarray(rewards)
+        else:
+            Y_pred = np.asarray(self.model.predict(X))
+            Y_target = Y_pred.copy()
+            mask = np.asarray(selection) > 0.5
+            Y_target[mask] = np.asarray(rewards)[mask]
+
         if self.loss_type == "mse":
-            grad = self.model.gradient_mse(X, Y_true)
+            grad = self.model.gradient_mse(X, Y_target)
         elif self.loss_type == "spo":
             Y_pred = self.model.predict(X)
-            spo_grad = spo_plus_grad(Y_pred, Y_true, self.weights, self.capacity)
+            spo_grad = spo_plus_grad(Y_pred, Y_target, self.weights, self.capacity)
             grad = self.model.gradient_spo(X, spo_grad)
         else:
             raise ValueError(f"Unknown loss_type: {self.loss_type}")
 
-        self.model.update(grad, lr)
+        self.model.update(grad, lr if lr is not None else 0.01)
 
 
-class EpsilonGreedyAgent:
+class EpsilonGreedyAgent(AgentBase):
 
     def __init__(
         self,
@@ -72,7 +86,6 @@ class EpsilonGreedyAgent:
         self.hidden_dim = hidden_dim
 
         if solver is None:
-            from src.solver import solve_knapsack
             self.solver = lambda v: solve_knapsack(np.asarray(v), self.weights_np, capacity)
         else:
             self.solver = solver
@@ -90,7 +103,7 @@ class EpsilonGreedyAgent:
         self.W2 = jax.random.normal(k2, (hidden_dim, n_arms)) * 0.1
         self.b2 = jnp.zeros(n_arms)
 
-        # Inverse-sqrt LR schedule: lr / sqrt(t+1), same as Bayesian agents
+
         schedule = lambda count: lr / jnp.sqrt(count + 1)
         self.optimizer = optax.chain(
             optax.clip_by_global_norm(max_grad_norm),
@@ -132,8 +145,12 @@ class EpsilonGreedyAgent:
             pred, _, _ = self._forward(X)
             return self.solver(np.asarray(pred))
 
+    def predict_mean(self, X: np.ndarray):
+        pred, _, _ = self._forward(X)
+        return pred
+
     def update(self, X: np.ndarray, selection: np.ndarray, rewards: np.ndarray,
-               lr: float = None, full_feedback: bool = False):
+               lr: float = None, full_feedback: bool = False, **kwargs):
         X = jnp.asarray(X)
         selection = jnp.asarray(selection)
         rewards = jnp.asarray(rewards)

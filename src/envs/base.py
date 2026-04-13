@@ -1,6 +1,7 @@
 import numpy as np
 from abc import ABC, abstractmethod
 from typing import Tuple, Dict, Any
+from src.solver import solve_knapsack
 
 
 class ConstrainedBanditEnv(ABC):
@@ -74,7 +75,6 @@ class ConstrainedBanditEnv(ABC):
         self.current_context, self.current_values = self._generate_sample()
 
     def _solve_optimal(self, values: np.ndarray) -> np.ndarray:
-        from src.solver import solve_knapsack
         return solve_knapsack(values, self.weights, self.capacity)
 
     def solve(self, values: np.ndarray) -> np.ndarray:

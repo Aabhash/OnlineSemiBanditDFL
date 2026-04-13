@@ -1,4 +1,3 @@
-"""Combinatorial optimization solvers."""
 
 from src.solvers.knapsack import (
     solve_knapsack,

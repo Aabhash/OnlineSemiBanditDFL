@@ -1,30 +1,46 @@
 #!/bin/bash
-#SBATCH --job-name=hp_tune_bspo
+#SBATCH --job-name=dfl_eval
 #SBATCH --time=16:00:00
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=16G
-#SBATCH --gres=gpu:1
 #SBATCH --output=%x-%j.out
 #SBATCH --error=%x-%j.err
 
-cd ~/ConstrainedBanditsDFL
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
 
-# Knapsack with non-stationarity
-uv run python experiments/tune_hyperparams.py --all --dataset knapsack_low_noise --feedback semi_bandit --n-rounds 2000 --analyze
-# uv run python experiments/evaluate.py --datasets knapsack_low_noise --feedback semi_bandit --use-tuned-params --full --wandb --analyze
+echo "=== Step 1: Online evaluation ==="
 
-uv run python experiments/tune_hyperparams.py --all --dataset knapsack_high_noise --feedback semi_bandit --n-rounds 2000  --analyze
-# uv run python experiments/evaluate.py --datasets knapsack_high_noise --feedback semi_bandit --use-tuned-params --full --wandb --analyze
+# Main benchmarks
+uv run python experiments/evaluate_online.py --datasets knapsack_32 --feedback semi_bandit --use-tuned-params --full --output_dir results/eval_online
+uv run python experiments/evaluate_online.py --datasets shortest_path_8x8 --feedback semi_bandit --use-tuned-params --full --output_dir results/eval_online
+uv run python experiments/evaluate_online.py --datasets shortest_path_20x20 --feedback semi_bandit --use-tuned-params --full --output_dir results/eval_online
 
-# Shortest path with non-stationarity
-# uv run python experiments/tune_hyperparams.py --all --dataset shortest_path_low_noise --feedback semi_bandit --n-rounds 2000  --analyze
-# uv run python experiments/evaluate.py --datasets shortest_path_low_noise --feedback semi_bandit --use-tuned-params --full --wandb --analyze
+# Toy dissection
+uv run python experiments/evaluate_online.py --datasets topk_2arm,topk_8arm,topk_16arm --feedback semi_bandit --use-tuned-params --full --output_dir results/eval_online
+uv run python experiments/evaluate_online.py --datasets topk_2arm_linear,topk_8arm_linear --feedback semi_bandit --use-tuned-params --full --output_dir results/eval_online
 
-# uv run python experiments/tune_hyperparams.py --all --dataset shortest_path_high_noise --feedback semi_bandit --n-rounds 2000  --analyze
-# uv run python experiments/evaluate.py --datasets shortest_path_high_noise --feedback semi_bandit --use-tuned-params --full --wandb --analyze
+echo "=== Step 2: Phased evaluation ==="
 
-# Criteo (real-world shared context with XGBoost surrogate)
-# uv run python experiments/tune_hyperparams.py --all --dataset criteo --feedback semi_bandit --n-rounds 2000  --analyze
-# uv run python experiments/evaluate.py --datasets criteo --feedback semi_bandit --use-tuned-params --full --wandb --analyze
+# Main benchmarks (phased agents use defaults, not tuned HPs)
+uv run python experiments/evaluate_phased.py --datasets knapsack_32 --feedback semi_bandit --full --output_dir results/eval_phased
+uv run python experiments/evaluate_phased.py --datasets shortest_path_8x8 --feedback semi_bandit --full --output_dir results/eval_phased
+uv run python experiments/evaluate_phased.py --datasets shortest_path_20x20 --feedback semi_bandit --full --output_dir results/eval_phased
 
-EOF
+# Toy dissection
+uv run python experiments/evaluate_phased.py --datasets topk_2arm,topk_8arm,topk_16arm --feedback semi_bandit --full --output_dir results/eval_phased
+uv run python experiments/evaluate_phased.py --datasets topk_2arm_linear,topk_8arm_linear --feedback semi_bandit --full --output_dir results/eval_phased
+
+echo "=== Step 3: Post-processing ==="
+
+# Compute analysis (wallclock + Pareto)
+uv run python experiments/compute_analysis.py --results-dir results/eval_online/metrics results/eval_phased/metrics --output results/compute
+
+# Regret plots + diagnostic plots
+uv run python experiments/plot_eval_results.py --input results/eval_online/metrics results/eval_phased/metrics --format pdf
+
+echo ""
+echo "=== Complete ==="
+echo "  Data:         results/eval_online/  results/eval_phased/"
+echo "  Compute:      results/compute/"
+echo "  Figures:      results/figures/"

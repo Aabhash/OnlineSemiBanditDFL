@@ -12,9 +12,7 @@ def solve_knapsack_gurobi(values: np.ndarray, weights: np.ndarray, capacity: flo
     if not np.all(np.isfinite(values)):
         values = np.nan_to_num(values, nan=0.0, posinf=100.0, neginf=-100.0)
 
-    # Deterministic tie-breaking: add tiny index-based perturbation so no two
-    # items ever have exactly equal effective value. This eliminates Gurobi's
-    # internal tie-breaking ambiguity which varies between process starts.
+
     values = values + np.arange(n_items) * 1e-10
 
     env = _get_gurobi_env()
@@ -44,10 +42,8 @@ def solve_knapsack(values: np.ndarray, weights: np.ndarray, capacity: float,
         values = np.nan_to_num(values, nan=0.0, posinf=100.0, neginf=-100.0)
 
     if tie_break_noise > 0 and np.std(values) < 1e-4:
-        # Deterministic tie-breaking: add index-based perturbation.
-        # IMPORTANT: Do NOT use hash(values.tobytes()) here — Python's hash()
-        # is randomized by PYTHONHASHSEED on each process start, making results
-        # non-reproducible across kernel restarts.
+
+
         values = values + np.arange(len(values)) * 1e-8
 
     return solve_knapsack_gurobi(values, weights, capacity)
@@ -71,7 +67,7 @@ class KnapsackSolver:
         if not np.all(np.isfinite(values)):
             values = np.nan_to_num(values, nan=0.0, posinf=100.0, neginf=-100.0)
 
-        # Deterministic tie-breaking (same as solve_knapsack_gurobi)
+
         values = values + np.arange(len(values)) * 1e-10
 
         env = _get_gurobi_env()
@@ -87,7 +83,7 @@ class KnapsackSolver:
                 name="capacity",
             )
 
-            # Request K+1 best solutions via solution pool
+
             model.setParam('PoolSearchMode', 2)
             model.setParam('PoolSolutions', K + 1)
             model.optimize()
@@ -96,7 +92,7 @@ class KnapsackSolver:
                 opt_sol = np.zeros(self.n_items)
                 return opt_sol, []
 
-            # Extract optimal solution (SolutionNumber=0)
+
             model.setParam('SolutionNumber', 0)
             opt_sol = np.array([x[i].Xn for i in range(self.n_items)])
             opt_obj = model.PoolObjVal
@@ -115,7 +111,7 @@ class KnapsackSolver:
                     continue
                 seen.add(key)
 
-                obj_diff = opt_obj - alt_obj  # positive = alt is worse
+                obj_diff = opt_obj - alt_obj
                 sym_diff = np.abs(opt_sol - alt_sol) > 0.5
                 alternatives.append((alt_sol, obj_diff, sym_diff))
 
@@ -129,7 +125,7 @@ class KnapsackSolver:
 
         env = _get_gurobi_env()
         with gp.Model(env=env) as model:
-            # Continuous relaxation: lb=0, ub=1
+
             x = model.addVars(
                 self.n_items, lb=0.0, ub=1.0,
                 vtype=GRB.CONTINUOUS, name="x",

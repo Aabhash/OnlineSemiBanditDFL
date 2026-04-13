@@ -107,11 +107,10 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python experiments/tune_hyperparams.py --agent BayesianSPO --dataset knapsack
-  python experiments/tune_hyperparams.py --all --dataset knapsack
-  python experiments/tune_hyperparams.py --agent BayesianSPO --dataset knapsack --quick
-  python experiments/tune_hyperparams.py --all --dataset knapsack --analyze
-  python experiments/tune_hyperparams.py --all --dataset knapsack --no-wandb
+  python experiments/tune_hyperparams.py --agent BayesianSPO --dataset knapsack_32
+  python experiments/tune_hyperparams.py --all --dataset knapsack_32
+  python experiments/tune_hyperparams.py --agent BayesianSPO --dataset knapsack_32 --quick
+  python experiments/tune_hyperparams.py --all --dataset knapsack_32 --analyze
         """
     )
 
@@ -131,7 +130,6 @@ Examples:
     parser.add_argument('--analyze-only', action='store_true')
     parser.add_argument('--resume', action='store_true', default=True)
     parser.add_argument('--no-resume', action='store_true')
-    parser.add_argument('--no-wandb', action='store_true')
 
     args = parser.parse_args()
 
@@ -141,23 +139,21 @@ Examples:
     config = load_config(args.config)
     search_spaces = load_search_spaces(args.search_spaces)
 
-    if args.no_wandb:
-        config['wandb'] = {'enabled': False}
 
-    # Check if dataset has skip_tuning flag
+
     dataset_config = config['datasets'].get(args.dataset, {})
     if dataset_config.get('skip_tuning', False):
         print(f"Dataset '{args.dataset}' has skip_tuning=true. "
               f"Use default HPs and run evaluation directly.")
         sys.exit(0)
 
-    # Get dataset-specific n_rounds (can be overridden by CLI args below)
+
     effective_n_rounds = get_n_rounds_for_dataset(config, args.dataset)
 
     if args.quick:
         config['tuning']['n_trials'] = 10
         config['tuning_seeds'] = [0, 1, 2]
-        # Override dataset-specific n_rounds for quick mode
+
         if 'n_rounds' in config['datasets'].get(args.dataset, {}):
             config['datasets'][args.dataset]['n_rounds'] = 100
         else:
@@ -170,7 +166,7 @@ Examples:
         if args.n_seeds:
             config['tuning_seeds'] = list(range(args.n_seeds))
         if args.n_rounds:
-            # Override dataset-specific n_rounds via CLI
+
             if 'n_rounds' in config['datasets'].get(args.dataset, {}):
                 config['datasets'][args.dataset]['n_rounds'] = args.n_rounds
             else:
@@ -180,7 +176,7 @@ Examples:
     if args.parallel:
         config['compute']['max_parallel_trials'] = args.parallel
 
-    # Get agents for tuning (only those with tunable hyperparameters)
+
     skipped_agents = get_skipped_agents_for_dataset(search_spaces, config, args.dataset)
 
     if args.all:
@@ -190,13 +186,13 @@ Examples:
             print(f"Error: Unknown agent '{args.agent}'")
             print(f"Available agents: {list(search_spaces.keys())}")
             sys.exit(1)
-        # Validate agent is compatible with dataset's env_type
+
         compatible_agents = get_agents_for_dataset(search_spaces, config, args.dataset)
         if args.agent not in compatible_agents:
             print(f"Error: Agent '{args.agent}' is not compatible with dataset '{args.dataset}'")
             print(f"Compatible agents: {compatible_agents}")
             sys.exit(1)
-        # Check if the specific agent has tunable params
+
         if args.agent in skipped_agents:
             print(f"Warning: Agent '{args.agent}' has no tunable hyperparameters. Skipping HP tuning.")
             print("This agent will still be included in final evaluation with default params.")
@@ -206,7 +202,6 @@ Examples:
     else:
         agents = get_agents_for_dataset(search_spaces, config, args.dataset, tunable_only=True)
 
-    wandb_status = "enabled" if config.get('wandb', {}).get('enabled', False) else "disabled"
 
     print("=" * 70)
     print("HYPERPARAMETER TUNING")
@@ -220,7 +215,6 @@ Examples:
     print(f"Trials: {config['tuning']['n_trials']}")
     print(f"Tuning seeds: {config.get('tuning_seeds', [0, 1, 2, 3, 4])}")
     print(f"Max rounds: {effective_n_rounds}")
-    print(f"Wandb: {wandb_status}")
     print(f"Output: {args.output}")
     print(f"Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 70)

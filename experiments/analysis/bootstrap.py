@@ -108,7 +108,7 @@ def compute_agent_ci(
 
     ci_func = bootstrap_ci_bca if use_bca else bootstrap_confidence_interval
 
-    # Use final_train_regret (cumulative regret) for CI computation
+
     train_regrets = np.array([t.final_train_regret for t in trials])
     holdout_regrets = np.array([t.holdout_regret for t in trials if t.holdout_regret is not None])
 

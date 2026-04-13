@@ -1,24 +1,7 @@
 #!/usr/bin/env python
-"""Ablation: Flip Set Collapse Under Fixed vs Changing Context.
-
-Hypothesis: With fixed context, the flip set collapses to zero as the agent
-learns the true cost vector. With changing context, a residual flip set
-persists. SPO+ should collapse faster than MSE.
-
-Runs BayesianSPO and BayesianMSE under two regimes:
-  1. Changing context (standard): new context each round
-  2. Fixed context: same context every round, fresh noise
-
-Tracks per-round diagnostics:
-  - flip_set_size: |F_t| arms where SPO+ perturbation changes decision
-  - contested_mae / noncontested_mae: prediction accuracy by arm type
-  - decision_correct: 1 if solver(pred) == solver(true)
-  - contested_sigma_sum: total posterior uncertainty on flip set
-  - rank_corr: Spearman correlation between predictions and true values
-
-Plot: flip set trajectories, diagnostic panels, summary table.
-"""
 import argparse
+import importlib
+import importlib.util
 import sys
 import os
 import copy
@@ -27,24 +10,20 @@ import numpy as np
 
 sys.path.insert(0, '.')
 
+plt = importlib.import_module('matplotlib.pyplot') if importlib.util.find_spec('matplotlib.pyplot') is not None else None
+
 from experiments.ablations.common import (
     load_config, make_co_solver, make_dataset_config,
     save_results, get_quick_params,
 )
 from src.envs import create_env
 from src.agents.base import pregenerate_episode, run_agent_on_episode
-from src.agents.shared_context import BayesianSPOAgent, BayesianMSEAgent
+from src.agents.contextual import BayesianSPOAgent, BayesianMSEAgent
 from src.models import BayesianLinearModel
-from src.agents.shared_context.ucb_agents import UCBAgent
+from src.agents.contextual.ucb_agents import UCBAgent
 
 
 def make_fixed_context_episode(episode, n_rounds):
-    """Create a fixed-context episode: same context every round, keep per-round noise.
-
-    Picks the context from round 0 and replaces all rounds' contexts with it.
-    True values (costs) remain per-round (they include noise), so optimal
-    actions are recomputed per round with the original solver.
-    """
     ep = copy.deepcopy(episode)
     fixed_ctx = ep['rounds_data'][0]['context'].copy()
     for rd in ep['rounds_data'][:n_rounds]:
@@ -81,7 +60,6 @@ def make_agents(env, seed, config, n_rounds):
 
 
 def estimate_T0(flip_sizes, n_arms, threshold_frac=0.1, window=50):
-    """Estimate collapse time: first round where smoothed flip size < threshold."""
     threshold = threshold_frac * n_arms
     if len(flip_sizes) < window:
         return len(flip_sizes)
@@ -93,9 +71,7 @@ def estimate_T0(flip_sizes, n_arms, threshold_frac=0.1, window=50):
 
 
 def plot_results(all_results, datasets, seeds, n_rounds, output_dir):
-    try:
-        import matplotlib.pyplot as plt
-    except ImportError:
+    if plt is None:
         print('matplotlib not available, skipping plots')
         return
 
@@ -170,7 +146,6 @@ def plot_results(all_results, datasets, seeds, n_rounds, output_dir):
 
 
 def print_summary(all_results, datasets, seeds, n_rounds):
-    """Print summary table with final metrics and T0 estimates."""
     agent_names = ['BayesianSPO', 'BayesianMSE']
     regimes = ['changing', 'fixed']
 
@@ -196,7 +171,7 @@ def print_summary(all_results, datasets, seeds, n_rounds):
                         valid_fs = [v for v in fs if v is not None and np.isfinite(v)]
                         if valid_fs:
                             flip_ends.append(valid_fs[-1])
-                            # Estimate n_arms from max flip set
+
                             n_arms_est = max(valid_fs) if max(valid_fs) > 0 else 24
                             t0s.append(estimate_T0(valid_fs, n_arms_est))
 
@@ -204,7 +179,7 @@ def print_summary(all_results, datasets, seeds, n_rounds):
                     if dc:
                         valid_dc = [v for v in dc if v is not None and np.isfinite(v)]
                         if valid_dc:
-                            # Last 20% accuracy
+
                             tail = valid_dc[int(0.8 * len(valid_dc)):]
                             dec_accs.append(np.mean(tail))
 
@@ -238,11 +213,12 @@ def main():
     parser.add_argument('--output', default=None)
     parser.add_argument('--datasets', nargs='+', default=None,
                         help='Datasets to run (default: knapsack_32, shortest_path_8x8)')
+    parser.add_argument('--no-plot', action='store_true', help='Save data only, skip plotting')
     args = parser.parse_args()
 
     config = load_config(args.config)
 
-    # Use defaults from config or CLI
+
     default_datasets = ['knapsack_32', 'shortest_path_8x8']
     datasets = args.datasets or default_datasets
 
@@ -272,7 +248,7 @@ def main():
             co_solver = make_co_solver(env)
             episode = pregenerate_episode(env, n_rounds)
 
-            # Fixed-context version of the same episode
+
             fixed_episode = make_fixed_context_episode(episode, n_rounds)
 
             for regime, ep in [('changing', episode), ('fixed', fixed_episode)]:
@@ -293,7 +269,8 @@ def main():
 
     save_results(all_results, os.path.join(output_dir, 'results.pkl'))
     print_summary(all_results, datasets, seeds, n_rounds)
-    plot_results(all_results, datasets, seeds, n_rounds, output_dir)
+    if not args.no_plot:
+        plot_results(all_results, datasets, seeds, n_rounds, output_dir)
 
 
 if __name__ == '__main__':

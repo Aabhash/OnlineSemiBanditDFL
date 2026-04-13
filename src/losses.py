@@ -19,17 +19,6 @@ def mse_grad(y_pred, y_true) -> jnp.ndarray:
     return 2 * (y_pred - y_true) / len(y_true)
 
 
-def spo_plus_loss(y_pred, y_true, weights, capacity: float) -> float:
-    y_pred_np = np.asarray(y_pred)
-    y_true_np = np.asarray(y_true)
-    weights_np = np.asarray(weights)
-
-    x_opt = solve_knapsack(y_true_np, weights_np, capacity)
-    x_spo = solve_knapsack(2 * y_pred_np - y_true_np, weights_np, capacity)
-    loss = y_true_np @ x_opt - y_true_np @ x_spo
-    return max(0.0, float(loss))
-
-
 def spo_plus_grad(y_pred, y_true, weights, capacity: float) -> jnp.ndarray:
     y_pred_np = np.asarray(y_pred)
     y_true_np = np.asarray(y_true)

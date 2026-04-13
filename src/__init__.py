@@ -2,14 +2,12 @@ from src.envs import (
     ConstrainedBanditEnv,
     KnapsackEnv,
     ShortestPathEdgeEnv,
-    CriteoEnv,
     create_env,
 )
 
 from src.data import (
     KnapsackData,
     SyntheticGridData,
-    CriteoData,
 )
 
 from src.models import (
@@ -43,22 +41,20 @@ from src.losses import (
 )
 
 __all__ = [
-    # Environments
+
     "ConstrainedBanditEnv",
     "KnapsackEnv",
     "ShortestPathEdgeEnv",
-    "CriteoEnv",
     "create_env",
-    # Data
+
     "KnapsackData",
     "SyntheticGridData",
-    "CriteoData",
-    # Models
+
     "LinearModel",
     "MLPModel",
     "BayesianLinearModel",
     "create_model",
-    # Agents
+
     "BayesianSPOAgent",
     "BayesianSPO_DFE_Agent",
     "RandomAgent",
@@ -70,9 +66,9 @@ __all__ = [
     "EpsilonGreedyAgent",
     "BayesianMSEAgent",
     "run_experiment",
-    # Solver
+
     "solve_knapsack",
-    # Losses
+
     "spo_plus_grad",
     "spo_plus_grad_balanced",
     "spo_plus_grad_bandit",

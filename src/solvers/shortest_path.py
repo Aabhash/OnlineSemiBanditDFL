@@ -74,7 +74,7 @@ def solve_shortest_path_edges(edge_costs: np.ndarray, grid_size: int) -> np.ndar
         else:
             cost_above = d[i - 1, j] + costs[down_edge_idx(i - 1, j, n)]
             cost_left  = d[i, j - 1] + costs[right_edge_idx(i, j - 1, n)]
-            if cost_above <= cost_left:          # prefer up on tie
+            if cost_above <= cost_left:
                 i -= 1
                 path[down_edge_idx(i, j, n)] = 1.0
             else:
@@ -95,19 +95,19 @@ def compute_edge_slacks(edge_costs: np.ndarray, grid_size: int) -> np.ndarray:
 
     slacks = np.empty(ne)
 
-    # Right edges: (i,j) -> (i,j+1)
+
     for i in range(n):
         for j in range(n - 1):
             idx = right_edge_idx(i, j, n)
             slacks[idx] = d_f[i, j] + costs[idx] + d_b[i, j + 1] - opt
 
-    # Down edges: (i,j) -> (i+1,j)
+
     for i in range(n - 1):
         for j in range(n):
             idx = down_edge_idx(i, j, n)
             slacks[idx] = d_f[i, j] + costs[idx] + d_b[i + 1, j] - opt
 
-    return np.maximum(slacks, 0.0)         # clamp numerical noise
+    return np.maximum(slacks, 0.0)
 
 
 def extract_k_alternatives(pred_costs, grid_size, K=5):
@@ -145,7 +145,7 @@ class ShortestPathSolver:
         self.n = n
         self.ne = 2 * n * (n - 1)
 
-        # Precompute edge index arrays
+
         self.right_idx = np.empty((n, n - 1), dtype=np.intp)
         for i in range(n):
             for j in range(n - 1):

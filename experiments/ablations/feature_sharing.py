@@ -1,25 +1,20 @@
 #!/usr/bin/env python
-"""Ablation: Feature Sharing.
-
-Hypothesis: SPO+ only wins with shared nonlinear features.
-
-Cross: hidden_dim in {1,4,8,16,32,64} x nonlinear in {False,True} x loss in {SPO,MSE}
-Plus LinUCB baseline (no shared features).
-
-Plot: 2x2 grid (rows: SPO/MSE, cols: linear/nonlinear). X=hidden_dim, Y=final regret.
-"""
 import argparse
-import sys
+import importlib
+import importlib.util
 import os
+import sys
 import numpy as np
 
 sys.path.insert(0, '.')
+
+plt = importlib.import_module('matplotlib.pyplot') if importlib.util.find_spec('matplotlib.pyplot') is not None else None
 
 from experiments.ablations.common import (
     load_config, make_co_solver, make_dataset_config,
     run_ablation_sweep, save_results, get_quick_params,
 )
-from src.agents.shared_context import (
+from src.agents.contextual import (
     BayesianSPOAgent, BayesianMSEAgent, LinUCBAgent,
 )
 from src.agents.base import pregenerate_episode, run_agent_on_episode
@@ -54,9 +49,7 @@ def make_agents_for_config(env, seed, config, hidden_dim, nonlinear):
 
 
 def plot_results(all_results, hidden_dims, seeds, output_dir):
-    try:
-        import matplotlib.pyplot as plt
-    except ImportError:
+    if plt is None:
         print('matplotlib not available, skipping plots')
         return
 
@@ -81,7 +74,7 @@ def plot_results(all_results, hidden_dims, seeds, output_dir):
             ax.set_title(f'{loss} - {"Nonlinear" if nl else "Linear"}')
             ax.set_xscale('log', base=2)
 
-    # Add LinUCB baseline if available
+                                      
     linucb_regrets = [all_results[('LinUCB', s)]['final_regret']
                        for s in seeds if ('LinUCB', s) in all_results]
     if linucb_regrets:
@@ -104,6 +97,7 @@ def main():
     parser.add_argument('--config', default='experiments/configs/experiment.yaml')
     parser.add_argument('--mode', choices=['quick', 'full'], default='quick')
     parser.add_argument('--output', default=None)
+    parser.add_argument('--no-plot', action='store_true', help='Save data only, skip plotting')
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -134,7 +128,7 @@ def main():
             co_solver = make_co_solver(env)
             episode = pregenerate_episode(env, n_rounds)
 
-            # LinUCB baseline (no shared features)
+                                                  
             linucb = LinUCBAgent(
                 env.context_dim, env.n_arms, env.weights, env.capacity,
                 alpha=config['agent_defaults']['alpha'],
@@ -151,7 +145,7 @@ def main():
             all_results[('LinUCB', seed)] = result
             print(f'regret={result["final_regret"]:.0f}', flush=True)
 
-            # Cross: hidden_dim x nonlinear x loss
+                                                  
             for hd in hidden_dims:
                 for nonlinear in [False, True]:
                     agents = make_agents_for_config(env, seed, config, hd, nonlinear)
@@ -168,7 +162,8 @@ def main():
 
         ds_dir = os.path.join(output_dir, dataset)
         save_results(all_results, os.path.join(ds_dir, 'results.pkl'))
-        plot_results(all_results, hidden_dims, seeds, ds_dir)
+        if not args.no_plot:
+            plot_results(all_results, hidden_dims, seeds, ds_dir)
 
 
 if __name__ == '__main__':

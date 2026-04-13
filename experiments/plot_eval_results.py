@@ -1,4 +1,6 @@
 import argparse
+import glob as glob_mod
+import json
 import os
 import pickle
 
@@ -7,98 +9,134 @@ import pandas as pd
 
 from lets_plot import (
     ggplot, aes, geom_line, geom_ribbon, geom_bar, geom_errorbar,
-    ggsave, ggsize,
+    gggrid, ggsave, ggsize,
     scale_color_manual, scale_fill_manual, scale_linetype_manual,
-    scale_x_continuous, scale_y_continuous,
+    scale_x_continuous, scale_x_discrete, scale_y_continuous,
     guides, guide_legend,
     labs, theme_minimal, theme, element_text, element_blank,
-    coord_flip,
+    coord_flip, element_rect,
 )
 from lets_plot import LetsPlot
 LetsPlot.setup_html()
 
 
 AGENT_DISPLAY = {
-    'BayesianMSE':        'BayesianMSE',
-    'BayesianSPO':        'BayesianSPO',
-    'BayesianSPO-DFE':    'BSPO-DFE',
-    'BayesianSPO-DI':     'BSPO-DI',
-    'NeuralUCB':          'NeuralUCB',
-    'LinUCB':             'LinUCB',
-    'UCB-Bayesian':       'UCB-Bayesian',
-    'ThompsonSampling':   'TS',
-    'EpsilonGreedy':      'EpsGreedy',
-    'Greedy':             'Greedy',
-    'Random':             'Random',
+    'BayesianMSE':              'BayesianMSE',
+    'BayesianMSE-Phased (E=5)': 'BayesianMSE-Phased',
+    'BayesianSPO':              'BayesianSPO',
+    'BayesianSPO-Phased (E=5)': 'BayesianSPO-Phased',
+    'BayesianSPO-Phased (E=1)': 'BayesianSPO-Phased (E=1)',
+    'BayesianSPO-DFE':          'BSPO-DFE',
+    'BayesianSPO-DI':           'BSPO-DI',
+    'BayesianPFY':              'BayesianPFY',
+    'NeuralUCB':                'NeuralUCB',
+    'NeuralUCB-Phased':         'NeuralUCB-Phased',
+    'LinUCB':                   'LinUCB',
+    'UCB-Bayesian':             'UCB-Bayesian',
+    'TS':                       'TS',
+    'EpsilonGreedy':            'EpsGreedy',
+    'Greedy':                   'Greedy',
+    'Random':                   'Random',
+    'WeberBLL':                 'WeberBLL',
+    'WeberBLL-Phased':          'WeberBLL-Phased',
+    'WeberBLL-Online':          'WeberBLL-Online',
 }
 
 DATASET_LABELS = {
     'knapsack':            'Knapsack',
+    'knapsack_32':         'Knapsack (n=32)',
     'shortest_path_8x8':  'Shortest Path 8×8',
     'shortest_path_20x20':'Shortest Path 20×20',
+    'topk_2arm':           'TopK (2 arms)',
+    'topk_8arm':           'TopK (8 arms)',
+    'topk_16arm':          'TopK (16 arms)',
 }
 
-# Line plot colors — every agent gets a distinct color
+
 COLORS = {
-    'BayesianMSE':       '#d62728',   # red
-    'BayesianSPO':       '#1f77b4',   # blue
-    'BSPO-DFE':     '#9467bd',   # purple
-    'BSPO-DI':      '#2ca02c',   # green
-    'NeuralUCB':    '#7f7f7f',   # grey
-    'LinUCB':       '#8c564b',   # brown
-    'UCB-Bayesian':    '#e377c2',   # pink
-    'TS':           '#7f7f7f',   # grey
-    'EpsGreedy':    '#aec7e8',   # light blue
-    'Greedy':       '#ffbb78',   # light orange
-    'Random':       '#c7c7c7',   # light grey
+    'BayesianMSE':              '#d62728',
+    'BayesianMSE-Phased':       '#ff7f0e',
+    'BayesianSPO':              '#1f77b4',
+    'BayesianSPO-Phased':       '#2ca02c',
+    'BayesianSPO-Phased (E=1)': '#98df8a',
+    'BSPO-DFE':                 '#9467bd',
+    'BSPO-DI':                  '#17becf',
+    'BayesianPFY':              '#bcbd22',
+    'BayesianPFY-Phased':       '#dbdb8d',
+    'NeuralUCB':                '#7f7f7f',
+    'NeuralUCB-Phased':         '#393b79',
+    'LinUCB':                   '#8c564b',
+    'UCB-Bayesian':             '#e377c2',
+    'TS':                       '#7f7f7f',
+    'EpsGreedy':                '#aec7e8',
+    'Greedy':                   '#ffbb78',
+    'Random':                   '#c7c7c7',
+    'WeberBLL':                 '#8c564b',
+    'WeberBLL-Phased':          '#e377c2',
+    'WeberBLL-Online':          '#c49c94',
 }
 
 LINESTYLES = {
-    'BayesianMSE':       'solid',
-    'BayesianSPO':       'solid',
-    'BSPO-DFE':     'solid',
-    'BSPO-DI':      'solid',
-    'NeuralUCB':    'dotdash',
-    'LinUCB':       'dotdash',
-    'UCB-Bayesian':    'dashed',
-    'TS':           'dotted',
-    'EpsGreedy':    'twodash',
-    'Greedy':       'longdash',
-    'Random':       'dotted',
+    'BayesianMSE':              'solid',
+    'BayesianMSE-Phased':       'solid',
+    'BayesianSPO':              'solid',
+    'BayesianSPO-Phased':       'solid',
+    'BayesianSPO-Phased (E=1)': 'dashed',
+    'BSPO-DFE':                 'solid',
+    'BSPO-DI':                  'solid',
+    'BayesianPFY':              'dashed',
+    'NeuralUCB':                'dotdash',
+    'NeuralUCB-Phased':         'dotdash',
+    'LinUCB':                   'dotdash',
+    'UCB-Bayesian':             'dashed',
+    'TS':                       'dotted',
+    'EpsGreedy':                'twodash',
+    'Greedy':                   'longdash',
+    'Random':                   'dotted',
+    'WeberBLL':                 'dashed',
+    'WeberBLL-Phased':          'dashed',
+    'WeberBLL-Online':          'dotted',
 }
 
-# Bar chart colors: BayesianSPO=blue, DFE variants=orange, DI=green, baselines=grey
+
 BAR_COLORS = {
-    'BayesianSPO':       '#1f77b4',
-    'BSPO-DFE':     '#ff7f0e',
-    'BSPO-DI':      '#2ca02c',
-    'BayesianMSE':       '#aaaaaa',
-    'NeuralUCB':    '#aaaaaa',
-    'LinUCB':       '#aaaaaa',
-    'UCB-Bayesian':    '#aaaaaa',
-    'TS':           '#aaaaaa',
-    'EpsGreedy':    '#aaaaaa',
-    'Greedy':       '#aaaaaa',
-    'Random':       '#aaaaaa',
+    'BayesianSPO-Phased':       '#2ca02c',
+    'BayesianSPO':              '#1f77b4',
+    'BayesianSPO-Phased (E=1)': '#98df8a',
+    'BayesianMSE-Phased':       '#ff7f0e',
+    'BSPO-DFE':                 '#9467bd',
+    'BSPO-DI':                  '#17becf',
+    'BayesianPFY':              '#bcbd22',
+    'BayesianMSE':              '#aaaaaa',
+    'NeuralUCB':                '#aaaaaa',
+    'NeuralUCB-Phased':         '#393b79',
+    'LinUCB':                   '#aaaaaa',
+    'UCB-Bayesian':             '#aaaaaa',
+    'TS':                       '#aaaaaa',
+    'EpsGreedy':                '#aaaaaa',
+    'Greedy':                   '#aaaaaa',
+    'Random':                   '#aaaaaa',
+    'WeberBLL':                 '#8c564b',
+    'WeberBLL-Phased':          '#e377c2',
+    'WeberBLL-Online':          '#c49c94',
 }
 
-WINDOW = 100 # smoothing window for per-round regret
+WINDOW = 100
 
-# Agents to include in LINE plots (None = all agents present)
-LINE_AGENTS = ['LinUCB', 'NeuralUCB', 'BayesianMSE', 'BayesianSPO']
-BAR_AGENTS = [
-    'NeuralUCB',
-    'LinUCB',
-    'UCB-Bayesian',
-    'TS',
-    'EpsGreedy',
-    'Greedy',
-    'Random',
-    'BayesianSPO',
-    'BayesianMSE',
+
+LINE_AGENTS = [
+    'LinUCB', 'NeuralUCB', 'NeuralUCB-Phased',
+    'BayesianMSE', 'BayesianMSE-Phased',
+    'BayesianSPO', 'BayesianSPO-Phased',
+    'WeberBLL-Phased',
 ]
-
-from lets_plot import element_rect
+BAR_AGENTS = [
+    'Random', 'EpsGreedy', 'TS', 'LinUCB', 'UCB-Bayesian',
+    'NeuralUCB', 'NeuralUCB-Phased',
+    'BayesianMSE', 'BayesianMSE-Phased',
+    'BayesianSPO', 'BayesianSPO-Phased', 'BayesianSPO-Phased (E=1)',
+    'WeberBLL-Phased', 'WeberBLL-Online',
+]
 
 LINE_LEGEND_THEME_TL = theme(
     legend_position=[0.02, 0.98], legend_justification=[0, 1],
@@ -112,6 +150,15 @@ LINE_LEGEND_THEME_TR = theme(
     legend_title=element_blank(),
     legend_text=element_text(size=14),
     legend_background=element_rect(fill='white', color='#cccccc', size=0.5),
+)
+
+THEME_LINE = (
+    theme_minimal()
+    + theme(
+        legend_title=element_blank(),
+        legend_text=element_text(size=10),
+        plot_title=element_text(size=12, face='bold'),
+    )
 )
 
 
@@ -139,7 +186,7 @@ def build_dataframes(organized):
                     regrets = data['regrets']
                     n = len(cum_reg)
 
-                    # Subsample cumulative regret (~500 points per line)
+
                     step = max(1, n // 500)
                     indices = list(range(0, n, step))
                     if (n - 1) not in indices:
@@ -150,7 +197,7 @@ def build_dataframes(organized):
                             seed=seed, round=t + 1, cumulative_regret=cum_reg[t],
                         ))
 
-                    # Per-round regret (smoothed)
+
                     kernel = np.ones(WINDOW) / WINDOW
                     smoothed = np.convolve(regrets, kernel, mode='valid')
                     m = len(smoothed)
@@ -164,7 +211,7 @@ def build_dataframes(organized):
                             seed=seed, round=t + WINDOW, per_round_regret=smoothed[t],
                         ))
 
-                    # Bar chart data
+
                     rows_bar.append(dict(
                         dataset=dataset, feedback=feedback, agent=agent,
                         seed=seed, final_cumulative_regret=cum_reg[-1],
@@ -174,7 +221,7 @@ def build_dataframes(organized):
     df_pr = pd.DataFrame(rows_pr)
     df_bar = pd.DataFrame(rows_bar)
 
-    # Aggregate across seeds
+
     df_cum_agg = df_cum.groupby(['dataset', 'feedback', 'agent', 'round']).agg(
         mean=('cumulative_regret', 'mean'), std=('cumulative_regret', 'std'),
     ).reset_index()
@@ -200,7 +247,7 @@ def make_line_plots(df_cum_agg, df_pr_agg, datasets, feedback='semi_bandit',
     else:
         agents = sorted(available)
 
-    # Build color/linetype dicts for agents in data
+
     colors = {a: COLORS.get(a, '#333333') for a in agents}
     linetypes = {a: LINESTYLES.get(a, 'solid') for a in agents}
 
@@ -210,8 +257,6 @@ def make_line_plots(df_cum_agg, df_pr_agg, datasets, feedback='semi_bandit',
     if not plot_datasets:
         print('No line plot data available.')
         return
-
-    from lets_plot import gggrid
 
     for ds in plot_datasets:
         label = DATASET_LABELS.get(ds, ds)
@@ -226,7 +271,7 @@ def make_line_plots(df_cum_agg, df_pr_agg, datasets, feedback='semi_bandit',
         if d_cum.empty:
             continue
 
-        # Scale cumulative regret to K
+
         d_cum = d_cum.copy()
         d_cum['mean_k'] = d_cum['mean'] / 1e3
         d_cum['ymin_k'] = d_cum['ymin'] / 1e3
@@ -274,12 +319,12 @@ def make_bar_charts(df_bar, datasets, feedback='semi_bandit',
     for ds in ds_list:
         d = df[df['dataset'] == ds].copy()
 
-        # Aggregate
+
         agg = d.groupby('agent')['final_cumulative_regret'].agg(['mean', 'std']).reset_index()
 
-        # Sort: worst on top (highest mean first → reversed for coord_flip)
+
         agg = agg.sort_values('mean', ascending=True)
-        agent_order = agg['agent'].tolist()  # best-first → bottom after coord_flip
+        agent_order = agg['agent'].tolist()
 
         scale = 1e3
         agg['mean_k'] = agg['mean'] / scale
@@ -287,14 +332,12 @@ def make_bar_charts(df_bar, datasets, feedback='semi_bandit',
         agg['ymin_k'] = (agg['mean'] - agg['std']) / scale
         agg['ymax_k'] = (agg['mean'] + agg['std']) / scale
 
-        # Map colors
+
         bar_colors = {a: BAR_COLORS.get(a, '#aaaaaa') for a in agent_order}
 
         n_agents = len(agent_order)
         plot_height = max(300, 22 * n_agents + 80)
         plot_width = 1200
-
-        from lets_plot import scale_x_discrete
 
         p = (
             ggplot(agg, aes(x='agent', y='mean_k', fill='agent'))
@@ -316,9 +359,98 @@ def make_bar_charts(df_bar, datasets, feedback='semi_bandit',
         print(f'Saved bar chart: {outpath}')
 
 
+def build_diagnostic_dataframes(organized):
+    diag_metrics = {
+        'flip_set_size': 'Flip Set Size',
+        'contested_mae': 'Contested MAE',
+        'decision_correct': 'Decision Accuracy',
+        'rank_corr': 'Rank Correlation',
+    }
+
+    all_rows = {metric: [] for metric in diag_metrics}
+
+    for dataset, fb_dict in organized.items():
+        for feedback, agent_dict in fb_dict.items():
+            for agent_raw, seed_dict in agent_dict.items():
+                agent = AGENT_DISPLAY.get(agent_raw, agent_raw)
+                for seed, data in seed_dict.items():
+                    for metric_key in diag_metrics:
+                        values = data.get(metric_key, [])
+                        if not values or not isinstance(values, list):
+                            continue
+
+                        arr = np.array(values, dtype=float)
+                        arr = arr[~np.isnan(arr)]
+                        if len(arr) < WINDOW:
+                            continue
+                        kernel = np.ones(WINDOW) / WINDOW
+                        smoothed = np.convolve(arr, kernel, mode='valid')
+                        step = max(1, len(smoothed) // 300)
+                        for t in range(0, len(smoothed), step):
+                            all_rows[metric_key].append(dict(
+                                dataset=dataset, feedback=feedback, agent=agent,
+                                seed=seed, round=t + WINDOW, value=smoothed[t],
+                            ))
+
+    result = {}
+    for metric_key, label in diag_metrics.items():
+        if all_rows[metric_key]:
+            df = pd.DataFrame(all_rows[metric_key])
+            agg = df.groupby(['dataset', 'feedback', 'agent', 'round']).agg(
+                mean=('value', 'mean'), std=('value', 'std'),
+            ).reset_index()
+            result[metric_key] = (agg, label)
+
+    return result
+
+
+def make_diagnostic_plots(organized, datasets, feedback='semi_bandit',
+                          output_dir='results/figures', fmt='svg',
+                          line_agents=None):
+    diag_dfs = build_diagnostic_dataframes(organized)
+    if not diag_dfs:
+        print('No diagnostic data available.')
+        return
+
+    requested = line_agents or LINE_AGENTS
+
+    for ds in datasets:
+        label = DATASET_LABELS.get(ds, ds)
+        plots = []
+
+        for metric_key, (df_agg, metric_label) in diag_dfs.items():
+            d = df_agg[(df_agg['dataset'] == ds) & (df_agg['feedback'] == feedback)]
+            if d.empty:
+                continue
+
+            available_agents = set(d['agent'].unique())
+            agents = [a for a in requested if a in available_agents] if requested else sorted(available_agents)
+            if not agents:
+                agents = sorted(available_agents)
+
+            d = d[d['agent'].isin(agents)]
+            colors = {a: COLORS.get(a, '#333333') for a in agents}
+
+            p = (
+                ggplot(d, aes(x='round', y='mean', color='agent'))
+                + geom_line(size=1)
+                + scale_color_manual(values=colors)
+                + labs(x='Round', y=metric_label, title=f'{metric_label}')
+                + THEME_LINE
+            )
+            plots.append(p)
+
+        if not plots:
+            continue
+
+        ncol = min(2, len(plots))
+        fig = gggrid(plots, ncol=ncol, align=True) + ggsize(700 * ncol, 400 * ((len(plots) + ncol - 1) // ncol))
+        outpath = os.path.abspath(os.path.join(output_dir, f'diagnostics_{ds}.{fmt}'))
+        ggsave(fig, outpath)
+        print(f'Saved diagnostics: {outpath}')
+
 
 def load_final_regrets(path):
-    import json
     with open(path) as f:
         data = json.load(f)
 
@@ -334,13 +466,15 @@ def load_final_regrets(path):
     return pd.DataFrame(rows)
 
 
-# ─────────────────────────── Main ───────────────────────────────────
-
 def main():
     parser = argparse.ArgumentParser(description='Plot evaluation results')
-    parser.add_argument('--input', type=str,
-                        default='results/eval/metrics/trajectories.pkl',
-                        help='Path to trajectories.pkl')
+    parser.add_argument('--input', type=str, nargs='+',
+                        default=[
+                            'results/eval/metrics',
+                            'results/eval_online/metrics',
+                            'results/eval_phased/metrics',
+                        ],
+                        help='One or more directories containing trajectories_*.pkl files')
     parser.add_argument('--regrets_json', type=str, default=None,
                         help='Path to final_eval_regrets.json (for bar charts with more datasets)')
     parser.add_argument('--output', type=str, default='results/figures',
@@ -361,35 +495,47 @@ def main():
 
     os.makedirs(args.output, exist_ok=True)
 
-    # Load trajectories for line plots
-    # Try per-dataset files first (trajectories_<dataset>.pkl), then combined
-    organized = None
-    input_dir = os.path.dirname(args.input)
-    import glob as glob_mod
-    per_ds_files = sorted(glob_mod.glob(os.path.join(input_dir, 'trajectories_*.pkl')))
-    if per_ds_files:
-        organized = {}
+
+    organized = {}
+    input_dirs = args.input
+    for input_dir in input_dirs:
+
+        if os.path.isfile(input_dir):
+            input_dir = os.path.dirname(input_dir)
+        per_ds_files = sorted(glob_mod.glob(os.path.join(input_dir, 'trajectories_*.pkl')))
         for f in per_ds_files:
-            print(f'Loading {os.path.basename(f)}...')
+            print(f'Loading {os.path.basename(f)} from {input_dir}...')
             part = load_trajectories(f)
             for ds, fb_dict in part.items():
-                organized.setdefault(ds, {}).update(fb_dict)
-    elif os.path.exists(args.input):
-        print(f'Loading trajectories from {args.input}...')
-        organized = load_trajectories(args.input)
+                if ds not in organized:
+                    organized[ds] = {}
+                for fb_mode, agent_dict in fb_dict.items():
+                    if fb_mode not in organized[ds]:
+                        organized[ds][fb_mode] = {}
+                    organized[ds][fb_mode].update(agent_dict)
+    if not organized:
+        print('No trajectory files found. Run evaluate.py, evaluate_online.py, or evaluate_phased.py first.')
+        organized = None
 
-    # Load regrets JSON for bar charts (if provided or auto-detect)
+
     df_bar_extra = None
     regrets_path = args.regrets_json
     if regrets_path is None:
-        default_path = 'results/final_eval_regrets.json'
-        if os.path.exists(default_path):
-            regrets_path = default_path
+        candidate_paths = [
+            'results/eval/metrics/final_eval_regrets.json',
+            'results/final_eval_regrets.json',
+            'results/eval_online/metrics/final_eval_regrets.json',
+            'results/eval_phased/metrics/final_eval_regrets.json',
+        ]
+        for candidate_path in candidate_paths:
+            if os.path.exists(candidate_path):
+                regrets_path = candidate_path
+                break
     if regrets_path and os.path.exists(regrets_path):
         print(f'Loading final regrets from {regrets_path}...')
         df_bar_extra = load_final_regrets(regrets_path)
 
-    # Build dataframes from trajectories
+
     df_cum_agg, df_pr_agg, df_bar = None, None, pd.DataFrame()
     if organized:
         datasets_traj = sorted(organized.keys())
@@ -402,8 +548,7 @@ def main():
 
         df_cum_agg, df_pr_agg, df_bar = build_dataframes(organized)
 
-    # Combine bar data: use trajectories (newer) for datasets it covers,
-    # fall back to regrets JSON for remaining datasets
+
     if df_bar_extra is not None and not df_bar.empty:
         traj_datasets = set(df_bar['dataset'].unique())
         df_json_only = df_bar_extra[~df_bar_extra['dataset'].isin(traj_datasets)]
@@ -419,7 +564,7 @@ def main():
         df_bar_combined = df_bar
         bar_datasets = sorted(df_bar['dataset'].unique()) if not df_bar.empty else []
 
-    # Exclude NL variants
+
     if exclude_nl and not df_bar_combined.empty:
         nl_mask = df_bar_combined['agent'].str.contains('-NL$', regex=True)
         n_excluded = nl_mask.sum()
@@ -427,20 +572,25 @@ def main():
             df_bar_combined = df_bar_combined[~nl_mask]
             print(f'Excluded {n_excluded} NL variant entries from bar charts')
 
-    # Filter agents if specified
+
     if BAR_AGENTS and not df_bar_combined.empty:
         df_bar_combined = df_bar_combined[df_bar_combined['agent'].isin(BAR_AGENTS)]
 
-    # Generate line plots (only from trajectories)
+
     if df_cum_agg is not None and df_pr_agg is not None:
         traj_datasets = sorted(set(df_cum_agg['dataset'].unique()))
         make_line_plots(df_cum_agg, df_pr_agg, traj_datasets, args.feedback,
                         args.output, args.format, args.line_agents)
 
-    # Generate bar charts
+
     if not df_bar_combined.empty:
         make_bar_charts(df_bar_combined, bar_datasets, args.feedback,
                         args.output, args.format)
+
+
+    if organized:
+        make_diagnostic_plots(organized, sorted(organized.keys()), args.feedback,
+                              args.output, args.format, args.line_agents)
 
     print('Done.')
 

@@ -13,7 +13,7 @@ class KnapsackData:
         noise_width: float = 0.5,
         seed: int = 42,
         unit_weights: bool = False,
-        **kwargs,  # absorb legacy nonstationarity params
+        **kwargs,
     ):
         self.n_items = n_items
         if context_dim is not None:
@@ -21,14 +21,14 @@ class KnapsackData:
         elif n_features is not None:
             self.n_features = n_features
         else:
-            self.n_features = 5  # default
-        self.context_dim = self.n_features  # alias for consistency
+            self.n_features = 5
+        self.context_dim = self.n_features
         self.capacity = capacity
         self.deg = deg
         self.noise_width = noise_width
         self.rng = np.random.default_rng(seed)
 
-        # Binary feature mask for each item (PyEPO convention)
+
         self.B = self.rng.integers(0, 2, size=(n_items, self.n_features)).astype(float)
         if unit_weights:
             self.weights = np.ones(n_items)
@@ -36,13 +36,12 @@ class KnapsackData:
             self.weights = self.rng.uniform(1.0, 5.0, n_items)
 
     def sample(self) -> Tuple[np.ndarray, np.ndarray]:
-        """Sample a context and compute item values."""
         context = self.rng.standard_normal(self.n_features)
         values = self._generate_values(context)
         return context, values
 
     def step(self):
-        pass  # stationary DGP
+        pass
 
     def _generate_values(self, x: np.ndarray) -> np.ndarray:
         linear = self.B @ x / np.sqrt(self.n_features)
@@ -70,4 +69,4 @@ class KnapsackData:
         }
 
     def reset(self):
-        pass  # stationary DGP, nothing to reset
+        pass
