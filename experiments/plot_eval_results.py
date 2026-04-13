@@ -22,10 +22,7 @@ LetsPlot.setup_html()
 
 AGENT_DISPLAY = {
     'BayesianMSE':              'BayesianMSE',
-    'BayesianMSE-Phased (E=5)': 'BayesianMSE-Phased',
     'BayesianSPO':              'BayesianSPO',
-    'BayesianSPO-Phased (E=5)': 'BayesianSPO-Phased',
-    'BayesianSPO-Phased (E=1)': 'BayesianSPO-Phased (E=1)',
     'BayesianSPO-DFE':          'BSPO-DFE',
     'BayesianSPO-DI':           'BSPO-DI',
     'BayesianPFY':              'BayesianPFY',
@@ -58,7 +55,6 @@ COLORS = {
     'BayesianMSE-Phased':       '#ff7f0e',
     'BayesianSPO':              '#1f77b4',
     'BayesianSPO-Phased':       '#2ca02c',
-    'BayesianSPO-Phased (E=1)': '#98df8a',
     'BSPO-DFE':                 '#9467bd',
     'BSPO-DI':                  '#17becf',
     'BayesianPFY':              '#bcbd22',
@@ -81,7 +77,6 @@ LINESTYLES = {
     'BayesianMSE-Phased':       'solid',
     'BayesianSPO':              'solid',
     'BayesianSPO-Phased':       'solid',
-    'BayesianSPO-Phased (E=1)': 'dashed',
     'BSPO-DFE':                 'solid',
     'BSPO-DI':                  'solid',
     'BayesianPFY':              'dashed',
@@ -102,7 +97,6 @@ LINESTYLES = {
 BAR_COLORS = {
     'BayesianSPO-Phased':       '#2ca02c',
     'BayesianSPO':              '#1f77b4',
-    'BayesianSPO-Phased (E=1)': '#98df8a',
     'BayesianMSE-Phased':       '#ff7f0e',
     'BSPO-DFE':                 '#9467bd',
     'BSPO-DI':                  '#17becf',
@@ -134,7 +128,7 @@ BAR_AGENTS = [
     'Random', 'EpsGreedy', 'TS', 'LinUCB', 'UCB-Bayesian',
     'NeuralUCB', 'NeuralUCB-Phased',
     'BayesianMSE', 'BayesianMSE-Phased',
-    'BayesianSPO', 'BayesianSPO-Phased', 'BayesianSPO-Phased (E=1)',
+    'BayesianSPO', 'BayesianSPO-Phased',
     'WeberBLL-Phased', 'WeberBLL-Online',
 ]
 

@@ -1,0 +1,85 @@
+# Stage-2 phased refinement search spaces.
+# Backbone HPs (hidden_dim, lambda_reg) are inherited from online tuning (stage 1).
+# Only phase-specific knobs + lr/beta recheck are swept here.
+
+agents:
+
+  BayesianSPO-Phased:
+    tune_lr: true
+    init_lr:
+      type: categorical
+      choices: [0.0003, 0.001, 0.003]
+    beta:
+      type: float
+      low: 0.1
+      high: 5.0
+      log: true
+    phase_length:
+      type: categorical
+      choices: [25, 50, 100]
+    phase_epochs:
+      type: categorical
+      choices: [1, 3, 5]
+
+  BayesianPFY-Phased:
+    tune_lr: true
+    init_lr:
+      type: categorical
+      choices: [0.0003, 0.001, 0.003]
+    beta:
+      type: float
+      low: 0.1
+      high: 5.0
+      log: true
+    phase_length:
+      type: categorical
+      choices: [25, 50, 100]
+    phase_epochs:
+      type: categorical
+      choices: [1, 3, 5]
+
+  BayesianMSE-Phased:
+    tune_lr: true
+    init_lr:
+      type: categorical
+      choices: [0.0003, 0.001, 0.003]
+    beta:
+      type: float
+      low: 0.1
+      high: 5.0
+      log: true
+    phase_length:
+      type: categorical
+      choices: [25, 50, 100]
+    phase_epochs:
+      type: categorical
+      choices: [1, 3, 5]
+
+  NeuralUCB-Phased:
+    tune_lr: true
+    init_lr:
+      type: categorical
+      choices: [0.0003, 0.001, 0.003]
+    phase_length:
+      type: categorical
+      choices: [25, 50, 100]
+    phase_epochs:
+      type: categorical
+      choices: [1, 3, 5]
+
+  WeberBLL-Phased:
+    tune_lr: true
+    init_lr:
+      type: categorical
+      choices: [0.0003, 0.001, 0.003]
+    beta:
+      type: float
+      low: 0.1
+      high: 5.0
+      log: true
+    phase_length:
+      type: categorical
+      choices: [25, 50, 100]
+    phase_epochs:
+      type: categorical
+      choices: [1, 3, 5]

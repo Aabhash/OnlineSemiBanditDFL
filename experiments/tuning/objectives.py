@@ -9,6 +9,7 @@ from .timing import TrialTimer
 from .results_store import TrialResult, ResultsStore
 from src.agents.contextual import (
     BayesianSPOAgent,
+    BayesianPFYAgent,
     BayesianSPO_DFE_Agent,
     LinUCBAgent,
     NeuralUCBAgent,
@@ -193,6 +194,31 @@ def sample_hyperparameters(
     return params
 
 
+PHASED_TO_ONLINE_BACKBONE = {
+    'BayesianSPO-Phased': 'BayesianSPO',
+    'BayesianPFY-Phased': 'BayesianPFY',
+    'BayesianMSE-Phased': 'BayesianMSE',
+    'NeuralUCB-Phased': 'NeuralUCB',
+    'WeberBLL-Phased': 'WeberBLL',
+}
+
+
+def load_backbone_params(agent_name, dataset, feedback_type, results_store):
+    online_name = PHASED_TO_ONLINE_BACKBONE.get(agent_name)
+    if online_name is None:
+        return {}
+    try:
+        return results_store.get_best_params(online_name, dataset, feedback_type)
+    except Exception:
+        return {}
+
+
+def merge_backbone_and_phase_params(backbone_params, phase_params):
+    merged = dict(backbone_params)
+    merged.update(phase_params)
+    return merged
+
+
 def create_agent_from_params(
     agent_name: str,
     env,
@@ -200,7 +226,11 @@ def create_agent_from_params(
     seed: int,
     n_rounds: int,
     lr: float,
+    backbone_params: Dict[str, Any] = None,
 ):
+    if backbone_params and agent_name in PHASED_TO_ONLINE_BACKBONE:
+        params = merge_backbone_and_phase_params(backbone_params, params)
+
     solver = env.solve
     minimize = getattr(env, 'minimize', False)
 
@@ -212,6 +242,19 @@ def create_agent_from_params(
 
         agent_lr = params.get('init_lr', 0.001)
         return BayesianSPOAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            lr=agent_lr,
+            decay_rounds=n_rounds, minimize=minimize, solver=solver, seed=seed,
+            mask_grad=True, nonlinear=False,
+            **agent_params
+        )
+    elif agent_name == 'BayesianPFY':
+        agent_params = {k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
+        if minimize and 'beta' in agent_params:
+            agent_params['beta'] = -agent_params['beta']
+
+        agent_lr = params.get('init_lr', 0.001)
+        return BayesianPFYAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             lr=agent_lr,
             decay_rounds=n_rounds, minimize=minimize, solver=solver, seed=seed,
@@ -237,7 +280,7 @@ def create_agent_from_params(
             env.weights, env.capacity, minimize=minimize, solver=solver,
             **{k: v for k, v in params.items() if k != 'lr'}
         )
-    elif agent_name == 'ThompsonSampling':
+    elif agent_name in ('TS', 'ThompsonSampling'):
         prior_var = params.get('prior_var', 1.0)
         noise_var = params.get('noise_var', 0.1)
         return ThompsonSamplingAgent(
@@ -316,6 +359,67 @@ def create_agent_from_params(
             mask_grad=True, nonlinear=False,
             **agent_params
         )
+
+    elif agent_name == 'BayesianSPO-Phased':
+        agent_params = {k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
+        if minimize and 'beta' in agent_params:
+            agent_params['beta'] = -agent_params['beta']
+        agent_lr = params.get('init_lr', 0.001)
+        return BayesianSPOAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            lr=agent_lr,
+            decay_rounds=n_rounds, minimize=minimize, solver=solver, seed=seed,
+            mask_grad=True, nonlinear=False, phased=True,
+            **agent_params
+        )
+    elif agent_name == 'BayesianPFY-Phased':
+        agent_params = {k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
+        if minimize and 'beta' in agent_params:
+            agent_params['beta'] = -agent_params['beta']
+        agent_lr = params.get('init_lr', 0.001)
+        return BayesianPFYAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            lr=agent_lr,
+            decay_rounds=n_rounds, minimize=minimize, solver=solver, seed=seed,
+            mask_grad=True, nonlinear=False, phased=True,
+            **agent_params
+        )
+    elif agent_name == 'BayesianMSE-Phased':
+        agent_params = {k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
+        if minimize and 'beta' in agent_params:
+            agent_params['beta'] = -agent_params['beta']
+        agent_lr = params.get('init_lr', 0.001)
+        return BayesianMSEAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            lr=agent_lr,
+            decay_rounds=n_rounds, solver=solver, seed=seed,
+            nonlinear=False, phased=True,
+            **agent_params
+        )
+    elif agent_name == 'NeuralUCB-Phased':
+        agent_lr = params.get('init_lr', lr)
+        phase_params = {k: v for k, v in params.items() if k in ('phase_length', 'phase_epochs')}
+        return NeuralUCBAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            hidden_dim=params.get('hidden_dim', 16),
+            alpha=params.get('alpha', 1.0),
+            lambda_reg=params.get('lambda_reg', 1.0),
+            lr=agent_lr,
+            minimize=minimize, solver=solver, seed=seed,
+            phased=True, **phase_params
+        )
+    elif agent_name == 'WeberBLL-Phased':
+        agent_params = {k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
+        if minimize and 'beta' in agent_params:
+            agent_params['beta'] = -agent_params['beta']
+        agent_lr = params.get('init_lr', 0.001)
+        return WeberBLLAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            lr=agent_lr,
+            decay_rounds=n_rounds, minimize=minimize, solver=solver, seed=seed,
+            mask_grad=True, nonlinear=False, phased=True,
+            **agent_params
+        )
     else:
         raise ValueError(f"Unknown agent: {agent_name}")
 
@@ -391,11 +495,14 @@ class ObjectiveFactory:
         is_online = is_online_dataset(config, dataset)
 
 
+        backbone = load_backbone_params(agent_name, dataset, feedback_type, results_store)
+        if backbone:
+            print(f"  Loaded stage-1 backbone from {PHASED_TO_ONLINE_BACKBONE[agent_name]}: {list(backbone.keys())}")
+
         pruning_config = config.get('tuning', {}).get('pruning', {})
         pruning_enabled = pruning_config.get('enabled', False)
         min_seeds_before_pruning = pruning_config.get('min_seeds_before_pruning', 1)
         warmup_trials = pruning_config.get('warmup_trials', 5)
-
 
         use_late_stage = pruning_config.get('use_late_stage', False)
         late_stage_fraction = pruning_config.get('late_stage_fraction', 0.25)
@@ -430,7 +537,8 @@ class ObjectiveFactory:
                     env = create_env_for_tuning(dataset, seed, config)
 
                     agent = create_agent_from_params(
-                        agent_name, env, params, seed, n_rounds, lr
+                        agent_name, env, params, seed, n_rounds, lr,
+                        backbone_params=backbone,
                     )
 
                     with TrialTimer() as timer:
@@ -581,7 +689,8 @@ class ObjectiveFactory:
 
                 try:
                     env = create_env_for_tuning(dataset, seed, config)
-                    agent = create_agent_from_params(agent_name, env, params, seed, n_rounds, lr)
+                    agent = create_agent_from_params(
+                        agent_name, env, params, seed, n_rounds, lr)
 
                     result = run_tuning_experiment(
                         env=env,

@@ -116,51 +116,35 @@ def get_agents(env, seed, config, n_rounds):
         solver=solver, seed=seed, nonlinear=nonlinear,
     )
 
+    phase_length = defaults.get('phase_length', 50)
+    phase_epochs = defaults.get('phase_epochs', 5)
+
     agents = {
-
-        'BayesianSPO-Phased (E=5)': BayesianSPOAgent(
+        'BayesianSPO-Phased': BayesianSPOAgent(
             **common, beta=bayes_beta, decay_rounds=n_rounds,
             minimize=minimize, mask_grad=True,
-            phased=True, phase_length=50, phase_epochs=5,
+            phased=True, phase_length=phase_length, phase_epochs=phase_epochs,
         ),
-        'BayesianSPO-Phased (E=1)': BayesianSPOAgent(
-            **common, beta=bayes_beta, decay_rounds=n_rounds,
-            minimize=minimize, mask_grad=True,
-            phased=True, phase_length=50, phase_epochs=1,
-        ),
-
-
-        'WeberBLL-Phased': WeberBLLAgent(
-            **common, beta=bayes_beta, decay_rounds=n_rounds,
-            minimize=minimize, mask_grad=True, lr=lr,
-            phased=True, phase_length=50, phase_epochs=5,
-        ),
-        'WeberBLL-Online': WeberBLLAgent(
-            **common, beta=bayes_beta, decay_rounds=n_rounds,
-            minimize=minimize, mask_grad=True, lr=lr,
-            phased=False,
-        ),
-
-
         'BayesianPFY-Phased': BayesianPFYAgent(
             **common, beta=bayes_beta, decay_rounds=n_rounds,
             minimize=minimize, mask_grad=True,
-            phased=True, phase_length=50, phase_epochs=5,
+            phased=True, phase_length=phase_length, phase_epochs=phase_epochs,
         ),
-
-
-        'BayesianMSE-Phased (E=5)': BayesianMSEAgent(
+        'BayesianMSE-Phased': BayesianMSEAgent(
             **common, beta=bayes_beta, decay_rounds=n_rounds,
-            phased=True, phase_length=50, phase_epochs=5,
+            phased=True, phase_length=phase_length, phase_epochs=phase_epochs,
         ),
-
-
         'NeuralUCB-Phased': NeuralUCBAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             hidden_dim=hidden_dim, alpha=defaults['alpha'],
             lambda_reg=lambda_reg, lr=lr,
             minimize=minimize, solver=solver, seed=seed,
-            phased=True, phase_length=50, phase_epochs=5,
+            phased=True, phase_length=phase_length, phase_epochs=phase_epochs,
+        ),
+        'WeberBLL-Phased': WeberBLLAgent(
+            **common, beta=bayes_beta, decay_rounds=n_rounds,
+            minimize=minimize, mask_grad=True, lr=lr,
+            phased=True, phase_length=phase_length, phase_epochs=phase_epochs,
         ),
     }
 
