@@ -15,10 +15,10 @@ cd "$SCRIPT_DIR"
 
 echo "=== Running main-text ablations ==="
 
-uv run python experiments/ablations/kn_ratio_sweep.py
-uv run python experiments/ablations/mechanism_ablation.py
-uv run python experiments/ablations/feature_sharing.py
-uv run python experiments/ablations/flip_set_collapse.py
+uv run python experiments/ablations/kn_ratio_sweep.py --no-plot
+uv run python experiments/ablations/mechanism_ablation.py --no-plot
+uv run python experiments/ablations/feature_sharing.py --no-plot
+uv run python experiments/ablations/flip_set_collapse.py --no-plot
 
 # ====================================================================
 # Appendix / supporting ablations
@@ -26,7 +26,7 @@ uv run python experiments/ablations/flip_set_collapse.py
 
 echo "=== Running appendix ablations ==="
 
-uv run python experiments/ablations/context_variation.py
+uv run python experiments/ablations/context_variation.py --no-plot
 uv run python experiments/ablations/feature_robustness.py
 
 # ====================================================================
@@ -36,5 +36,15 @@ uv run python experiments/ablations/feature_robustness.py
 # uv run python experiments/ablations/exploration_strategy.py
 # uv run python experiments/ablations/imputation_strategy.py
 
+# ====================================================================
+# Later: render figures from the saved ablation results
+# ====================================================================
+
+# uv run python experiments/plot_ablation_results.py \
+#   --results-dir results/ablations \
+#   --output results/figures/ablations \
+#   --format pdf
+
 echo "All ablations complete."
-echo "  Data + figures: results/ablations/"
+echo "  Results saved to: results/ablations/"
+uv run python experiments/plot_ablation_results.py --results-dir results/ablations --output results/figures/ablations --format pdf

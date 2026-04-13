@@ -131,6 +131,15 @@ uv run python experiments/compute_analysis.py
 | Exploration strategy | Greedy, UCB, DFE, DI | `ablations/exploration_strategy.py` |
 | Imputation strategy | Masked, unmasked, DI-K | `ablations/imputation_strategy.py` |
 
+Default ablation workflow:
+
+```bash
+./run_ablations.sh
+uv run python experiments/plot_ablation_results.py --results-dir results/ablations --output results/figures/ablations --format pdf
+```
+
+`run_ablations.sh` saves ablation result files only. Run the plotting command afterward to render figures from the saved results.
+
 ## Project Structure
 
 ```
