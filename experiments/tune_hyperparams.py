@@ -130,6 +130,8 @@ Examples:
     parser.add_argument('--analyze-only', action='store_true')
     parser.add_argument('--resume', action='store_true', default=True)
     parser.add_argument('--no-resume', action='store_true')
+    parser.add_argument('--backbone-tuning-dir', type=str, default=None,
+                        help='Stage-1 tuning dir for backbone params (phased tuning only)')
 
     args = parser.parse_args()
 
@@ -223,6 +225,7 @@ Examples:
             config_path=args.config,
             search_space_dir=args.search_spaces,
             output_dir=args.output,
+            backbone_tuning_dir=args.backbone_tuning_dir,
         )
 
         tuner.config = config

@@ -482,6 +482,7 @@ class ObjectiveFactory:
         search_space: Dict[str, Any],
         results_store: ResultsStore,
         feedback_type: str,
+        backbone_results_store: ResultsStore = None,
     ) -> Callable[['optuna.Trial'], float]:
 
         n_rounds = get_n_rounds_for_dataset(config, dataset)
@@ -495,7 +496,8 @@ class ObjectiveFactory:
         is_online = is_online_dataset(config, dataset)
 
 
-        backbone = load_backbone_params(agent_name, dataset, feedback_type, results_store)
+        bb_store = backbone_results_store if backbone_results_store is not None else results_store
+        backbone = load_backbone_params(agent_name, dataset, feedback_type, bb_store)
         if backbone:
             print(f"  Loaded stage-1 backbone from {PHASED_TO_ONLINE_BACKBONE[agent_name]}: {list(backbone.keys())}")
 
