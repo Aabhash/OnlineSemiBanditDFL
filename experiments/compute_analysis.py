@@ -24,17 +24,25 @@ else:
 OUTPUT_DIR = 'results/compute'
 
 
-GRADIENT_MULTIPLIER = {
+DEFAULT_GRADIENT_MULTIPLIER = {
     'Random': 0, 'EpsilonGreedy': 1, 'TS': 0, 'LinUCB': 0,
     'UCB-Bayesian': 0,
     'NeuralUCB': 1, 'BayesianMSE': 1, 'BayesianSPO': 1,
     'BayesianPFY': 1, 'WeberBLL': 5,
     'BayesianSPO-Phased': 5,
+    'BayesianPFY-Phased': 5,
     'BayesianMSE-Phased': 5,
     'WeberBLL-Phased': 5, 'WeberBLL-Online': 1,
     'NeuralUCB-Phased': 5,
     'BayesianSPO-DI': 1, 'BayesianSPO-DFE': 1,
 }
+
+
+def get_gradient_multiplier(agent_name, data):
+    hp = data.get('hyperparameters', {})
+    if 'phase_epochs' in hp:
+        return int(hp['phase_epochs'])
+    return DEFAULT_GRADIENT_MULTIPLIER.get(agent_name, 1)
 
 AGENT_CATEGORY = {
     'Random': 'baseline', 'EpsilonGreedy': 'baseline', 'TS': 'baseline',
@@ -194,7 +202,7 @@ def generate_compute_normalized(summary, n_rounds, output_dir):
         dataset = data.get('dataset', '')
         mean_reg = data.get('mean_cumulative_regret', 0)
 
-        multiplier = GRADIENT_MULTIPLIER.get(agent, 1)
+        multiplier = get_gradient_multiplier(agent, data)
         total_steps = multiplier * n_rounds if multiplier > 0 else n_rounds
         reg_per_step = mean_reg / max(total_steps, 1)
 

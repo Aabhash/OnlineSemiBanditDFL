@@ -37,7 +37,8 @@ from experiments.ablations.common import make_co_solver
 
 
 DEFAULT_CONFIG_PATH = 'experiments/configs/experiment.yaml'
-DEFAULT_TUNING_DIR = 'results/tuning'
+DEFAULT_TUNING_DIR = 'results/tuning_phased'
+DEFAULT_BACKBONE_TUNING_DIR = 'results/tuning'
 
 
 def load_config(config_path: str = DEFAULT_CONFIG_PATH):
@@ -77,6 +78,18 @@ def load_tuned_params(
     return tuned_params
 
 
+def load_backbone_for_phased(agent_name, backbone_tuning_dir, dataset, feedback_type, config):
+    from experiments.tuning.objectives import PHASED_TO_ONLINE_BACKBONE
+    online_name = PHASED_TO_ONLINE_BACKBONE.get(agent_name)
+    if online_name is None:
+        return {}
+    try:
+        online_params = load_tuned_params(backbone_tuning_dir, dataset, feedback_type, config)
+        return online_params.get(online_name, {})
+    except Exception:
+        return {}
+
+
 def create_agent_with_tuned_params(
     agent_name: str,
     env,
@@ -84,6 +97,7 @@ def create_agent_with_tuned_params(
     seed: int,
     n_rounds: int,
     config: Dict[str, Any],
+    backbone_params: Dict[str, Any] = None,
 ):
     lr = tuned_params.get('lr', config['agent_defaults']['lr'])
 
@@ -94,6 +108,7 @@ def create_agent_with_tuned_params(
         seed=seed,
         n_rounds=n_rounds,
         lr=lr,
+        backbone_params=backbone_params,
     )
 
 
@@ -165,6 +180,8 @@ def run_evaluation(
     wandb_enabled: bool = False,
     use_tuned_params_flag: bool = False,
     seeds: Optional[list] = None,
+    tuning_dir: str = 'results/tuning_phased',
+    backbone_tuning_dir: str = 'results/tuning',
 ):
     dataset_config = config['datasets'][dataset].copy()
     dataset_config.pop('env_type', None)
@@ -206,14 +223,18 @@ def run_evaluation(
 
 
             if tuned_params:
-
+                backbone_cache = {}
                 agents = {}
                 for agent_name, params in tuned_params.items():
                     if agents_filter and agent_name not in agents_filter:
                         continue
+                    if agent_name not in backbone_cache:
+                        backbone_cache[agent_name] = load_backbone_for_phased(
+                            agent_name, backbone_tuning_dir, dataset, feedback_mode, config)
                     try:
                         agent = create_agent_with_tuned_params(
-                            agent_name, env_base, params, seed, n_rounds, config
+                            agent_name, env_base, params, seed, n_rounds, config,
+                            backbone_params=backbone_cache[agent_name],
                         )
                         agents[agent_name] = agent
                     except Exception as e:
@@ -1076,7 +1097,9 @@ Examples:
     parser.add_argument('--use-tuned-params', action='store_true',
                         help='Use tuned hyperparameters from HP search instead of defaults')
     parser.add_argument('--tuning-dir', type=str, default=DEFAULT_TUNING_DIR,
-                        help='Directory containing tuning results (default: results/tuning)')
+                        help='Directory with phased tuning results (default: results/tuning_phased)')
+    parser.add_argument('--backbone-tuning-dir', type=str, default=DEFAULT_BACKBONE_TUNING_DIR,
+                        help='Directory with stage-1 online tuning results (default: results/tuning)')
 
 
     parser.add_argument('--analyze', action='store_true',
@@ -1203,6 +1226,8 @@ Examples:
             wandb_enabled=wandb_enabled,
             use_tuned_params_flag=args.use_tuned_params,
             seeds=evaluation_seeds,
+            tuning_dir=args.tuning_dir,
+            backbone_tuning_dir=args.backbone_tuning_dir,
         )
 
         print_summary(results, dataset, trajectories)

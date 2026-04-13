@@ -90,6 +90,7 @@ def create_agent_with_tuned_params(
     seed: int,
     n_rounds: int,
     config: Dict[str, Any],
+    backbone_params: Dict[str, Any] = None,
 ):
     lr = tuned_params.get('lr', config['agent_defaults']['lr'])
 
@@ -100,6 +101,7 @@ def create_agent_with_tuned_params(
         seed=seed,
         n_rounds=n_rounds,
         lr=lr,
+        backbone_params=backbone_params,
     )
 
 
