@@ -28,13 +28,12 @@ DEFAULT_GRADIENT_MULTIPLIER = {
     'Random': 0, 'EpsilonGreedy': 1, 'TS': 0, 'LinUCB': 0,
     'UCB-Bayesian': 0,
     'NeuralUCB': 1, 'BayesianMSE': 1, 'BayesianSPO': 1,
-    'BayesianPFY': 1, 'WeberBLL': 5,
+    'BayesianPFY': 1,
     'BayesianSPO-Phased': 5,
     'BayesianPFY-Phased': 5,
     'BayesianMSE-Phased': 5,
     'WeberBLL-Phased': 5, 'WeberBLL-Online': 1,
     'NeuralUCB-Phased': 5,
-    'BayesianSPO-DI': 1, 'BayesianSPO-DFE': 1,
 }
 
 
@@ -48,12 +47,11 @@ AGENT_CATEGORY = {
     'Random': 'baseline', 'EpsilonGreedy': 'baseline', 'TS': 'baseline',
     'LinUCB': 'baseline', 'UCB-Bayesian': 'baseline',
     'NeuralUCB': 'online', 'BayesianMSE': 'online', 'BayesianSPO': 'online',
-    'BayesianPFY': 'online', 'WeberBLL': 'phased',
+    'BayesianPFY': 'online',
     'BayesianSPO-Phased': 'phased',
     'BayesianMSE-Phased': 'phased',
     'WeberBLL-Phased': 'phased', 'WeberBLL-Online': 'online',
     'NeuralUCB-Phased': 'phased',
-    'BayesianSPO-DI': 'online', 'BayesianSPO-DFE': 'online',
 }
 
 CATEGORY_COLORS = {'baseline': '#95a5a6', 'online': '#3498db', 'phased': '#2ecc71'}

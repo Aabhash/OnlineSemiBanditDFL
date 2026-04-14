@@ -123,11 +123,13 @@ def run_tuning_experiment(
     )
 
 
-def load_search_spaces(search_space_dir: str) -> Dict[str, Dict[str, Any]]:
+def load_search_spaces(search_space_path: str) -> Dict[str, Dict[str, Any]]:
     search_spaces = {}
-    search_space_path = Path(search_space_dir)
+    p = Path(search_space_path)
 
-    for yaml_file in search_space_path.glob('*.yaml'):
+    yaml_files = [p] if p.is_file() else list(p.glob('*.yaml'))
+
+    for yaml_file in yaml_files:
         with open(yaml_file) as f:
             data = yaml.safe_load(f)
 
@@ -199,7 +201,7 @@ PHASED_TO_ONLINE_BACKBONE = {
     'BayesianPFY-Phased': 'BayesianPFY',
     'BayesianMSE-Phased': 'BayesianMSE',
     'NeuralUCB-Phased': 'NeuralUCB',
-    'WeberBLL-Phased': 'WeberBLL',
+    'WeberBLL-Phased': 'WeberBLL-Online',
 }
 
 
@@ -347,7 +349,7 @@ def create_agent_from_params(
             co_solver=co_solver, nonlinear=False,
             **agent_params,
         )
-    elif agent_name == 'WeberBLL':
+    elif agent_name == 'WeberBLL-Online':
         agent_params = {k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
         if minimize and 'beta' in agent_params:
             agent_params['beta'] = -agent_params['beta']
@@ -356,7 +358,7 @@ def create_agent_from_params(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             lr=agent_lr,
             decay_rounds=n_rounds, minimize=minimize, solver=solver, seed=seed,
-            mask_grad=True, nonlinear=False,
+            mask_grad=True, nonlinear=False, phased=False,
             **agent_params
         )
 

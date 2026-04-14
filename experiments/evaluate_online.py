@@ -27,7 +27,6 @@ from src.agents.base import pregenerate_episode, run_agent_on_episode
 from src.agents.contextual import (
     BayesianSPOAgent,
     BayesianPFYAgent,
-    BayesianSPO_DFE_Agent,
     LinUCBAgent,
     NeuralUCBAgent,
     BayesianMSEAgent,
@@ -37,7 +36,6 @@ from src.agents.contextual import (
     EpsilonGreedyAgent,
     RandomAgent,
 )
-from src.solver import ShortestPathSolver, KnapsackSolver
 from src.models import BayesianLinearModel
 from experiments.ablations.common import make_co_solver
 
@@ -166,36 +164,13 @@ def get_agents(env, seed, config, n_rounds):
             decay_rounds=n_rounds, solver=solver, seed=seed,
             nonlinear=nonlinear,
         ),
-        'WeberBLL': WeberBLLAgent(
+        'WeberBLL-Online': WeberBLLAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             hidden_dim=hidden_dim, beta=bayes_beta, decay_rounds=n_rounds,
             lambda_reg=lambda_reg, minimize=minimize, solver=solver, seed=seed,
-            mask_grad=True, nonlinear=nonlinear,
+            mask_grad=True, nonlinear=nonlinear, phased=False,
         ),
     }
-
-
-    grid_size = getattr(env, 'grid_size', None)
-    if grid_size is not None:
-        co_solver = ShortestPathSolver(grid_size)
-    else:
-        co_solver = KnapsackSolver(env.weights, env.capacity)
-
-    dfe_common = dict(
-        context_dim=env.context_dim, n_arms=env.n_arms,
-        weights=env.weights, capacity=env.capacity,
-        hidden_dim=hidden_dim, beta=bayes_beta,
-        lambda_reg=lambda_reg, minimize=minimize,
-        solver=solver, seed=seed, nonlinear=nonlinear,
-    )
-
-    agents['BayesianSPO-DI'] = BayesianSPO_DFE_Agent(
-        **dfe_common, imputation='disc_impute', co_solver=co_solver,
-    )
-    agents['BayesianSPO-DFE'] = BayesianSPO_DFE_Agent(
-        **dfe_common, imputation='disc_explore', co_solver=co_solver,
-        decision_focused_explore=True, adaptive_dfe=True,
-    )
 
     return agents
 
@@ -1102,7 +1077,7 @@ Two-Stage Workflow Example:
 Examples:
   python experiments/evaluate.py --datasets knapsack_32 --quick
   python experiments/evaluate.py --datasets knapsack_32,shortest_path_8x8 --full
-  python experiments/evaluate.py --datasets knapsack_32 --use-tuned-params --agents BayesianSPO,BayesianSPO-DFE
+  python experiments/evaluate.py --datasets knapsack_32 --use-tuned-params --agents BayesianSPO,BayesianMSE
         """
     )
     parser.add_argument('--config', type=str, default=DEFAULT_CONFIG_PATH)

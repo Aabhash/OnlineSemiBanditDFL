@@ -22,10 +22,11 @@ LetsPlot.setup_html()
 
 AGENT_DISPLAY = {
     'BayesianMSE':              'BayesianMSE',
+    'BayesianMSE-Phased':       'BayesianMSE-Phased',
     'BayesianSPO':              'BayesianSPO',
-    'BayesianSPO-DFE':          'BSPO-DFE',
-    'BayesianSPO-DI':           'BSPO-DI',
+    'BayesianSPO-Phased':       'BayesianSPO-Phased',
     'BayesianPFY':              'BayesianPFY',
+    'BayesianPFY-Phased':       'BayesianPFY-Phased',
     'NeuralUCB':                'NeuralUCB',
     'NeuralUCB-Phased':         'NeuralUCB-Phased',
     'LinUCB':                   'LinUCB',
@@ -34,9 +35,8 @@ AGENT_DISPLAY = {
     'EpsilonGreedy':            'EpsGreedy',
     'Greedy':                   'Greedy',
     'Random':                   'Random',
-    'WeberBLL':                 'WeberBLL',
-    'WeberBLL-Phased':          'WeberBLL-Phased',
     'WeberBLL-Online':          'WeberBLL-Online',
+    'WeberBLL-Phased':          'WeberBLL-Phased',
 }
 
 DATASET_LABELS = {
@@ -55,8 +55,6 @@ COLORS = {
     'BayesianMSE-Phased':       '#ff7f0e',
     'BayesianSPO':              '#1f77b4',
     'BayesianSPO-Phased':       '#2ca02c',
-    'BSPO-DFE':                 '#9467bd',
-    'BSPO-DI':                  '#17becf',
     'BayesianPFY':              '#bcbd22',
     'BayesianPFY-Phased':       '#dbdb8d',
     'NeuralUCB':                '#7f7f7f',
@@ -67,9 +65,8 @@ COLORS = {
     'EpsGreedy':                '#aec7e8',
     'Greedy':                   '#ffbb78',
     'Random':                   '#c7c7c7',
-    'WeberBLL':                 '#8c564b',
+    'WeberBLL-Online':          '#8c564b',
     'WeberBLL-Phased':          '#e377c2',
-    'WeberBLL-Online':          '#c49c94',
 }
 
 LINESTYLES = {
@@ -77,8 +74,6 @@ LINESTYLES = {
     'BayesianMSE-Phased':       'solid',
     'BayesianSPO':              'solid',
     'BayesianSPO-Phased':       'solid',
-    'BSPO-DFE':                 'solid',
-    'BSPO-DI':                  'solid',
     'BayesianPFY':              'dashed',
     'NeuralUCB':                'dotdash',
     'NeuralUCB-Phased':         'dotdash',
@@ -88,9 +83,8 @@ LINESTYLES = {
     'EpsGreedy':                'twodash',
     'Greedy':                   'longdash',
     'Random':                   'dotted',
-    'WeberBLL':                 'dashed',
+    'WeberBLL-Online':          'dashed',
     'WeberBLL-Phased':          'dashed',
-    'WeberBLL-Online':          'dotted',
 }
 
 
@@ -98,8 +92,6 @@ BAR_COLORS = {
     'BayesianSPO-Phased':       '#2ca02c',
     'BayesianSPO':              '#1f77b4',
     'BayesianMSE-Phased':       '#ff7f0e',
-    'BSPO-DFE':                 '#9467bd',
-    'BSPO-DI':                  '#17becf',
     'BayesianPFY':              '#bcbd22',
     'BayesianMSE':              '#aaaaaa',
     'NeuralUCB':                '#aaaaaa',
@@ -110,9 +102,8 @@ BAR_COLORS = {
     'EpsGreedy':                '#aaaaaa',
     'Greedy':                   '#aaaaaa',
     'Random':                   '#aaaaaa',
-    'WeberBLL':                 '#8c564b',
+    'WeberBLL-Online':          '#8c564b',
     'WeberBLL-Phased':          '#e377c2',
-    'WeberBLL-Online':          '#c49c94',
 }
 
 WINDOW = 100
@@ -122,14 +113,14 @@ LINE_AGENTS = [
     'LinUCB', 'NeuralUCB', 'NeuralUCB-Phased',
     'BayesianMSE', 'BayesianMSE-Phased',
     'BayesianSPO', 'BayesianSPO-Phased',
-    'WeberBLL-Phased',
+    'WeberBLL-Online', 'WeberBLL-Phased',
 ]
 BAR_AGENTS = [
     'Random', 'EpsGreedy', 'TS', 'LinUCB', 'UCB-Bayesian',
     'NeuralUCB', 'NeuralUCB-Phased',
     'BayesianMSE', 'BayesianMSE-Phased',
     'BayesianSPO', 'BayesianSPO-Phased',
-    'WeberBLL-Phased', 'WeberBLL-Online',
+    'WeberBLL-Online', 'WeberBLL-Phased',
 ]
 
 LINE_LEGEND_THEME_TL = theme(

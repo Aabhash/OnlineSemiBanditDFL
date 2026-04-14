@@ -1074,7 +1074,7 @@ Two-Stage Workflow Example:
 Examples:
   python experiments/evaluate.py --datasets knapsack_32 --quick
   python experiments/evaluate.py --datasets knapsack_32,shortest_path_8x8 --full
-  python experiments/evaluate.py --datasets knapsack_32 --use-tuned-params --agents BayesianSPO,BayesianSPO-DFE
+  python experiments/evaluate.py --datasets knapsack_32 --use-tuned-params --agents BayesianSPO-Phased,BayesianMSE-Phased
         """
     )
     parser.add_argument('--config', type=str, default=DEFAULT_CONFIG_PATH)

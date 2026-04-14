@@ -36,7 +36,7 @@ wandb:
   entity: null
   log_interval: 10
   evaluation:
-    project: "constrained-bandits-eval-new"
+    project: "constrained-bandits-eval"
     tags: ["evaluation"]
 
 storage:

@@ -26,10 +26,10 @@ uv run python experiments/tune_hyperparams.py --all --dataset shortest_path_8x8 
 uv run python experiments/tune_hyperparams.py --all --dataset shortest_path_20x20 --feedback semi_bandit --n-rounds 1000 --analyze
 
 # TopK toy datasets — sigmoid (misspecified)
-uv run python experiments/tune_hyperparams.py --all --dataset topk_2arm --feedback semi_bandit --n-rounds 500 --analyze
+# uv run python experiments/tune_hyperparams.py --all --dataset topk_2arm --feedback semi_bandit --n-rounds 500 --analyze
 uv run python experiments/tune_hyperparams.py --all --dataset topk_8arm --feedback semi_bandit --n-rounds 500 --analyze
 uv run python experiments/tune_hyperparams.py --all --dataset topk_16arm --feedback semi_bandit --n-rounds 1000 --analyze
 
 # TopK toy datasets — linear (well-specified)
-uv run python experiments/tune_hyperparams.py --all --dataset topk_2arm_linear --feedback semi_bandit --n-rounds 500 --analyze
+# uv run python experiments/tune_hyperparams.py --all --dataset topk_2arm_linear --feedback semi_bandit --n-rounds 500 --analyze
 uv run python experiments/tune_hyperparams.py --all --dataset topk_8arm_linear --feedback semi_bandit --n-rounds 500 --analyze

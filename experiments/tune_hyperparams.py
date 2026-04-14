@@ -22,7 +22,7 @@ from experiments.analysis.sensitivity import generate_all_sensitivity_plots, gen
 
 
 DEFAULT_CONFIG = 'experiments/configs/experiment.yaml'
-DEFAULT_SEARCH_SPACE_DIR = 'experiments/configs/search_spaces'
+DEFAULT_SEARCH_SPACE_DIR = 'experiments/configs/search_spaces_online.yaml'
 DEFAULT_OUTPUT_DIR = 'results/tuning'
 
 

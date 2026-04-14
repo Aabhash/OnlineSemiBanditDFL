@@ -16,8 +16,8 @@ uv run python experiments/evaluate_online.py --datasets knapsack_100 --feedback 
 uv run python experiments/evaluate_online.py --datasets shortest_path_8x8 --feedback semi_bandit --use-tuned-params --full --output_dir results/eval_online
 uv run python experiments/evaluate_online.py --datasets shortest_path_20x20 --feedback semi_bandit --use-tuned-params --full --output_dir results/eval_online
 
-uv run python experiments/evaluate_online.py --datasets topk_2arm,topk_8arm,topk_16arm --feedback semi_bandit --use-tuned-params --full --output_dir results/eval_online
-uv run python experiments/evaluate_online.py --datasets topk_2arm_linear,topk_8arm_linear --feedback semi_bandit --use-tuned-params --full --output_dir results/eval_online
+uv run python experiments/evaluate_online.py --datasets topk_8arm,topk_16arm --feedback semi_bandit --use-tuned-params --full --output_dir results/eval_online
+uv run python experiments/evaluate_online.py --datasets topk_8arm_linear --feedback semi_bandit --use-tuned-params --full --output_dir results/eval_online
 
 echo "=== Step 2: Phased evaluation (stage-2 tuned HPs) ==="
 
@@ -26,8 +26,8 @@ uv run python experiments/evaluate_phased.py --datasets knapsack_100 --feedback 
 uv run python experiments/evaluate_phased.py --datasets shortest_path_8x8 --feedback semi_bandit --use-tuned-params --full --output_dir results/eval_phased
 uv run python experiments/evaluate_phased.py --datasets shortest_path_20x20 --feedback semi_bandit --use-tuned-params --full --output_dir results/eval_phased
 
-uv run python experiments/evaluate_phased.py --datasets topk_2arm,topk_8arm,topk_16arm --feedback semi_bandit --use-tuned-params --full --output_dir results/eval_phased
-uv run python experiments/evaluate_phased.py --datasets topk_2arm_linear,topk_8arm_linear --feedback semi_bandit --use-tuned-params --full --output_dir results/eval_phased
+uv run python experiments/evaluate_phased.py --datasets topk_8arm,topk_16arm --feedback semi_bandit --use-tuned-params --full --output_dir results/eval_phased
+uv run python experiments/evaluate_phased.py --datasets topk_8arm_linear --feedback semi_bandit --use-tuned-params --full --output_dir results/eval_phased
 
 echo "=== Step 3: Post-processing ==="
 

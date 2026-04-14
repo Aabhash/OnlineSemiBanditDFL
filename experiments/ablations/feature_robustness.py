@@ -195,11 +195,11 @@ def run_feature_robustness(
                 hidden_dim=hidden_dim, beta=bayes_beta, lambda_reg=lambda_reg,
                 decay_rounds=n_rounds, solver=solver, seed=seed,
             ),
-            'WeberBLL': WeberBLLAgent(
+            'WeberBLL-Online': WeberBLLAgent(
                 env.context_dim, env.n_arms, env.weights, env.capacity,
                 hidden_dim=hidden_dim, beta=bayes_beta, decay_rounds=n_rounds,
                 lambda_reg=lambda_reg, minimize=minimize, solver=solver, seed=seed,
-                mask_grad=True,
+                mask_grad=True, phased=False,
             ),
         }
 
