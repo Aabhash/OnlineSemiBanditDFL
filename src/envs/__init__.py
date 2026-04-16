@@ -1,11 +1,13 @@
 from src.envs.base import ConstrainedBanditEnv
 from src.envs.knapsack import KnapsackEnv
+from src.envs.portfolio import PortfolioEnv
 from src.envs.shortest_path import ShortestPathEdgeEnv
 from src.envs.topk import TopKEnv
 
 __all__ = [
     'ConstrainedBanditEnv',
     'KnapsackEnv',
+    'PortfolioEnv',
     'ShortestPathEdgeEnv',
     'TopKEnv',
 ]
@@ -14,6 +16,8 @@ __all__ = [
 def create_env(env_type: str, seed: int = 42, **kwargs):
     if env_type.startswith('knapsack'):
         return KnapsackEnv(seed=seed, **kwargs)
+    elif env_type.startswith('portfolio'):
+        return PortfolioEnv(seed=seed, **kwargs)
     elif env_type.startswith('shortest_path'):
         kwargs_copy = kwargs.copy()
         parts = env_type.split('_')
@@ -37,5 +41,5 @@ def create_env(env_type: str, seed: int = 42, **kwargs):
     else:
         raise ValueError(
             f"Unknown environment type: {env_type}. "
-            f"Available: knapsack, shortest_path_*, topk"
+            f"Available: knapsack, portfolio, shortest_path_*, topk"
         )

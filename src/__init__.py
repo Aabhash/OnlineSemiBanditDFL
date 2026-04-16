@@ -1,6 +1,7 @@
 from src.envs import (
     ConstrainedBanditEnv,
     KnapsackEnv,
+    PortfolioEnv,
     ShortestPathEdgeEnv,
     TopKEnv,
     create_env,
@@ -8,6 +9,7 @@ from src.envs import (
 
 from src.data import (
     KnapsackData,
+    PortfolioData,
     SyntheticGridData,
 )
 
@@ -47,10 +49,12 @@ from src.losses import (
 __all__ = [
     "ConstrainedBanditEnv",
     "KnapsackEnv",
+    "PortfolioEnv",
     "ShortestPathEdgeEnv",
     "TopKEnv",
     "create_env",
     "KnapsackData",
+    "PortfolioData",
     "SyntheticGridData",
     "LinearModel",
     "MLPModel",
