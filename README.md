@@ -26,8 +26,11 @@ uv sync
 
 ```bash
 # Full pipeline: tune → evaluate → plot
-bash tune_hps.sh        # HP tuning (no wandb)
-bash run.sh             # Main evaluation (online + phased agents)
+bash tune_online.sh     # Stage-1 online HP tuning (no wandb)
+bash tune_phased.sh     # Stage-2 phased HP refinement
+bash run_online.sh      # Online evaluation
+bash run_phased.sh      # Phased evaluation
+bash run.sh             # Combined wrapper: online + phased + post-processing
 bash run_ablations.sh   # Ablation sweeps
 ```
 
@@ -57,10 +60,10 @@ uv run python experiments/compute_analysis.py
 | `shortest_path_8x8` | 112 | ~14 | ~12% | 8×8 grid shortest path |
 | `shortest_path_20x20` | 760 | ~38 | ~5% | 20×20 grid shortest path |
 | `topk_2arm` | 2 | 1 | 50% | 2-arm toy (sigmoid costs) |
+| `topk_4arm` | 4 | 1 | 25% | 4-arm toy (sigmoid costs) |
 | `topk_8arm` | 8 | 2 | 25% | 8-arm toy (sigmoid costs) |
-| `topk_16arm` | 16 | 4 | 25% | 16-arm toy (sigmoid costs) |
 | `topk_2arm_linear` | 2 | 1 | 50% | 2-arm toy (linear costs, well-specified) |
-| `topk_8arm_linear` | 8 | 2 | 25% | 8-arm toy (linear costs, well-specified) |
+| `topk_4arm_linear` | 4 | 1 | 25% | 4-arm toy (linear costs, well-specified) |
 
 ## Agents
 
@@ -91,11 +94,12 @@ uv run python experiments/compute_analysis.py
 ## Pipeline
 
 ```
-tune_hps.sh  →  results/tuning/           (Optuna DB + best HP JSON)
-run.sh       →  results/eval_online/       (online agent data)
-                results/eval_phased/       (phased agent data)
-                results/compute/           (wallclock + Pareto)
-                results/figures/           (regret + diagnostic plots)
+tune_online.sh → results/tuning/           (stage-1 Optuna DB + best HP JSON)
+tune_phased.sh → results/tuning_phased/    (stage-2 phased HP JSON)
+run_online.sh  → results/eval_online/      (online agent data)
+run_phased.sh  → results/eval_phased/      (phased agent data)
+run.sh         → results/compute/          (wrapper + post-processing)
+                 results/figures/          (regret + diagnostic plots)
 run_ablations.sh → results/ablations/      (ablation data + per-ablation figures)
 ```
 
