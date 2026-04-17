@@ -17,8 +17,6 @@ from experiments.ablations.common import (
 from src.agents.contextual import (
     BayesianSPOAgent, BayesianMSEAgent, BayesianSPO_DFE_Agent,
 )
-from src.models import BayesianLinearModel
-from src.agents.contextual.ucb_agents import UCBAgent
 
 
 def make_agents(env, seed, config):

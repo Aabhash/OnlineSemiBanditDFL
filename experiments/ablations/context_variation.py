@@ -19,8 +19,6 @@ from src.agents.base import pregenerate_episode, run_agent_on_episode
 from src.agents.contextual import (
     BayesianSPOAgent, BayesianMSEAgent, LinUCBAgent,
 )
-from src.models import BayesianLinearModel
-from src.agents.contextual.ucb_agents import UCBAgent
 
 
 def make_agents(env, seed, config):
@@ -46,10 +44,6 @@ def make_agents(env, seed, config):
         'BayesianMSE': BayesianMSEAgent(
             **common_base, beta=bayes_beta,
         ),
-        'UCB-Bayesian': UCBAgent(
-            BayesianLinearModel(env.context_dim, env.n_arms),
-            env.weights, env.capacity, beta=beta, minimize=minimize, solver=solver,
-        ),
         'LinUCB': LinUCBAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             alpha=defaults['alpha'], lambda_reg=lambda_reg,
@@ -64,7 +58,7 @@ def plot_results(all_results, noise_widths, seeds, output_dir):
         print('matplotlib not available, skipping plots')
         return
 
-    agent_names = ['BayesianSPO', 'BayesianMSE', 'UCB-Bayesian', 'LinUCB']
+    agent_names = ['BayesianSPO', 'BayesianMSE', 'LinUCB']
 
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
 

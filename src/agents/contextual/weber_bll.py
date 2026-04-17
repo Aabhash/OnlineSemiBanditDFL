@@ -7,6 +7,8 @@ from src.agents.bayesian_utils import (
     compute_ucb_values,
     compute_bayesian_predictions,
     compute_uncertainties,
+    linear_forward,
+    mlp_forward,
     update_bayesian_stats,
 )
 from src.agents.agent_base import AgentBase
@@ -129,10 +131,9 @@ class WeberBLLAgent(AgentBase):
     def _features(self, X):
         X = jnp.asarray(X)
         if self.nonlinear:
-            z = X @ self.W1 + self.b1
-            a = jnp.maximum(0, z)
-            return a @ self.W2 + self.b2
-        return X @ self.W1 + self.b1
+            h, _, _ = mlp_forward(X, self.W1, self.b1, self.W2, self.b2)
+            return h
+        return linear_forward(X, self.W1, self.b1)
 
 
     def predict_mean(self, X):
@@ -142,6 +143,11 @@ class WeberBLLAgent(AgentBase):
     def predict_uncertainty(self, X):
         h = self._features(X)
         return compute_uncertainties(h, self.A_inv)
+
+    def predict_mean_and_uncertainty(self, X):
+        h = self._features(X)
+        return (compute_bayesian_predictions(h, self.A_inv, self.b_bayes),
+                compute_uncertainties(h, self.A_inv))
 
     def act(self, X):
         self.t += 1

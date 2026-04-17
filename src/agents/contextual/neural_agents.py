@@ -7,6 +7,8 @@ from src.agents.bayesian_utils import (
     compute_ucb_values,
     compute_bayesian_predictions,
     compute_uncertainties,
+    linear_forward,
+    mlp_forward,
     update_bayesian_stats,
 )
 from src.agents.agent_base import AgentBase
@@ -38,6 +40,7 @@ class BayesianMSEAgent(AgentBase):
         phased: bool = False,
         phase_length: int = 50,
         phase_epochs: int = 5,
+        max_buffer_size: int = None,
     ):
         self.context_dim = context_dim
         self.n_arms = n_arms
@@ -93,7 +96,7 @@ class BayesianMSEAgent(AgentBase):
         self.phase_length = phase_length
         self.phase_epochs = phase_epochs
         if phased:
-            self._init_phase_buffer()
+            self._init_phase_buffer(max_buffer_size)
             self._rounds_since_retrain = 0
 
     def _get_params(self):
@@ -111,13 +114,9 @@ class BayesianMSEAgent(AgentBase):
     def _features(self, X):
         X = jnp.asarray(X)
         if self.nonlinear:
-            z = X @ self.W1 + self.b1
-            a = jnp.maximum(0, z)
-            h = a @ self.W2 + self.b2
+            h, _, _ = mlp_forward(X, self.W1, self.b1, self.W2, self.b2)
             return h
-        else:
-            h = X @ self.W1 + self.b1
-            return h
+        return linear_forward(X, self.W1, self.b1)
 
     def predict_mean(self, X):
         h = self._features(X)
@@ -126,6 +125,11 @@ class BayesianMSEAgent(AgentBase):
     def predict_uncertainty(self, X):
         h = self._features(X)
         return compute_uncertainties(h, self.A_inv)
+
+    def predict_mean_and_uncertainty(self, X):
+        h = self._features(X)
+        return (compute_bayesian_predictions(h, self.A_inv, self.b_bayes),
+                compute_uncertainties(h, self.A_inv))
 
     def act(self, X: np.ndarray) -> np.ndarray:
         self.t += 1

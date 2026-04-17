@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name=dfl_eval
-#SBATCH --time=16:00:00
+#SBATCH --job-name=dfl_eval_all
+#SBATCH --time=24:00:00
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=16G
 #SBATCH --output=%x-%j.out
@@ -9,25 +9,11 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-echo "=== Step 1: Online evaluation (stage-1 tuned HPs) ==="
+echo "=== Step 1: Online evaluation ==="
+bash "$SCRIPT_DIR/run_online.sh"
 
-uv run python experiments/evaluate_online.py --datasets knapsack_32 --feedback semi_bandit --use-tuned-params --full --output_dir results/eval_online
-uv run python experiments/evaluate_online.py --datasets knapsack_100 --feedback semi_bandit --use-tuned-params --full --output_dir results/eval_online
-uv run python experiments/evaluate_online.py --datasets shortest_path_8x8 --feedback semi_bandit --use-tuned-params --full --output_dir results/eval_online
-uv run python experiments/evaluate_online.py --datasets shortest_path_20x20 --feedback semi_bandit --use-tuned-params --full --output_dir results/eval_online
-
-uv run python experiments/evaluate_online.py --datasets topk_8arm,topk_16arm --feedback semi_bandit --use-tuned-params --full --output_dir results/eval_online
-uv run python experiments/evaluate_online.py --datasets topk_8arm_linear --feedback semi_bandit --use-tuned-params --full --output_dir results/eval_online
-
-echo "=== Step 2: Phased evaluation (stage-2 tuned HPs) ==="
-
-uv run python experiments/evaluate_phased.py --datasets knapsack_32 --feedback semi_bandit --use-tuned-params --full --output_dir results/eval_phased
-uv run python experiments/evaluate_phased.py --datasets knapsack_100 --feedback semi_bandit --use-tuned-params --full --output_dir results/eval_phased
-uv run python experiments/evaluate_phased.py --datasets shortest_path_8x8 --feedback semi_bandit --use-tuned-params --full --output_dir results/eval_phased
-uv run python experiments/evaluate_phased.py --datasets shortest_path_20x20 --feedback semi_bandit --use-tuned-params --full --output_dir results/eval_phased
-
-uv run python experiments/evaluate_phased.py --datasets topk_8arm,topk_16arm --feedback semi_bandit --use-tuned-params --full --output_dir results/eval_phased
-uv run python experiments/evaluate_phased.py --datasets topk_8arm_linear --feedback semi_bandit --use-tuned-params --full --output_dir results/eval_phased
+echo "=== Step 2: Phased evaluation ==="
+bash "$SCRIPT_DIR/run_phased.sh"
 
 echo "=== Step 3: Post-processing ==="
 

@@ -37,12 +37,16 @@ def _compute_flip_set(pred, true_vals, solver):
 def _compute_round_diagnostics(agent, X, true_vals, co_solver=None,
                                 solver=None, optimal_action=None):
     true_vals = np.asarray(true_vals).flatten()
-    pred = agent.predict_mean(X)
-    sigmas = agent.predict_uncertainty(X)
+    if hasattr(agent, 'predict_mean_and_uncertainty'):
+        pred, sigmas = agent.predict_mean_and_uncertainty(X)
+    else:
+        pred = agent.predict_mean(X)
+        sigmas = agent.predict_uncertainty(X)
     contested = _compute_contested_mask(true_vals, co_solver)
     noncontested = ~contested
 
     result = {
+        'overall_mae': np.nan,
         'contested_mae': np.nan,
         'noncontested_mae': np.nan,
         'rank_corr': np.nan,
@@ -56,6 +60,7 @@ def _compute_round_diagnostics(agent, X, true_vals, co_solver=None,
 
     if pred is not None:
         pred = np.asarray(pred).flatten()
+        result['overall_mae'] = float(np.mean(np.abs(pred - true_vals)))
 
         if contested.any():
             result['contested_mae'] = float(np.mean(np.abs(pred[contested] - true_vals[contested])))
@@ -215,6 +220,7 @@ def run_agent_on_episode(
     lr: float = 0.01,
     full_feedback: bool = False,
     diagnostics: bool = False,
+    diagnostics_interval: int = 1,
     co_solver=None,
 ) -> Dict[str, List[float]]:
     solver_module._GUROBI_ENV = None
@@ -234,10 +240,12 @@ def run_agent_on_episode(
     n_arms = len(rounds_data[0]['true_values'])
     obs_counts = np.zeros(n_arms)
 
-    diag_keys = ['contested_mae', 'noncontested_mae', 'rank_corr', 'mean_sigma',
+    diag_keys = ['overall_mae', 'contested_mae', 'noncontested_mae', 'rank_corr', 'mean_sigma',
                   'contested_sigma', 'flip_set_size', 'decision_correct',
                   'contested_sigma_sum', 'flip_contested_mae']
     diag_accum = {k: [] for k in diag_keys} if diagnostics else None
+    diagnostic_rounds = [] if diagnostics else None
+    diagnostics_interval = max(int(diagnostics_interval), 1)
 
 
     _diag_solver = None
@@ -257,11 +265,16 @@ def run_agent_on_episode(
         selection = agent.act(X)
         selection = np.asarray(selection).flatten()
 
-        if diagnostics:
+        if diagnostics and (
+            t == 0
+            or (t + 1) % diagnostics_interval == 0
+            or t == n_rounds - 1
+        ):
             rd_diag = _compute_round_diagnostics(
                 agent, X, true_vals, co_solver,
                 solver=_diag_solver, optimal_action=optimal_action,
             )
+            diagnostic_rounds.append(t + 1)
             for k in diag_keys:
                 diag_accum[k].append(rd_diag[k])
 
@@ -310,6 +323,7 @@ def run_agent_on_episode(
     }
     if diagnostics and diag_accum is not None:
         result.update(diag_accum)
+        result['diagnostic_rounds'] = diagnostic_rounds
     return result
 
 

@@ -30,7 +30,6 @@ AGENT_DISPLAY = {
     'NeuralUCB':                'NeuralUCB',
     'NeuralUCB-Phased':         'NeuralUCB-Phased',
     'LinUCB':                   'LinUCB',
-    'UCB-Bayesian':             'UCB-Bayesian',
     'TS':                       'TS',
     'EpsilonGreedy':            'EpsGreedy',
     'Greedy':                   'Greedy',
@@ -45,7 +44,9 @@ DATASET_LABELS = {
     'shortest_path_8x8':  'Shortest Path 8×8',
     'shortest_path_20x20':'Shortest Path 20×20',
     'topk_2arm':           'TopK (2 arms)',
+    'topk_4arm':           'TopK (4 arms)',
     'topk_8arm':           'TopK (8 arms)',
+    'topk_4arm_linear':    'TopK Linear (4 arms)',
     'topk_16arm':          'TopK (16 arms)',
 }
 
@@ -60,7 +61,6 @@ COLORS = {
     'NeuralUCB':                '#7f7f7f',
     'NeuralUCB-Phased':         '#393b79',
     'LinUCB':                   '#8c564b',
-    'UCB-Bayesian':             '#e377c2',
     'TS':                       '#7f7f7f',
     'EpsGreedy':                '#aec7e8',
     'Greedy':                   '#ffbb78',
@@ -78,7 +78,6 @@ LINESTYLES = {
     'NeuralUCB':                'dotdash',
     'NeuralUCB-Phased':         'dotdash',
     'LinUCB':                   'dotdash',
-    'UCB-Bayesian':             'dashed',
     'TS':                       'dotted',
     'EpsGreedy':                'twodash',
     'Greedy':                   'longdash',
@@ -97,7 +96,6 @@ BAR_COLORS = {
     'NeuralUCB':                '#aaaaaa',
     'NeuralUCB-Phased':         '#393b79',
     'LinUCB':                   '#aaaaaa',
-    'UCB-Bayesian':             '#aaaaaa',
     'TS':                       '#aaaaaa',
     'EpsGreedy':                '#aaaaaa',
     'Greedy':                   '#aaaaaa',
@@ -116,7 +114,7 @@ LINE_AGENTS = [
     'WeberBLL-Online', 'WeberBLL-Phased',
 ]
 BAR_AGENTS = [
-    'Random', 'EpsGreedy', 'TS', 'LinUCB', 'UCB-Bayesian',
+    'Random', 'EpsGreedy', 'TS', 'LinUCB',
     'NeuralUCB', 'NeuralUCB-Phased',
     'BayesianMSE', 'BayesianMSE-Phased',
     'BayesianSPO', 'BayesianSPO-Phased',
@@ -363,18 +361,28 @@ def build_diagnostic_dataframes(organized):
                         values = data.get(metric_key, [])
                         if not values or not isinstance(values, list):
                             continue
+                        diagnostic_rounds = data.get('diagnostic_rounds', [])
 
                         arr = np.array(values, dtype=float)
                         arr = arr[~np.isnan(arr)]
                         if len(arr) < WINDOW:
                             continue
+                        if (
+                            isinstance(diagnostic_rounds, list)
+                            and len(diagnostic_rounds) == len(values)
+                        ):
+                            rounds_arr = np.array(diagnostic_rounds, dtype=float)
+                            rounds_arr = rounds_arr[~np.isnan(np.array(values, dtype=float))]
+                        else:
+                            rounds_arr = np.arange(1, len(arr) + 1, dtype=float)
                         kernel = np.ones(WINDOW) / WINDOW
                         smoothed = np.convolve(arr, kernel, mode='valid')
                         step = max(1, len(smoothed) // 300)
                         for t in range(0, len(smoothed), step):
+                            round_idx = min(t + WINDOW - 1, len(rounds_arr) - 1)
                             all_rows[metric_key].append(dict(
                                 dataset=dataset, feedback=feedback, agent=agent,
-                                seed=seed, round=t + WINDOW, value=smoothed[t],
+                                seed=seed, round=float(rounds_arr[round_idx]), value=smoothed[t],
                             ))
 
     result = {}

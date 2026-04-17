@@ -2,8 +2,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import optax
-from src.models import BayesianLinearModel
-from src.losses import make_spo_grad_fn
+from functools import partial
 from src.agents.bayesian_utils import (
     init_per_arm_regression,
     compute_ucb_values,
@@ -13,6 +12,60 @@ from src.agents.bayesian_utils import (
 )
 from src.agents.agent_base import AgentBase
 from src.solver import solve_knapsack
+
+
+@jax.jit
+def _neuralucb_forward_jit(W1, b1, W2, b2, X):
+    z1 = X @ W1 + b1
+    h = jnp.maximum(0, z1)
+    return h @ W2 + b2
+
+
+@partial(jax.jit, static_argnames=('context_dim', 'hidden_dim', 'n_arms'))
+def _neuralucb_compute_jacobian_jit(flat_params, X, *, context_dim, hidden_dim, n_arms):
+    w1_size = context_dim * hidden_dim
+    b1_size = hidden_dim
+    w2_size = hidden_dim * n_arms
+
+    def forward_flat(fp):
+        W1 = fp[:w1_size].reshape(context_dim, hidden_dim)
+        b1 = fp[w1_size:w1_size + b1_size]
+        W2 = fp[w1_size + b1_size:w1_size + b1_size + w2_size].reshape(
+            hidden_dim, n_arms
+        )
+        b2 = fp[w1_size + b1_size + w2_size:]
+        z1 = X @ W1 + b1
+        h = jnp.maximum(0, z1)
+        return h @ W2 + b2
+
+    return jax.jacobian(forward_flat)(flat_params)
+
+
+@jax.jit
+def _neuralucb_compute_uncertainties_jit(g_features, U_diag, nu, m):
+    g_scaled = g_features / jnp.sqrt(m)
+    sigma2 = g_scaled ** 2 / U_diag
+    return nu * jnp.sqrt(jnp.sum(sigma2, axis=1))
+
+
+@jax.jit
+def _neuralucb_update_U_diag_jit(U_diag, g_features, mask, m):
+    g_scaled = g_features / jnp.sqrt(m)
+    masked_g2 = jnp.where(mask[:, None], g_scaled ** 2, 0.0)
+    return U_diag + jnp.sum(masked_g2, axis=0)
+
+
+@jax.jit
+def _neuralucb_compute_grads_jit(params, params_init, X_batch, Y_batch, mask_batch, lambda_reg):
+    def loss_fn(p):
+        pred = _neuralucb_forward_jit(p['W1'], p['b1'], p['W2'], p['b2'], X_batch)
+        diff = (pred - Y_batch) * mask_batch
+        n_obs = jnp.maximum(jnp.sum(mask_batch), 1.0)
+        mse_loss = 0.5 * jnp.sum(diff ** 2) / n_obs
+        reg_loss = sum(jnp.mean((p[k] - params_init[k]) ** 2) for k in p)
+        return mse_loss + 0.5 * lambda_reg * reg_loss
+
+    return jax.grad(loss_fn)(params)
 
 
 class LinUCBAgent(AgentBase):
@@ -92,6 +145,8 @@ class NeuralUCBAgent(AgentBase):
         phased: bool = False,
         phase_length: int = 50,
         phase_epochs: int = 5,
+        max_history_size: int = 512,
+        batch_size: int = 32,
     ):
         self.context_dim = context_dim
         self.n_arms = n_arms
@@ -123,9 +178,12 @@ class NeuralUCBAgent(AgentBase):
 
         self.total_params = (context_dim * hidden_dim + hidden_dim +
                             hidden_dim * n_arms + n_arms)
+        self.nn_width = hidden_dim
 
         self.U_diag = lambda_reg * jnp.ones(self.total_params)
 
+        self.max_history_size = max(int(max_history_size), 1)
+        self.batch_size = max(int(batch_size), 1)
         self.history_X = []
         self.history_Y = []
         self.history_mask = []
@@ -152,53 +210,6 @@ class NeuralUCBAgent(AgentBase):
         self.phase_epochs = phase_epochs
         self._rounds_since_retrain = 0
 
-        self._build_jit_functions()
-
-    def _build_jit_functions(self):
-        context_dim = self.context_dim
-        hidden_dim = self.hidden_dim
-        n_arms = self.n_arms
-
-        w1_size = context_dim * hidden_dim
-        b1_size = hidden_dim
-        w2_size = hidden_dim * n_arms
-
-        @jax.jit
-        def forward(W1, b1, W2, b2, X):
-            z1 = X @ W1 + b1
-            h = jnp.maximum(0, z1)
-            return h @ W2 + b2
-
-        @jax.jit
-        def compute_jacobian(flat_params, X):
-            def forward_flat(fp):
-                W1 = fp[:w1_size].reshape(context_dim, hidden_dim)
-                b1 = fp[w1_size:w1_size + b1_size]
-                W2 = fp[w1_size + b1_size:w1_size + b1_size + w2_size].reshape(
-                    hidden_dim, n_arms)
-                b2 = fp[w1_size + b1_size + w2_size:]
-                z1 = X @ W1 + b1
-                h = jnp.maximum(0, z1)
-                return h @ W2 + b2
-            return jax.jacobian(forward_flat)(flat_params)
-
-        @jax.jit
-        def compute_uncertainties(g_features, U_diag, lambda_reg, nu, m):
-            g_scaled = g_features / jnp.sqrt(m)
-            sigma2 = g_scaled ** 2 / U_diag
-            return nu * jnp.sqrt(jnp.sum(sigma2, axis=1))
-
-        @jax.jit
-        def update_U_diag(U_diag, g_features, mask, m):
-            g_scaled = g_features / jnp.sqrt(m)
-            masked_g2 = jnp.where(mask[:, None], g_scaled ** 2, 0.0)
-            return U_diag + jnp.sum(masked_g2, axis=0)
-
-        self._jit_forward = forward
-        self._jit_jacobian = compute_jacobian
-        self._jit_uncertainties = compute_uncertainties
-        self._jit_update_U = update_U_diag
-
     def _get_params(self):
         return {'W1': self.W1, 'b1': self.b1, 'W2': self.W2, 'b2': self.b2}
 
@@ -211,14 +222,21 @@ class NeuralUCBAgent(AgentBase):
         ])
 
     def _forward(self, X):
-        return self._jit_forward(self.W1, self.b1, self.W2, self.b2, X)
+        return _neuralucb_forward_jit(self.W1, self.b1, self.W2, self.b2, X)
 
     def _compute_gradient_features(self, X):
         flat_params = self._flatten_params(self._get_params())
-        return self._jit_jacobian(flat_params, X)
+        return _neuralucb_compute_jacobian_jit(
+            flat_params, X,
+            context_dim=self.context_dim,
+            hidden_dim=self.hidden_dim,
+            n_arms=self.n_arms,
+        )
 
     def _compute_uncertainties(self, g_features):
-        return self._jit_uncertainties(g_features, self.U_diag, self.lambda_reg, self.nu, self.total_params)
+        return _neuralucb_compute_uncertainties_jit(
+            g_features, self.U_diag, self.nu, self.nn_width
+        )
 
     def act(self, X: np.ndarray) -> np.ndarray:
         self.t += 1
@@ -255,8 +273,17 @@ class NeuralUCBAgent(AgentBase):
 
         return np.asarray(self._compute_uncertainties(g_features))
 
+    def predict_mean_and_uncertainty(self, X):
+        X_jax = jnp.asarray(X)
+        pred = self._forward(X_jax)
+        g_features = self._compute_gradient_features(X_jax)
+        sigmas = self._compute_uncertainties(g_features)
+        return np.asarray(pred), np.asarray(sigmas)
+
     def _update_information_matrix(self, g_features, mask):
-        self.U_diag = self._jit_update_U(self.U_diag, g_features, mask, self.total_params)
+        self.U_diag = _neuralucb_update_U_diag_jit(
+            self.U_diag, g_features, mask, self.nn_width
+        )
 
     def _train_step(self, batch_size=32):
         n_samples = len(self.history_X)
@@ -277,25 +304,10 @@ class NeuralUCBAgent(AgentBase):
             'W2': self.W2_init, 'b2': self.b2_init
         }
 
-        def loss_fn(params):
-            z1 = X_batch @ params['W1'] + params['b1']
-            h = jnp.maximum(0, z1)
-            pred = h @ params['W2'] + params['b2']
-
-            diff = (pred - Y_batch) * mask_batch
-            n_obs = jnp.maximum(jnp.sum(mask_batch), 1.0)
-            mse_loss = 0.5 * jnp.sum(diff ** 2) / n_obs
-
-            reg_loss = 0.0
-            for key in params:
-                reg_loss = reg_loss + jnp.mean((params[key] - params_init[key]) ** 2)
-            reg_loss = 0.5 * self.lambda_reg * reg_loss
-
-            return mse_loss + reg_loss
-
         params = self._get_params()
-        grads = jax.grad(loss_fn)(params)
-
+        grads = _neuralucb_compute_grads_jit(
+            params, params_init, X_batch, Y_batch, mask_batch, self.lambda_reg
+        )
         updates, self.opt_state = self.optimizer.update(grads, self.opt_state, params)
         new_params = optax.apply_updates(params, updates)
 
@@ -304,14 +316,24 @@ class NeuralUCBAgent(AgentBase):
         self.W2 = new_params['W2']
         self.b2 = new_params['b2']
 
+    def _append_history(self, X, Y_target, mask):
+        if len(self.history_X) >= self.max_history_size:
+            self.history_X.pop(0)
+            self.history_Y.pop(0)
+            self.history_mask.pop(0)
+        self.history_X.append(np.asarray(X))
+        self.history_Y.append(np.asarray(Y_target))
+        self.history_mask.append(np.asarray(mask))
+
     def _phased_retrain(self):
         n_samples = len(self.history_X)
         if n_samples == 0:
             return
         for _ in range(self.phase_epochs):
-
+            # Keep the original replay volume (one sampled update per buffered example
+            # per epoch), but use the JITted minibatch train step for speed.
             for _ in range(n_samples):
-                self._train_step(batch_size=min(32, n_samples))
+                self._train_step(batch_size=min(self.batch_size, n_samples))
 
     def update(self, X: np.ndarray, selection: np.ndarray, rewards: np.ndarray,
                lr: float = None, full_feedback: bool = False, **kwargs):
@@ -340,9 +362,7 @@ class NeuralUCBAgent(AgentBase):
         Y_target = jnp.where(mask, jnp.asarray(rewards), predictions)
         obs_mask = mask.astype(jnp.float32)
 
-        self.history_X.append(X_jax)
-        self.history_Y.append(Y_target)
-        self.history_mask.append(obs_mask)
+        self._append_history(X_jax, Y_target, obs_mask)
 
         if self.phased:
 
@@ -358,18 +378,21 @@ class UCBBayesianAgent(AgentBase):
 
     def __init__(
         self,
-        model: BayesianLinearModel,
+        context_dim: int,
+        n_arms: int,
         weights: np.ndarray,
         capacity: float,
         beta: float = 1.0,
+        lambda_reg: float = 1.0,
         minimize: bool = False,
         solver=None,
     ):
-        self.model = model
+        self.context_dim = context_dim
+        self.n_arms = n_arms
         self.weights = weights
         self.capacity = capacity
         self.beta = beta
-        self.n_arms = len(weights)
+        self.lambda_reg = lambda_reg
         self.minimize = minimize
 
         if solver is None:
@@ -377,19 +400,34 @@ class UCBBayesianAgent(AgentBase):
         else:
             self.solver = solver
 
+        self.A, self.b, self.A_inv = init_per_arm_regression(
+            n_arms, context_dim, lambda_reg
+        )
+
     def act(self, X: np.ndarray) -> np.ndarray:
-        Y_ucb = self.model.predict_ucb(X, self.beta, self.minimize)
-        return self.solver(Y_ucb)
+        features = jnp.asarray(X)
+        ucb_values = compute_ucb_values(features, self.A_inv, self.b, self.beta, self.minimize)
+        return self.solver(np.asarray(ucb_values))
 
     def predict_mean(self, X: np.ndarray) -> np.ndarray:
-        return np.asarray(self.model.predict_mean(X))
+        features = jnp.asarray(X)
+        return np.asarray(compute_bayesian_predictions(features, self.A_inv, self.b))
 
     def predict_uncertainty(self, X: np.ndarray) -> np.ndarray:
-        return np.asarray(self.model.get_uncertainty(X))
+        features = jnp.asarray(X)
+        return np.asarray(compute_bayesian_uncertainties(features, self.A_inv))
 
     def update(self, X: np.ndarray, selection: np.ndarray, rewards: np.ndarray,
                lr: float = None, full_feedback: bool = False, **kwargs):
-        self.model.update_batch(X, selection, rewards, full_feedback=full_feedback)
+        features = jnp.asarray(X)
+        rewards_jax = jnp.asarray(rewards)
+        if full_feedback:
+            mask = jnp.ones(self.n_arms, dtype=bool)
+        else:
+            mask = jnp.asarray(selection) > 0.5
+        self.A, self.b, self.A_inv = update_bayesian_stats(
+            self.A, self.b, self.A_inv, features, rewards_jax, mask
+        )
 
 
 UCBAgent = UCBBayesianAgent

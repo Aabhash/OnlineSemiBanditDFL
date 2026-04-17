@@ -19,8 +19,6 @@ from experiments.ablations.common import (
 from src.envs import create_env
 from src.agents.base import pregenerate_episode, run_agent_on_episode
 from src.agents.contextual import BayesianSPOAgent, BayesianMSEAgent
-from src.models import BayesianLinearModel
-from src.agents.contextual.ucb_agents import UCBAgent
 
 
 def make_fixed_context_episode(episode, n_rounds):

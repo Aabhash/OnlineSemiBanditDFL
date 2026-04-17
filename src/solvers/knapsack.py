@@ -58,14 +58,43 @@ class KnapsackSolver:
         self.weights = np.array(weights, dtype=np.float64)
         self.capacity = capacity
         self.n_items = len(self.weights)
+        self._env = _get_gurobi_env()
+        self._model = gp.Model(env=self._env)
+        self._model.Params.OutputFlag = 0
+        self._model.Params.Threads = 1
+        self._x = self._model.addVars(self.n_items, vtype=GRB.BINARY, name="x")
+        self._model.setObjective(
+            gp.quicksum(0.0 * self._x[i] for i in range(self.n_items)),
+            GRB.MAXIMIZE,
+        )
+        self._model.addConstr(
+            gp.quicksum(self.weights[i] * self._x[i] for i in range(self.n_items))
+            <= self.capacity,
+            name="capacity",
+        )
+        self._var_list = [self._x[i] for i in range(self.n_items)]
+        self._model.update()
 
-    def solve(self, values):
-        return solve_knapsack_gurobi(values, self.weights, self.capacity)
-
-    def extract_k_alternatives(self, values, K=5):
+    def _sanitize_values(self, values):
         values = np.asarray(values, dtype=np.float64)
         if not np.all(np.isfinite(values)):
             values = np.nan_to_num(values, nan=0.0, posinf=100.0, neginf=-100.0)
+        return values
+
+    def solve(self, values):
+        values = self._sanitize_values(values)
+        values = values + np.arange(self.n_items) * 1e-10
+        self._model.setAttr(GRB.Attr.Obj, self._var_list, values.tolist())
+        self._model.optimize()
+
+        solution = np.zeros(self.n_items)
+        if self._model.Status == GRB.OPTIMAL:
+            for i in range(self.n_items):
+                solution[i] = self._x[i].X
+        return solution
+
+    def extract_k_alternatives(self, values, K=5):
+        values = self._sanitize_values(values)
 
 
         values = values + np.arange(len(values)) * 1e-10
@@ -146,3 +175,11 @@ class KnapsackSolver:
 
             slacks = np.array([abs(x[i].RC) for i in range(self.n_items)])
             return slacks
+
+    def __del__(self):
+        model = getattr(self, '_model', None)
+        if model is not None:
+            try:
+                model.dispose()
+            except Exception:
+                pass

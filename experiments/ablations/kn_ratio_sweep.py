@@ -18,10 +18,8 @@ from src.envs import create_env
 from src.agents.base import pregenerate_episode, run_agent_on_episode
 from src.solvers.knapsack import KnapsackSolver
 from src.agents.contextual import (
-    BayesianSPOAgent, BayesianMSEAgent, RandomAgent,
+    BayesianSPOAgent, BayesianMSEAgent, RandomAgent, LinUCBAgent,
 )
-from src.models import BayesianLinearModel
-from src.agents.contextual.ucb_agents import UCBAgent
 
 
 def make_agents(env, seed, config, capacity):
@@ -47,9 +45,9 @@ def make_agents(env, seed, config, capacity):
         'BayesianMSE': BayesianMSEAgent(
             **common, beta=beta,
         ),
-        'UCB-Bayesian': UCBAgent(
-            BayesianLinearModel(env.context_dim, env.n_arms),
-            weights, capacity, beta=beta, minimize=False, solver=solver_fn,
+        'LinUCB': LinUCBAgent(
+            env.context_dim, env.n_arms, weights, capacity,
+            alpha=beta, lambda_reg=lambda_reg, minimize=False, solver=solver_fn,
         ),
         'Random': RandomAgent(
             env.n_arms, weights, capacity, seed=seed,
@@ -64,7 +62,7 @@ def plot_results(all_results, capacities, n_items, seeds, output_dir):
         return
 
     ratios = [cap / n_items for cap in capacities]
-    agent_names = ['BayesianSPO', 'BayesianMSE', 'UCB-Bayesian', 'Random']
+    agent_names = ['BayesianSPO', 'BayesianMSE', 'LinUCB', 'Random']
 
     fig, ax1 = plt.subplots(figsize=(10, 6))
 

@@ -32,11 +32,9 @@ from src.agents.contextual import (
     BayesianMSEAgent,
     WeberBLLAgent,
     ThompsonSamplingAgent,
-    UCBAgent,
     EpsilonGreedyAgent,
     RandomAgent,
 )
-from src.models import BayesianLinearModel
 from experiments.ablations.common import make_co_solver
 
 
@@ -127,13 +125,9 @@ def get_agents(env, seed, config, n_rounds):
             hidden_dim=hidden_dim, epsilon=epsilon, decay_epsilon=decay_epsilon,
             decay_rounds=n_rounds, solver=solver, seed=seed
         ),
-        'UCB-Bayesian': UCBAgent(
-            BayesianLinearModel(env.context_dim, env.n_arms),
-            env.weights, env.capacity, beta=beta, minimize=minimize, solver=solver
-        ),
         'TS': ThompsonSamplingAgent(
-            BayesianLinearModel(env.context_dim, env.n_arms),
-            env.weights, env.capacity, minimize=minimize, solver=solver, seed=seed
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            minimize=minimize, solver=solver, seed=seed
         ),
         'LinUCB': LinUCBAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
@@ -187,6 +181,8 @@ def run_evaluation(
     wandb_enabled: bool = False,
     use_tuned_params_flag: bool = False,
     seeds: Optional[list] = None,
+    diagnostics: bool = True,
+    diagnostics_interval: int = 25,
 ):
     dataset_config = config['datasets'][dataset].copy()
     dataset_config.pop('env_type', None)
@@ -279,7 +275,9 @@ def run_evaluation(
                 result = run_agent_on_episode(
                     agent, episode, n_rounds,
                     lr=lr, full_feedback=full_feedback,
-                    diagnostics=True, co_solver=co_solver,
+                    diagnostics=diagnostics,
+                    diagnostics_interval=diagnostics_interval,
+                    co_solver=co_solver,
                 )
 
                 wall_time = time.perf_counter() - start_time
@@ -305,6 +303,7 @@ def run_evaluation(
                     'rank_corr': result.get('rank_corr', []),
                     'mean_sigma': result.get('mean_sigma', []),
                     'contested_sigma': result.get('contested_sigma', []),
+                    'diagnostic_rounds': result.get('diagnostic_rounds', []),
                     'flip_set_size': result.get('flip_set_size', []),
                     'decision_correct': result.get('decision_correct', []),
                     'contested_sigma_sum': result.get('contested_sigma_sum', []),
@@ -1103,6 +1102,10 @@ Examples:
 
     parser.add_argument('--analyze', action='store_true',
                         help='Run statistical analysis (bootstrap CIs, significance tests)')
+    parser.add_argument('--no-diagnostics', action='store_true',
+                        help='Disable per-round diagnostics to reduce runtime and memory')
+    parser.add_argument('--diagnostics-interval', type=int, default=25,
+                        help='Compute diagnostics every k rounds instead of every round')
 
 
     parser.add_argument('--wandb', action='store_true',
@@ -1157,6 +1160,9 @@ Examples:
     print(f'Seeds: {n_seeds}')
     print(f'Noise: {args.noise}')
     print(f'Tuned params: {args.use_tuned_params} (from {args.tuning_dir})' if args.use_tuned_params else 'Tuned params: No (using defaults)')
+    print(f'Diagnostics: {not args.no_diagnostics}')
+    if not args.no_diagnostics:
+        print(f'Diagnostics interval: every {args.diagnostics_interval} rounds')
     if agents_filter:
         print(f'Agents: {agents_filter}')
 
@@ -1225,6 +1231,8 @@ Examples:
             wandb_enabled=wandb_enabled,
             use_tuned_params_flag=args.use_tuned_params,
             seeds=evaluation_seeds,
+            diagnostics=not args.no_diagnostics,
+            diagnostics_interval=args.diagnostics_interval,
         )
 
         print_summary(results, dataset, trajectories)

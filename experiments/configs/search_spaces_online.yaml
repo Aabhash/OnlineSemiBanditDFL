@@ -15,14 +15,6 @@ agents:
       high: 10.0
       log: true
 
-  UCB-Bayesian:
-    tune_lr: false
-    beta:
-      type: float
-      low: 0.1
-      high: 5.0
-      log: true
-
   TS:
     tune_lr: false
     prior_var:
@@ -70,6 +62,9 @@ agents:
       low: 0.01
       high: 10.0
       log: true
+    batch_size:
+      type: categorical
+      choices: [4, 8, 16]
     hidden_dim:
       type: categorical
       choices: [8, 16, 32]
@@ -169,4 +164,3 @@ agents:
     phase_epochs:
       type: categorical
       choices: [3, 5, 10]
-

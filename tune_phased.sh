@@ -17,24 +17,24 @@ cd "$SCRIPT_DIR"
 # + lr/beta recheck and writes to a SEPARATE output dir to avoid
 # overwriting stage-1 results.
 #
-# Run AFTER tune_hps.sh completes.
+# Run AFTER tune_online.sh completes.
 # ====================================================================
 
 PHASED_SPACES=experiments/configs/search_spaces_phased.yaml
 PHASED_OUTPUT=results/tuning_phased
 BACKBONE_DIR=results/tuning
 
-# Production datasets
-uv run python experiments/tune_hyperparams.py --all --dataset knapsack_32 --feedback semi_bandit --n-rounds 1000 --search-spaces $PHASED_SPACES --output $PHASED_OUTPUT --backbone-tuning-dir $BACKBONE_DIR --n-trials 20 --analyze
-uv run python experiments/tune_hyperparams.py --all --dataset knapsack_100 --feedback semi_bandit --n-rounds 1000 --search-spaces $PHASED_SPACES --output $PHASED_OUTPUT --backbone-tuning-dir $BACKBONE_DIR --n-trials 20 --analyze
+# TopK toy datasets — sigmoid
+uv run python experiments/tune_hyperparams.py --all --dataset topk_4arm --feedback semi_bandit --n-rounds 1000 --search-spaces $PHASED_SPACES --output $PHASED_OUTPUT --backbone-tuning-dir $BACKBONE_DIR --n-trials 20 --analyze
+uv run python experiments/tune_hyperparams.py --all --dataset topk_8arm --feedback semi_bandit --n-rounds 1000 --search-spaces $PHASED_SPACES --output $PHASED_OUTPUT --backbone-tuning-dir $BACKBONE_DIR --n-trials 20 --analyze
+
+# TopK toy datasets — linear
+uv run python experiments/tune_hyperparams.py --all --dataset topk_4arm_linear --feedback semi_bandit --n-rounds 1000 --search-spaces $PHASED_SPACES --output $PHASED_OUTPUT --backbone-tuning-dir $BACKBONE_DIR --n-trials 20 --analyze
+
+# Shortest path datasets
 uv run python experiments/tune_hyperparams.py --all --dataset shortest_path_8x8 --feedback semi_bandit --n-rounds 1000 --search-spaces $PHASED_SPACES --output $PHASED_OUTPUT --backbone-tuning-dir $BACKBONE_DIR --n-trials 20 --analyze
 uv run python experiments/tune_hyperparams.py --all --dataset shortest_path_20x20 --feedback semi_bandit --n-rounds 1000 --search-spaces $PHASED_SPACES --output $PHASED_OUTPUT --backbone-tuning-dir $BACKBONE_DIR --n-trials 20 --analyze
 
-# TopK toy datasets — sigmoid
-# uv run python experiments/tune_hyperparams.py --all --dataset topk_2arm --feedback semi_bandit --n-rounds 500 --search-spaces $PHASED_SPACES --output $PHASED_OUTPUT --backbone-tuning-dir $BACKBONE_DIR --n-trials 20 --analyze
-uv run python experiments/tune_hyperparams.py --all --dataset topk_8arm --feedback semi_bandit --n-rounds 500 --search-spaces $PHASED_SPACES --output $PHASED_OUTPUT --backbone-tuning-dir $BACKBONE_DIR --n-trials 20 --analyze
-uv run python experiments/tune_hyperparams.py --all --dataset topk_16arm --feedback semi_bandit --n-rounds 1000 --search-spaces $PHASED_SPACES --output $PHASED_OUTPUT --backbone-tuning-dir $BACKBONE_DIR --n-trials 20 --analyze
-
-# TopK toy datasets — linear
-# uv run python experiments/tune_hyperparams.py --all --dataset topk_2arm_linear --feedback semi_bandit --n-rounds 500 --search-spaces $PHASED_SPACES --output $PHASED_OUTPUT --backbone-tuning-dir $BACKBONE_DIR --n-trials 20 --analyze
-uv run python experiments/tune_hyperparams.py --all --dataset topk_8arm_linear --feedback semi_bandit --n-rounds 500 --search-spaces $PHASED_SPACES --output $PHASED_OUTPUT --backbone-tuning-dir $BACKBONE_DIR --n-trials 20 --analyze
+# Knapsack datasets
+uv run python experiments/tune_hyperparams.py --all --dataset knapsack_32 --feedback semi_bandit --n-rounds 1000 --search-spaces $PHASED_SPACES --output $PHASED_OUTPUT --backbone-tuning-dir $BACKBONE_DIR --n-trials 20 --analyze
+uv run python experiments/tune_hyperparams.py --all --dataset knapsack_100 --feedback semi_bandit --n-rounds 1000 --search-spaces $PHASED_SPACES --output $PHASED_OUTPUT --backbone-tuning-dir $BACKBONE_DIR --n-trials 20 --analyze

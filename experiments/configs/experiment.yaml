@@ -5,7 +5,7 @@ experiment:
 tuning:
   n_trials: 50
   n_seeds: 3
-  n_rounds: 1000
+  n_rounds: 2000
   timeout_per_trial: 3600
   sampler_seed: 42
   default_lr: 0.01
@@ -105,17 +105,17 @@ datasets:
     w_spread: 0.0
     env_type: topk
 
-  topk_8arm:
-    n_arms: 8
-    k: 2
+  topk_4arm:
+    n_arms: 4
+    k: 1
     context_dim: 5
     cost_fn: sigmoid
     w_spread: 0.4
     env_type: topk
 
-  topk_16arm:
-    n_arms: 16
-    k: 4
+  topk_8arm:
+    n_arms: 8
+    k: 2
     context_dim: 5
     cost_fn: sigmoid
     w_spread: 0.4
@@ -130,9 +130,9 @@ datasets:
     w_spread: 0.0
     env_type: topk
 
-  topk_8arm_linear:
-    n_arms: 8
-    k: 2
+  topk_4arm_linear:
+    n_arms: 4
+    k: 1
     context_dim: 5
     cost_fn: linear
     w_spread: 0.4
@@ -163,6 +163,11 @@ agent_defaults:
   epsilon: 0.1
   decay_epsilon: true
   nonlinear: false
+  phase_buffer_size: 256
+  neuralucb_max_history_size: 256
+  neuralucb_batch_size: 16
+  phase_length: 100
+  phase_epochs: 2
 
 ablations:
   kn_ratio:
@@ -214,7 +219,6 @@ ablations:
 plotting:
   colors:
     Random: "gray"
-    UCB-Bayesian: "blue"
     ThompsonSampling: "green"
     LinUCB: "orange"
     NeuralUCB: "red"

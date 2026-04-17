@@ -14,14 +14,12 @@ from src.agents.contextual import (
     LinUCBAgent,
     NeuralUCBAgent,
     ThompsonSamplingAgent,
-    UCBAgent,
     EpsilonGreedyAgent,
     BayesianMSEAgent,
     RandomAgent,
     WeberBLLAgent,
 )
 from src.envs import create_env
-from src.models import BayesianLinearModel
 from src.solver import ShortestPathSolver, KnapsackSolver
 
 
@@ -276,18 +274,13 @@ def create_agent_from_params(
             lr=agent_lr, minimize=minimize, solver=solver, seed=seed,
             **{k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
         )
-    elif agent_name == 'UCB-Bayesian':
-        return UCBAgent(
-            BayesianLinearModel(env.context_dim, env.n_arms),
-            env.weights, env.capacity, minimize=minimize, solver=solver,
-            **{k: v for k, v in params.items() if k != 'lr'}
-        )
     elif agent_name in ('TS', 'ThompsonSampling'):
         prior_var = params.get('prior_var', 1.0)
         noise_var = params.get('noise_var', 0.1)
         return ThompsonSamplingAgent(
-            BayesianLinearModel(env.context_dim, env.n_arms, prior_var=prior_var, noise_var=noise_var),
-            env.weights, env.capacity, minimize=minimize, solver=solver, seed=seed
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            prior_var=prior_var, noise_var=noise_var,
+            minimize=minimize, solver=solver, seed=seed
         )
     elif agent_name == 'EpsilonGreedy':
         agent_lr = params.get('init_lr', 0.001)
@@ -400,7 +393,10 @@ def create_agent_from_params(
         )
     elif agent_name == 'NeuralUCB-Phased':
         agent_lr = params.get('init_lr', lr)
-        phase_params = {k: v for k, v in params.items() if k in ('phase_length', 'phase_epochs')}
+        phase_params = {
+            k: v for k, v in params.items()
+            if k in ('phase_length', 'phase_epochs', 'max_history_size', 'batch_size')
+        }
         return NeuralUCBAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             hidden_dim=params.get('hidden_dim', 16),

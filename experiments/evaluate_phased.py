@@ -119,6 +119,9 @@ def get_agents(env, seed, config, n_rounds):
     lambda_reg = defaults['lambda_reg']
     beta = defaults['beta']
     nonlinear = defaults.get('nonlinear', False)
+    phase_buffer_size = defaults.get('phase_buffer_size')
+    neuralucb_max_history_size = defaults.get('neuralucb_max_history_size', 512)
+    neuralucb_batch_size = defaults.get('neuralucb_batch_size', 32)
 
     solver = env.solve
     minimize = getattr(env, 'minimize', False)
@@ -133,21 +136,26 @@ def get_agents(env, seed, config, n_rounds):
 
     phase_length = defaults.get('phase_length', 50)
     phase_epochs = defaults.get('phase_epochs', 5)
+    phase_replay_batch_size = defaults.get('phase_replay_batch_size', 1)
 
     agents = {
         'BayesianSPO-Phased': BayesianSPOAgent(
             **common, beta=bayes_beta, decay_rounds=n_rounds,
             minimize=minimize, mask_grad=True,
             phased=True, phase_length=phase_length, phase_epochs=phase_epochs,
+            max_buffer_size=phase_buffer_size,
+            replay_batch_size=phase_replay_batch_size,
         ),
         'BayesianPFY-Phased': BayesianPFYAgent(
             **common, beta=bayes_beta, decay_rounds=n_rounds,
             minimize=minimize, mask_grad=True,
             phased=True, phase_length=phase_length, phase_epochs=phase_epochs,
+            max_buffer_size=phase_buffer_size,
         ),
         'BayesianMSE-Phased': BayesianMSEAgent(
             **common, beta=bayes_beta, decay_rounds=n_rounds,
             phased=True, phase_length=phase_length, phase_epochs=phase_epochs,
+            max_buffer_size=phase_buffer_size,
         ),
         'NeuralUCB-Phased': NeuralUCBAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
@@ -155,11 +163,14 @@ def get_agents(env, seed, config, n_rounds):
             lambda_reg=lambda_reg, lr=lr,
             minimize=minimize, solver=solver, seed=seed,
             phased=True, phase_length=phase_length, phase_epochs=phase_epochs,
+            max_history_size=neuralucb_max_history_size,
+            batch_size=neuralucb_batch_size,
         ),
         'WeberBLL-Phased': WeberBLLAgent(
             **common, beta=bayes_beta, decay_rounds=n_rounds,
             minimize=minimize, mask_grad=True, lr=lr,
             phased=True, phase_length=phase_length, phase_epochs=phase_epochs,
+            max_buffer_size=phase_buffer_size,
         ),
     }
 
@@ -182,6 +193,8 @@ def run_evaluation(
     seeds: Optional[list] = None,
     tuning_dir: str = 'results/tuning_phased',
     backbone_tuning_dir: str = 'results/tuning',
+    diagnostics: bool = True,
+    diagnostics_interval: int = 25,
 ):
     dataset_config = config['datasets'][dataset].copy()
     dataset_config.pop('env_type', None)
@@ -278,7 +291,9 @@ def run_evaluation(
                 result = run_agent_on_episode(
                     agent, episode, n_rounds,
                     lr=lr, full_feedback=full_feedback,
-                    diagnostics=True, co_solver=co_solver,
+                    diagnostics=diagnostics,
+                    diagnostics_interval=diagnostics_interval,
+                    co_solver=co_solver,
                 )
 
                 wall_time = time.perf_counter() - start_time
@@ -304,6 +319,7 @@ def run_evaluation(
                     'rank_corr': result.get('rank_corr', []),
                     'mean_sigma': result.get('mean_sigma', []),
                     'contested_sigma': result.get('contested_sigma', []),
+                    'diagnostic_rounds': result.get('diagnostic_rounds', []),
                     'flip_set_size': result.get('flip_set_size', []),
                     'decision_correct': result.get('decision_correct', []),
                     'contested_sigma_sum': result.get('contested_sigma_sum', []),
@@ -1104,6 +1120,10 @@ Examples:
 
     parser.add_argument('--analyze', action='store_true',
                         help='Run statistical analysis (bootstrap CIs, significance tests)')
+    parser.add_argument('--no-diagnostics', action='store_true',
+                        help='Disable per-round diagnostics to reduce runtime and memory')
+    parser.add_argument('--diagnostics-interval', type=int, default=25,
+                        help='Compute diagnostics every k rounds instead of every round')
 
 
     parser.add_argument('--wandb', action='store_true',
@@ -1158,6 +1178,9 @@ Examples:
     print(f'Seeds: {n_seeds}')
     print(f'Noise: {args.noise}')
     print(f'Tuned params: {args.use_tuned_params} (from {args.tuning_dir})' if args.use_tuned_params else 'Tuned params: No (using defaults)')
+    print(f'Diagnostics: {not args.no_diagnostics}')
+    if not args.no_diagnostics:
+        print(f'Diagnostics interval: every {args.diagnostics_interval} rounds')
     if agents_filter:
         print(f'Agents: {agents_filter}')
 
@@ -1228,6 +1251,8 @@ Examples:
             seeds=evaluation_seeds,
             tuning_dir=args.tuning_dir,
             backbone_tuning_dir=args.backbone_tuning_dir,
+            diagnostics=not args.no_diagnostics,
+            diagnostics_interval=args.diagnostics_interval,
         )
 
         print_summary(results, dataset, trajectories)

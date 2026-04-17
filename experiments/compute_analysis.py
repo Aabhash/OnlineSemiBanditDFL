@@ -26,7 +26,6 @@ OUTPUT_DIR = 'results/compute'
 
 DEFAULT_GRADIENT_MULTIPLIER = {
     'Random': 0, 'EpsilonGreedy': 1, 'TS': 0, 'LinUCB': 0,
-    'UCB-Bayesian': 0,
     'NeuralUCB': 1, 'BayesianMSE': 1, 'BayesianSPO': 1,
     'BayesianPFY': 1,
     'BayesianSPO-Phased': 5,
@@ -45,7 +44,7 @@ def get_gradient_multiplier(agent_name, data):
 
 AGENT_CATEGORY = {
     'Random': 'baseline', 'EpsilonGreedy': 'baseline', 'TS': 'baseline',
-    'LinUCB': 'baseline', 'UCB-Bayesian': 'baseline',
+    'LinUCB': 'baseline',
     'NeuralUCB': 'online', 'BayesianMSE': 'online', 'BayesianSPO': 'online',
     'BayesianPFY': 'online',
     'BayesianSPO-Phased': 'phased',

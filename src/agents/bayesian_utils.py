@@ -12,6 +12,11 @@ def mlp_forward(X, W1, b1, W2, b2):
 
 
 @jax.jit
+def linear_forward(X, W1, b1):
+    return X @ W1 + b1
+
+
+@jax.jit
 def mlp_backward(grad_out, h, z1, X, W2):
     d_W2 = jnp.outer(h, grad_out)
     d_b2 = grad_out
@@ -50,18 +55,18 @@ def init_per_arm_regression(
     return A, b, A_inv
 
 
-def compute_ucb_values(
-    features: jnp.ndarray,
-    A_inv: jnp.ndarray,
-    b: jnp.ndarray,
-    beta: float,
-    minimize: bool = False,
-) -> jnp.ndarray:
+@jax.jit
+def _compute_ucb_core(features, A_inv, b):
     theta = jnp.einsum('nij,nj->ni', A_inv, b)
     means = theta @ features
     Ax = jnp.einsum('nij,j->ni', A_inv, features)
     variances = jnp.einsum('i,ni->n', features, Ax)
     stds = jnp.sqrt(jnp.maximum(variances, 0.0))
+    return means, stds
+
+
+def compute_ucb_values(features, A_inv, b, beta, minimize=False):
+    means, stds = _compute_ucb_core(features, A_inv, b)
     if minimize:
         return means - beta * stds
     return means + beta * stds
@@ -117,36 +122,31 @@ def init_shared_regression(
     return A, b, A_inv
 
 
-def compute_shared_predictions(
-    H: jnp.ndarray,
-    A_inv: jnp.ndarray,
-    b: jnp.ndarray,
-) -> jnp.ndarray:
+@jax.jit
+def compute_shared_predictions(H, A_inv, b):
     theta = A_inv @ b
     return H @ theta
 
 
-def compute_shared_ucb_values(
-    H: jnp.ndarray,
-    A_inv: jnp.ndarray,
-    b: jnp.ndarray,
-    beta: float,
-    minimize: bool = False,
-) -> jnp.ndarray:
+@jax.jit
+def _compute_shared_ucb_core(H, A_inv, b):
     theta = A_inv @ b
     means = H @ theta
     Ah = H @ A_inv
     variances = jnp.sum(H * Ah, axis=1)
     stds = jnp.sqrt(jnp.maximum(variances, 0.0))
+    return means, stds
+
+
+def compute_shared_ucb_values(H, A_inv, b, beta, minimize=False):
+    means, stds = _compute_shared_ucb_core(H, A_inv, b)
     if minimize:
         return means - beta * stds
     return means + beta * stds
 
 
-def compute_shared_uncertainties(
-    H: jnp.ndarray,
-    A_inv: jnp.ndarray,
-) -> jnp.ndarray:
+@jax.jit
+def compute_shared_uncertainties(H, A_inv):
     Ah = H @ A_inv
     variances = jnp.sum(H * Ah, axis=1)
     return jnp.sqrt(jnp.maximum(variances, 0.0))

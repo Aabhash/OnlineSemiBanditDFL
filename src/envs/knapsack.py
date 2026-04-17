@@ -3,6 +3,7 @@ from typing import Tuple, Dict, Any
 
 from src.envs.base import ConstrainedBanditEnv
 from src.data.knapsack import KnapsackData
+from src.solvers.knapsack import KnapsackSolver
 
 
 class KnapsackEnv(ConstrainedBanditEnv):
@@ -43,6 +44,7 @@ class KnapsackEnv(ConstrainedBanditEnv):
             capacity=capacity,
             seed=seed,
         )
+        self.knapsack_solver = KnapsackSolver(self.weights, self.capacity)
 
         self.current_context, self.current_values = self._generate_sample()
 
@@ -65,6 +67,12 @@ class KnapsackEnv(ConstrainedBanditEnv):
 
     def _generate_sample(self) -> Tuple[np.ndarray, np.ndarray]:
         return self.data.sample()
+
+    def _solve_optimal(self, values: np.ndarray) -> np.ndarray:
+        return self.knapsack_solver.solve(values)
+
+    def solve(self, values: np.ndarray) -> np.ndarray:
+        return self.knapsack_solver.solve(values)
 
     def get_config(self) -> dict:
         config = super().get_config()

@@ -1,10 +1,13 @@
 # Stage-2 phased refinement search spaces.
-# Backbone HPs (hidden_dim, lambda_reg, init_lr, beta) inherited from stage-1.
-# Only phase-specific knobs are swept here.
+# Backbone HPs (hidden_dim, lambda_reg, beta) are inherited from stage-1.
+# Phased tuning can additionally override init_lr.
 
 agents:
 
   BayesianSPO-Phased:
+    init_lr:
+      type: categorical
+      choices: [0.0003, 0.001, 0.003]
     phase_length:
       type: categorical
       choices: [25, 50, 100]
@@ -13,6 +16,9 @@ agents:
       choices: [1, 3, 5]
 
   BayesianPFY-Phased:
+    init_lr:
+      type: categorical
+      choices: [0.0003, 0.001, 0.003]
     phase_length:
       type: categorical
       choices: [25, 50, 100]
@@ -21,6 +27,9 @@ agents:
       choices: [1, 3, 5]
 
   BayesianMSE-Phased:
+    init_lr:
+      type: categorical
+      choices: [0.0003, 0.001, 0.003]
     phase_length:
       type: categorical
       choices: [25, 50, 100]
@@ -29,6 +38,9 @@ agents:
       choices: [1, 3, 5]
 
   NeuralUCB-Phased:
+    init_lr:
+      type: categorical
+      choices: [0.0003, 0.001, 0.003]
     phase_length:
       type: categorical
       choices: [25, 50, 100]
@@ -37,6 +49,9 @@ agents:
       choices: [1, 3, 5]
 
   WeberBLL-Phased:
+    init_lr:
+      type: categorical
+      choices: [0.0003, 0.001, 0.003]
     phase_length:
       type: categorical
       choices: [25, 50, 100]
