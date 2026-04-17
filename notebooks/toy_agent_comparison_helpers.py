@@ -2,6 +2,7 @@ from typing import Dict, Iterable, List, Tuple
 
 import jax.numpy as jnp
 import numpy as np
+import optax
 import pandas as pd
 from lets_plot import (
     aes,
@@ -23,7 +24,12 @@ from src.agents.bayesian_utils import (
     init_per_arm_regression,
     update_bayesian_stats,
 )
-from src.agents.contextual import BayesianMSEAgent, BayesianPFYAgent, BayesianSPOAgent
+from src.agents.contextual import (
+    BayesianMSEAgent,
+    BayesianPFYAgent,
+    BayesianSPOAgent,
+    SPO_EmpUCB_Agent,
+)
 from src.envs.topk import TopKEnv
 
 
@@ -34,7 +40,7 @@ DEFAULT_LAMBDA_REG = 1.0
 
 def default_main_configs(
     include_mse: bool = True,
-    include_pfy: bool = True,
+    include_pfy: bool = False,
 ) -> List[Tuple[str, Dict]]:
     configs = [
         (
@@ -46,16 +52,22 @@ def default_main_configs(
             dict(agent_name='BayesianSPO', full_feedback=False, mask_grad=True),
         ),
         (
-            'BayesSPO (partial, unmasked)',
-            dict(agent_name='BayesianSPO', full_feedback=False, mask_grad=False),
-        ),
-        (
             'BayesSPO-Phased (partial)',
             dict(
                 agent_name='BayesianSPO',
                 full_feedback=False,
                 mask_grad=True,
                 phased=True,
+            ),
+        ),
+        (
+            'BayesSPO-Phased (margin only)',
+            dict(
+                agent_name='StructuredRepairSPO',
+                full_feedback=False,
+                mask_grad=True,
+                phased=True,
+                margin_explore=True,
             ),
         ),
     ]
@@ -67,16 +79,22 @@ def default_main_configs(
                     dict(agent_name='BayesianMSE', full_feedback=True, mask_grad=False),
                 ),
                 (
-                    'BayesianMSE (partial)',
-                    dict(agent_name='BayesianMSE', full_feedback=False, mask_grad=False),
-                ),
-                (
                     'BayesianMSE-Phased (partial)',
                     dict(
                         agent_name='BayesianMSE',
                         full_feedback=False,
                         mask_grad=False,
                         phased=True,
+                    ),
+                ),
+                (
+                    'BayesianMSE-Phased (margin only)',
+                    dict(
+                        agent_name='StructuredRepairMSE',
+                        full_feedback=False,
+                        mask_grad=False,
+                        phased=True,
+                        margin_explore=True,
                     ),
                 ),
             ]
@@ -162,6 +180,10 @@ def default_structured_repair_configs() -> List[Tuple[str, Dict]]:
             dict(agent_name='BayesianSPO', full_feedback=True, mask_grad=True),
         ),
         (
+            'BayesSPO (partial, masked)',
+            dict(agent_name='BayesianSPO', full_feedback=False, mask_grad=True),
+        ),
+        (
             'BayesSPO-Phased (partial)',
             dict(
                 agent_name='BayesianSPO',
@@ -192,39 +214,13 @@ def default_structured_repair_configs() -> List[Tuple[str, Dict]]:
             ),
         ),
         (
-            'BayesSPO-Phased (boundary weight)',
+            'BayesianMSE-Phased (margin only)',
             dict(
-                agent_name='StructuredRepairSPO',
+                agent_name='StructuredRepairMSE',
                 full_feedback=False,
-                mask_grad=True,
-                phased=True,
-                boundary_focus=1.0,
-                boundary_scale=0.1,
-            ),
-        ),
-        (
-            'BayesSPO-Phased (residual shift)',
-            dict(
-                agent_name='StructuredRepairSPO',
-                full_feedback=False,
-                mask_grad=True,
-                phased=True,
-                residual_strength=0.5,
-                residual_scale_by_sigma=True,
-            ),
-        ),
-        (
-            'BayesSPO-Phased (structured)',
-            dict(
-                agent_name='StructuredRepairSPO',
-                full_feedback=False,
-                mask_grad=True,
+                mask_grad=False,
                 phased=True,
                 margin_explore=True,
-                boundary_focus=1.0,
-                boundary_scale=0.1,
-                residual_strength=0.5,
-                residual_scale_by_sigma=True,
             ),
         ),
     ]
@@ -246,28 +242,129 @@ def default_structured_scale_configs() -> List[Tuple[str, Dict]]:
             ),
         ),
         (
-            'BayesSPO (partial, margin explore)',
+            'BayesSPO-Phased (DR)',
             dict(
-                agent_name='StructuredRepairSPO',
+                agent_name='DRReplaySPO',
                 full_feedback=False,
                 mask_grad=True,
-                margin_explore=True,
-                phase_length=50,
-                phase_epochs=5,
+                phased=True,
+                dr_lambda=0.1,
+                dr_clip=10.0,
+                dr_samples=64,
             ),
         ),
         (
-            'BayesSPO-Phased (structured)',
+            'BayesSPO-Phased (margin only)',
             dict(
                 agent_name='StructuredRepairSPO',
                 full_feedback=False,
                 mask_grad=True,
                 phased=True,
                 margin_explore=True,
-                boundary_focus=1.0,
-                boundary_scale=0.1,
-                residual_strength=0.5,
-                residual_scale_by_sigma=True,
+            ),
+        ),
+        (
+            'BayesianMSE-Phased (partial)',
+            dict(
+                agent_name='BayesianMSE',
+                full_feedback=False,
+                mask_grad=False,
+                phased=True,
+            ),
+        ),
+        (
+            'BayesianMSE-Phased (margin only)',
+            dict(
+                agent_name='StructuredRepairMSE',
+                full_feedback=False,
+                mask_grad=False,
+                phased=True,
+                margin_explore=True,
+            ),
+        ),
+    ]
+
+
+def default_empucb_configs() -> List[Tuple[str, Dict]]:
+    return [
+        (
+            'BayesSPO (full)',
+            dict(agent_name='BayesianSPO', full_feedback=True, mask_grad=True),
+        ),
+        (
+            'BayesSPO (partial, masked)',
+            dict(agent_name='BayesianSPO', full_feedback=False, mask_grad=True),
+        ),
+        (
+            'BayesSPO-Phased (partial)',
+            dict(
+                agent_name='BayesianSPO',
+                full_feedback=False,
+                mask_grad=True,
+                phased=True,
+            ),
+        ),
+        (
+            'SPO-EmpUCB (full)',
+            dict(agent_name='SPOEmpUCB', full_feedback=True, mask_grad=True),
+        ),
+        (
+            'SPO-EmpUCB (partial)',
+            dict(agent_name='SPOEmpUCB', full_feedback=False, mask_grad=True),
+        ),
+        (
+            'SPO-EmpUCB-Phased (partial)',
+            dict(
+                agent_name='SPOEmpUCB',
+                full_feedback=False,
+                mask_grad=True,
+                phased=True,
+            ),
+        ),
+    ]
+
+
+def default_dr_replay_configs() -> List[Tuple[str, Dict]]:
+    return [
+        (
+            'BayesSPO (full)',
+            dict(agent_name='BayesianSPO', full_feedback=True, mask_grad=True),
+        ),
+        (
+            'BayesSPO (partial, masked)',
+            dict(agent_name='BayesianSPO', full_feedback=False, mask_grad=True),
+        ),
+        (
+            'BayesSPO-Phased (partial)',
+            dict(
+                agent_name='BayesianSPO',
+                full_feedback=False,
+                mask_grad=True,
+                phased=True,
+            ),
+        ),
+        (
+            'BayesSPO-Phased (DR)',
+            dict(
+                agent_name='DRReplaySPO',
+                full_feedback=False,
+                mask_grad=True,
+                phased=True,
+                dr_lambda=0.1,
+                dr_clip=10.0,
+                dr_samples=64,
+            ),
+        ),
+        (
+            'BayesSPO-Phased (DR, clip=2)',
+            dict(
+                agent_name='DRReplaySPO',
+                full_feedback=False,
+                mask_grad=True,
+                phased=True,
+                dr_lambda=0.1,
+                dr_clip=2.0,
+                dr_samples=64,
             ),
         ),
     ]
@@ -395,6 +492,297 @@ class PosteriorSampledSPOAgent(BayesianSPOAgent):
 
         grad_h = self._compute_posterior_grad_h(h, rewards, obs_mask, full_feedback)
         self._backprop_and_step(X, grad_h)
+
+
+class WarmStartSPOAgent(BayesianSPOAgent):
+
+    def __init__(
+        self,
+        *args,
+        warmup_fraction: float = 0.2,
+        warmup_rounds: int = None,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        if warmup_rounds is None:
+            warmup_rounds = int(round(self.decay_rounds * float(warmup_fraction)))
+        self.warmup_rounds = max(int(warmup_rounds), 0)
+
+    def _using_spo(self) -> bool:
+        return self.t > self.warmup_rounds
+
+    def _compute_mse_grad_h(self, h, y_target, selection_mask, full_feedback: bool):
+        pred = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
+        mse_grad = 2 * (pred - y_target) / self.n_arms
+        if self.mask_grad and not full_feedback:
+            mse_grad = jnp.where(selection_mask, mse_grad, 0.0)
+        theta = jnp.einsum('nij,nj->ni', self.A_inv, self.b_bayes)
+        return jnp.einsum('n,ni->i', mse_grad, theta)
+
+    def _compute_grad_h(self, X, h, y_target, selection_mask, full_feedback: bool):
+        if self._using_spo():
+            return self._compute_spo_grad_h(X, h, y_target, selection_mask, full_feedback)
+        return self._compute_mse_grad_h(h, y_target, selection_mask, full_feedback)
+
+    def _phased_retrain(self):
+        for _epoch in range(self.phase_epochs):
+            for i in range(len(self._phase_buffer_X)):
+                X_buf = self._phase_buffer_X[i]
+                Y_buf = self._phase_buffer_Y[i]
+                prob_buf = self._phase_buffer_prob[i]
+                obs_buf = self._phase_buffer_obs[i]
+
+                h = self._features(X_buf)
+                pred = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
+
+                obs_mask = jnp.asarray(obs_buf, dtype=jnp.bool_)
+                if prob_buf is not None:
+                    y_target = jnp.asarray(prob_buf)
+                else:
+                    y_target = jnp.where(obs_mask, jnp.asarray(Y_buf), pred)
+
+                grad_h = self._compute_grad_h(X_buf, h, y_target, obs_mask, False)
+                self._backprop_and_step(X_buf, grad_h)
+
+        self.A, self.b_bayes, self.A_inv = init_per_arm_regression(
+            self.n_arms, self.hidden_dim, self.lambda_reg)
+        for i in range(len(self._phase_buffer_X)):
+            h = self._features(self._phase_buffer_X[i])
+            obs_mask = jnp.asarray(self._phase_buffer_obs[i], dtype=jnp.bool_)
+            rewards = jnp.asarray(self._phase_buffer_Y[i])
+            self.A, self.b_bayes, self.A_inv = update_bayesian_stats(
+                self.A, self.b_bayes, self.A_inv, h, rewards, obs_mask)
+
+    def update(self, X, selection, rewards, lr: float = None, full_feedback: bool = False, **kwargs):
+        prob_values = kwargs.get('prob_values')
+        X = jnp.asarray(X)
+        selection = jnp.asarray(selection)
+        rewards = jnp.asarray(rewards)
+
+        h = self._features(X)
+        selection_mask = selection > 0.5
+        obs_mask = jnp.ones(self.n_arms, dtype=jnp.bool_) if full_feedback else selection_mask
+        self.A, self.b_bayes, self.A_inv = update_bayesian_stats(
+            self.A, self.b_bayes, self.A_inv, h, rewards, obs_mask
+        )
+
+        if self.phased:
+            self._append_phase_buffer(X, rewards, selection, prob_values, obs_mask)
+            self._rounds_since_retrain += 1
+            if self._rounds_since_retrain >= self.phase_length:
+                self._phased_retrain()
+                self._rounds_since_retrain = 0
+            return
+
+        pred = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
+        if prob_values is not None:
+            y_target = jnp.asarray(prob_values)
+        elif full_feedback:
+            y_target = rewards
+        else:
+            y_target = jnp.where(selection_mask, rewards, pred)
+
+        grad_h = self._compute_grad_h(X, h, y_target, selection_mask, full_feedback)
+        self._backprop_and_step(X, grad_h)
+
+
+class PhasedSPOEmpUCBAgent(SPO_EmpUCB_Agent):
+
+    def __init__(
+        self,
+        *args,
+        phased: bool = False,
+        phase_length: int = 50,
+        phase_epochs: int = 5,
+        max_buffer_size: int = None,
+        **kwargs,
+    ):
+        kwargs.pop('lambda_reg', None)
+        super().__init__(*args, **kwargs)
+        self.phased = phased
+        self.phase_length = phase_length
+        self.phase_epochs = phase_epochs
+        if phased:
+            self._init_phase_buffer(max_buffer_size)
+            self._rounds_since_retrain = 0
+
+    def _compute_grads(
+        self,
+        X,
+        rewards,
+        obs_mask,
+        full_feedback: bool = False,
+        prob_values=None,
+    ):
+        X = jnp.asarray(X)
+        rewards = jnp.asarray(rewards)
+        obs_mask = jnp.asarray(obs_mask, dtype=jnp.bool_)
+
+        h = self._features(X)
+        pred = self._predict(h)
+
+        if prob_values is not None:
+            y_target = jnp.asarray(prob_values)
+        elif full_feedback:
+            y_target = rewards
+        else:
+            y_target = jnp.where(obs_mask, rewards, pred)
+
+        spo_grad_val = self.loss_grad_fn(pred, y_target)
+        if self.mask_grad and not full_feedback:
+            spo_grad_val = jnp.where(obs_mask, spo_grad_val, 0.0)
+        grad_h = jnp.einsum('n,ni->i', spo_grad_val, self.W_pred)
+
+        head_mask = jnp.ones(self.n_arms) if full_feedback else obs_mask.astype(jnp.float32)
+        residual = (pred - rewards) * head_mask
+        grad_w_pred = 2.0 * jnp.outer(residual, h) / self.n_arms
+
+        if self.nonlinear:
+            z = X @ self.W1 + self.b1
+            a = jnp.maximum(0, z)
+            grad_a = grad_h @ self.W2.T
+            grad_z = grad_a * (z > 0)
+            return {
+                'W1': jnp.outer(X, grad_z),
+                'b1': grad_z,
+                'W2': jnp.outer(a, grad_h),
+                'b2': grad_h,
+                'W_pred': grad_w_pred,
+            }
+
+        return {
+            'W1': jnp.outer(X, grad_h),
+            'b1': grad_h,
+            'W_pred': grad_w_pred,
+        }
+
+    def _step_from_obs(self, X, rewards, obs_mask, full_feedback: bool = False, prob_values=None):
+        grads = self._compute_grads(
+            X,
+            rewards,
+            obs_mask,
+            full_feedback=full_feedback,
+            prob_values=prob_values,
+        )
+        params = self._get_params()
+        updates, self.opt_state = self.optimizer.update(grads, self.opt_state, params)
+        self._set_params(optax.apply_updates(params, updates))
+
+    def _phased_retrain(self):
+        for _ in range(self.phase_epochs):
+            for i in range(len(self._phase_buffer_X)):
+                obs_mask = self._phase_buffer_obs[i]
+                self._step_from_obs(
+                    self._phase_buffer_X[i],
+                    self._phase_buffer_Y[i],
+                    obs_mask,
+                    full_feedback=bool(np.all(np.asarray(obs_mask))),
+                    prob_values=self._phase_buffer_prob[i],
+                )
+
+    def update(self, X, selection, rewards, lr: float = None, full_feedback: bool = False, **kwargs):
+        prob_values = kwargs.get('prob_values')
+        X = jnp.asarray(X)
+        selection = jnp.asarray(selection)
+        rewards = jnp.asarray(rewards)
+
+        selection_mask = selection > 0.5
+        obs_mask = jnp.ones(self.n_arms, dtype=jnp.bool_) if full_feedback else selection_mask
+
+        if full_feedback:
+            self._obs_counts += 1.0
+        else:
+            self._obs_counts += np.asarray(obs_mask).astype(np.float64)
+
+        self._step_from_obs(X, rewards, obs_mask, full_feedback=full_feedback, prob_values=prob_values)
+
+        if not self.phased:
+            return
+
+        self._append_phase_buffer(X, rewards, selection, prob_values, obs_mask)
+        self._rounds_since_retrain += 1
+        if self._rounds_since_retrain >= self.phase_length:
+            self._phased_retrain()
+            self._rounds_since_retrain = 0
+
+
+class DRReplaySPOAgent(BayesianSPOAgent):
+
+    def __init__(
+        self,
+        *args,
+        dr_lambda: float = 0.1,
+        dr_clip: float = 10.0,
+        dr_samples: int = 64,
+        sample_clip=None,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.dr_lambda = max(float(dr_lambda), 1e-6)
+        self.dr_clip = None if dr_clip is None else float(dr_clip)
+        self.dr_samples = max(int(dr_samples), 1)
+        self.sample_clip = sample_clip
+        self._rng = np.random.default_rng(kwargs.get('seed', 0))
+
+    def _estimate_propensity(self, pred: np.ndarray, sigma: np.ndarray) -> np.ndarray:
+        if np.allclose(sigma, 0.0):
+            action = np.asarray(self.solver(pred)).astype(float)
+            return np.clip(action, self.dr_lambda, 1.0)
+
+        sampled = self._rng.normal(
+            loc=np.asarray(pred, dtype=float),
+            scale=np.asarray(sigma, dtype=float),
+            size=(self.dr_samples, len(pred)),
+        )
+        if self.sample_clip is not None:
+            lo, hi = self.sample_clip
+            sampled = np.clip(sampled, lo, hi)
+        actions = np.stack([np.asarray(self.solver(costs)).astype(float) for costs in sampled], axis=0)
+        return np.clip(actions.mean(axis=0), self.dr_lambda, 1.0)
+
+    def _dr_target(self, h, rewards, obs_mask, full_feedback: bool):
+        pred = np.asarray(compute_bayesian_predictions(h, self.A_inv, self.b_bayes), dtype=float)
+        rewards_np = np.asarray(rewards, dtype=float)
+        obs_idx = np.asarray(obs_mask, dtype=bool)
+
+        if full_feedback:
+            return jnp.asarray(rewards_np)
+
+        sigma = np.asarray(compute_uncertainties(h, self.A_inv), dtype=float)
+        propensity = self._estimate_propensity(pred, sigma)
+        residual = rewards_np - pred
+        weights = 1.0 / np.maximum(propensity, self.dr_lambda)
+        if self.dr_clip is not None:
+            weights = np.minimum(weights, self.dr_clip)
+
+        target = pred.copy()
+        target[obs_idx] = pred[obs_idx] + weights[obs_idx] * residual[obs_idx]
+        if self.sample_clip is not None:
+            lo, hi = self.sample_clip
+            target = np.clip(target, lo, hi)
+        return jnp.asarray(target)
+
+    def _phased_retrain(self):
+        for _epoch in range(self.phase_epochs):
+            for i in range(len(self._phase_buffer_X)):
+                X_buf = self._phase_buffer_X[i]
+                Y_buf = self._phase_buffer_Y[i]
+                obs_buf = self._phase_buffer_obs[i]
+                h = self._features(X_buf)
+                obs_mask = jnp.asarray(obs_buf, dtype=jnp.bool_)
+                full_feedback = bool(jnp.all(obs_mask))
+                y_target = self._dr_target(h, Y_buf, obs_mask, full_feedback)
+                grad_h = self._compute_spo_grad_h(X_buf, h, y_target, obs_mask, full_feedback)
+                self._backprop_and_step(X_buf, grad_h)
+
+        self.A, self.b_bayes, self.A_inv = init_per_arm_regression(
+            self.n_arms, self.hidden_dim, self.lambda_reg)
+        for i in range(len(self._phase_buffer_X)):
+            h = self._features(self._phase_buffer_X[i])
+            obs_mask = jnp.asarray(self._phase_buffer_obs[i], dtype=jnp.bool_)
+            rewards = jnp.asarray(self._phase_buffer_Y[i])
+            self.A, self.b_bayes, self.A_inv = update_bayesian_stats(
+                self.A, self.b_bayes, self.A_inv, h, rewards, obs_mask)
 
 
 class StructuredRepairSPOAgent(BayesianSPOAgent):
@@ -558,6 +946,69 @@ class StructuredRepairSPOAgent(BayesianSPOAgent):
         self._apply_structured_update(X, h, rewards, obs_mask, full_feedback)
 
 
+class StructuredRepairMSEAgent(BayesianMSEAgent):
+
+    def __init__(
+        self,
+        *args,
+        minimize: bool = False,
+        margin_explore: bool = False,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.minimize = minimize
+        self.margin_explore = margin_explore
+
+    def _boundary_indices(self, pred: np.ndarray):
+        k = int(round(float(self.capacity)))
+        if self.minimize:
+            order = np.argsort(pred)
+            inside = order[:k]
+            outside = order[k:]
+            if len(outside) == 0:
+                return inside, outside, None, None
+            in_boundary = inside[np.argmax(pred[inside])]
+            out_boundary = outside[np.argmin(pred[outside])]
+        else:
+            order = np.argsort(-pred)
+            inside = order[:k]
+            outside = order[k:]
+            if len(outside) == 0:
+                return inside, outside, None, None
+            in_boundary = inside[np.argmin(pred[inside])]
+            out_boundary = outside[np.argmax(pred[outside])]
+        return inside, outside, int(in_boundary), int(out_boundary)
+
+    def act(self, X):
+        self.t += 1
+        if self.beta_start != self.beta_end:
+            progress = min(self.t / self.decay_rounds, 1.0)
+            self.beta = self.beta_start + (self.beta_end - self.beta_start) * progress
+
+        h = self._features(X)
+        pred = np.asarray(compute_bayesian_predictions(h, self.A_inv, self.b_bayes))
+        if not self.margin_explore:
+            sigma = np.asarray(compute_uncertainties(h, self.A_inv))
+            if self.minimize:
+                action_scores = pred - self.beta * sigma
+            else:
+                action_scores = pred + self.beta * sigma
+            return self.solver(action_scores)
+
+        sigma = np.asarray(compute_uncertainties(h, self.A_inv))
+        inside, outside, in_boundary, out_boundary = self._boundary_indices(pred)
+        if len(outside) == 0 or in_boundary is None or out_boundary is None:
+            return self.solver(pred)
+        adjusted = pred.copy()
+        if self.minimize:
+            adjusted[inside] = pred[inside] + self.beta * np.sqrt(sigma[inside] ** 2 + sigma[out_boundary] ** 2)
+            adjusted[outside] = pred[outside] - self.beta * np.sqrt(sigma[outside] ** 2 + sigma[in_boundary] ** 2)
+        else:
+            adjusted[inside] = pred[inside] - self.beta * np.sqrt(sigma[inside] ** 2 + sigma[out_boundary] ** 2)
+            adjusted[outside] = pred[outside] + self.beta * np.sqrt(sigma[outside] ** 2 + sigma[in_boundary] ** 2)
+        return self.solver(adjusted)
+
+
 def generate_shared_weights(
     n_arms: int,
     context_dim: int,
@@ -615,6 +1066,11 @@ def create_agent(
     boundary_scale: float = 0.15,
     residual_strength: float = 0.0,
     residual_scale_by_sigma: bool = True,
+    warmup_fraction: float = 0.2,
+    warmup_rounds: int = None,
+    dr_lambda: float = 0.1,
+    dr_clip: float = 10.0,
+    dr_samples: int = 64,
     sample_clip=None,
 ):
     bayes_beta = -beta if getattr(env, 'minimize', False) else beta
@@ -665,6 +1121,37 @@ def create_agent(
             sample_clip=sample_clip,
             **common,
         )
+    if agent_name == 'StructuredRepairMSE':
+        return StructuredRepairMSEAgent(
+            minimize=getattr(env, 'minimize', False),
+            mask_grad=mask_grad,
+            margin_explore=margin_explore,
+            **common,
+        )
+    if agent_name == 'WarmStartSPO':
+        return WarmStartSPOAgent(
+            minimize=getattr(env, 'minimize', False),
+            mask_grad=mask_grad,
+            warmup_fraction=warmup_fraction,
+            warmup_rounds=warmup_rounds,
+            **common,
+        )
+    if agent_name == 'SPOEmpUCB':
+        return PhasedSPOEmpUCBAgent(
+            minimize=getattr(env, 'minimize', False),
+            mask_grad=mask_grad,
+            **common,
+        )
+    if agent_name == 'DRReplaySPO':
+        return DRReplaySPOAgent(
+            minimize=getattr(env, 'minimize', False),
+            mask_grad=mask_grad,
+            dr_lambda=dr_lambda,
+            dr_clip=dr_clip,
+            dr_samples=dr_samples,
+            sample_clip=sample_clip,
+            **common,
+        )
     if agent_name == 'BayesianMSE':
         return BayesianMSEAgent(
             mask_grad=mask_grad,
@@ -687,6 +1174,7 @@ def _append_round_rows(
 ) -> None:
     n_rounds = len(result['cumulative_regret'])
     metric_keys = [
+        'overall_mae',
         'contested_mae',
         'noncontested_mae',
         'rank_corr',
@@ -722,6 +1210,7 @@ def summarize_suite(df_rounds: pd.DataFrame) -> pd.DataFrame:
         df_rounds.groupby(['agent', 'seed'], as_index=False)
         .agg(
             decision_rate=('decision_correct', 'mean'),
+            mean_overall_mae=('overall_mae', 'mean'),
             mean_flip_size=('flip_set_size', 'mean'),
             mean_contested_mae=('contested_mae', 'mean'),
             mean_contested_sigma=('contested_sigma', 'mean'),
@@ -735,6 +1224,7 @@ def summarize_suite(df_rounds: pd.DataFrame) -> pd.DataFrame:
             regret_mean=('final_regret', 'mean'),
             regret_std=('final_regret', 'std'),
             decision_rate=('decision_rate', 'mean'),
+            mean_overall_mae=('mean_overall_mae', 'mean'),
             mean_flip_size=('mean_flip_size', 'mean'),
             mean_contested_mae=('mean_contested_mae', 'mean'),
             mean_contested_sigma=('mean_contested_sigma', 'mean'),
@@ -804,6 +1294,11 @@ def run_suite(
                 boundary_scale=cfg.get('boundary_scale', 0.15),
                 residual_strength=cfg.get('residual_strength', 0.0),
                 residual_scale_by_sigma=cfg.get('residual_scale_by_sigma', True),
+                warmup_fraction=cfg.get('warmup_fraction', 0.2),
+                warmup_rounds=cfg.get('warmup_rounds'),
+                dr_lambda=cfg.get('dr_lambda', 0.1),
+                dr_clip=cfg.get('dr_clip', 10.0),
+                dr_samples=cfg.get('dr_samples', 64),
                 sample_clip=cfg.get('sample_clip', (0.0, 1.0) if cost_fn == 'sigmoid' else None),
             )
             result = run_agent_on_episode(
@@ -944,6 +1439,63 @@ def plot_regret(
         + theme(legend_position='right')
         + ggsize(900, 420)
     )
+
+
+def plot_instant_regret(
+    df_rounds: pd.DataFrame,
+    title: str,
+    smooth_window: int = None,
+):
+    plot_df = _smooth_plot_df(
+        _mean_std_by_round(df_rounds, 'instant_regret'),
+        smooth_window=smooth_window,
+    )
+    return (
+        ggplot(plot_df, aes('round', 'value_mean', group='agent'))
+        + geom_ribbon(aes(ymin='ymin', ymax='ymax', fill='agent'), alpha=0.12, color='transparent', size=0)
+        + geom_line(aes(color='agent'), size=1.1)
+        + labs(x='Round', y='Instant Regret', title=title, color='', fill='')
+        + theme(legend_position='right')
+        + ggsize(900, 420)
+    )
+
+
+def plot_prediction_accuracy(
+    df_rounds: pd.DataFrame,
+    title: str,
+    smooth_window: int = None,
+):
+    metrics = (
+        'overall_mae',
+        'contested_mae',
+        'rank_corr',
+    )
+    labels = {
+        'overall_mae': 'Overall MAE',
+        'contested_mae': 'Contested MAE',
+        'rank_corr': 'Rank Correlation',
+    }
+    plots = []
+    for metric in metrics:
+        plot_df = _smooth_plot_df(
+            _mean_std_by_round(df_rounds, metric),
+            smooth_window=smooth_window,
+        )
+        plots.append(
+            ggplot(plot_df, aes('round', 'value_mean', group='agent'))
+            + geom_ribbon(aes(ymin='ymin', ymax='ymax', fill='agent'), alpha=0.10, color='transparent', size=0)
+            + geom_line(aes(color='agent'), size=1.0)
+            + labs(
+                x='Round',
+                y=labels[metric],
+                title=labels[metric],
+                color='',
+                fill='',
+            )
+            + theme(legend_position='none')
+            + ggsize(420, 320)
+        )
+    return gggrid(plots, ncol=3)
 
 
 def plot_diagnostics(
@@ -1171,6 +1723,8 @@ def run_crossing_trace_suite(
             boundary_scale=cfg.get('boundary_scale', 0.15),
             residual_strength=cfg.get('residual_strength', 0.0),
             residual_scale_by_sigma=cfg.get('residual_scale_by_sigma', True),
+            warmup_fraction=cfg.get('warmup_fraction', 0.2),
+            warmup_rounds=cfg.get('warmup_rounds'),
             sample_clip=cfg.get('sample_clip', (0.0, 1.0) if cost_fn == 'sigmoid' else None),
         )
         total_regret = 0.0
