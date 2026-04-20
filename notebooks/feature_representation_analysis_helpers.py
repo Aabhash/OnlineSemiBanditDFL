@@ -1,3 +1,5 @@
+import re
+from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
 
 import numpy as np
@@ -14,9 +16,13 @@ from lets_plot import (
     ggplot,
     ggsize,
     labs,
+    scale_color_manual,
     scale_fill_manual,
     theme,
+    theme_minimal,
+    geom_abline,
 )
+from lets_plot.export import ggsave
 
 from src.agents.base import run_agent_on_episode
 from src.agents.contextual import BayesianMSEAgent, BayesianSPOAgent
@@ -30,6 +36,13 @@ DEFAULT_CONTEXT_DIM = 8
 DEFAULT_N_ARMS = 4
 DEFAULT_WEIGHTS = np.ones(DEFAULT_N_ARMS, dtype=float)
 DEFAULT_CAPACITY = 1.0
+
+DECISION_COLORS = {
+    '0,2': '#1f77b4',
+    '0,3': '#ff7f0e',
+    '1,2': '#2ca02c',
+    '1,3': '#d62728',
+}
 
 
 def default_representation_configs() -> List[Tuple[str, Dict]]:
@@ -149,6 +162,7 @@ def _make_agent(
         beta=beta,
         lambda_reg=lambda_reg,
         lr=lr,
+        minimize=False,
         solver=top1_solver,
         seed=seed,
         nonlinear=nonlinear,
@@ -1070,6 +1084,7 @@ def _make_latent_agent(
         beta=beta,
         lambda_reg=lambda_reg,
         lr=lr,
+        minimize=False,
         solver=topk_solver,
         seed=seed,
         nonlinear=nonlinear,
@@ -1672,6 +1687,81 @@ def _mechanism_summary_table(
     return pd.DataFrame(rows)
 
 
+def decode_latents(features: np.ndarray, values: np.ndarray) -> Dict[str, np.ndarray]:
+    """Fit linear probes to predict decision margins and shared offset from features."""
+    from sklearn.linear_model import LinearRegression
+
+    values = np.asarray(values, dtype=float)
+    targets = {
+        'margin (0,1)': values[:, 0] - values[:, 1],
+        'margin (2,3)': values[:, 2] - values[:, 3],
+        'shared offset': values.mean(axis=1),
+    }
+    predictions = {}
+    for name, target in targets.items():
+        reg = LinearRegression().fit(features, target)
+        predictions[name] = reg.predict(features)
+    return predictions
+
+
+def plot_decoded_latents(
+    features_spo: np.ndarray,
+    features_mse: np.ndarray,
+    values: np.ndarray,
+    decisions: np.ndarray,
+) -> 'ggplot':
+    """Scatter: true task-relevant quantity vs decoded (predicted) quantity from features.
+
+    3x2 grid: rows = pairwise decision margins and shared offset,
+    cols = SPO / MSE. Diagonal = perfect recovery.
+    """
+    from lets_plot import geom_abline, gggrid
+
+    dec_labels = [decision_label(d) for d in decisions]
+    decoded_spo = decode_latents(features_spo, values)
+    decoded_mse = decode_latents(features_mse, values)
+
+    values = np.asarray(values, dtype=float)
+    true_targets = {
+        'margin (0,1)': values[:, 0] - values[:, 1],
+        'margin (2,3)': values[:, 2] - values[:, 3],
+        'shared offset': values.mean(axis=1),
+    }
+
+    panels = []
+    for target_name, short, dim_type in [
+        ('margin (0,1)', 'margin (0,1)', 'DECISION'),
+        ('margin (2,3)', 'margin (2,3)', 'DECISION'),
+        ('shared offset', 'shared offset', 'NUISANCE'),
+    ]:
+        for agent_name, decoded in [('BayesianSPO', decoded_spo), ('BayesianMSE', decoded_mse)]:
+            true_vals = true_targets[target_name]
+            pred_vals = decoded[target_name]
+            r2 = float(1 - np.sum((true_vals - pred_vals)**2) / np.sum((true_vals - true_vals.mean())**2))
+
+            rows = [{'true': float(true_vals[i]), 'predicted': float(pred_vals[i]),
+                      'decision': dec_labels[i]}
+                    for i in range(len(true_vals))]
+            df = pd.DataFrame(rows)
+
+            p = (
+                ggplot(df, aes('true', 'predicted', color='decision'))
+                + geom_point(size=1.5, alpha=0.4)
+                + geom_abline(slope=1, intercept=0, linetype='dashed', color='gray', size=0.8)
+                + scale_color_manual(values=DECISION_COLORS)
+                + labs(
+                    x=f'True {short}',
+                    y=f'Predicted {short}',
+                    title=f'[{dim_type}] {agent_name} → {target_name} (R²={r2:.2f})',
+                )
+                + theme_minimal()
+                + ggsize(460, 420)
+            )
+            panels.append(p)
+
+    return gggrid(panels, ncol=2)
+
+
 def plot_feedback_feature_grid(
     features_spo: np.ndarray,
     features_mse: np.ndarray,
@@ -1767,7 +1857,7 @@ def plot_feedback_feature_grid(
             )
             + labs(title=label, x='Feature dim 1', y='Feature dim 2')
             + theme_minimal()
-            + ggsize(350, 320)
+            + ggsize(460, 460)
         )
         if not hull_df.empty:
             plot = plot + geom_path(
@@ -1809,7 +1899,7 @@ def plot_feedback_feature_grid(
             )
             + labs(title=label, x='Feature dim 1', y='Feature dim 2')
             + theme_minimal()
-            + ggsize(350, 320)
+            + ggsize(460, 460)
         )
     return gggrid(panels_row1 + panels_row2, ncol=3) + labs(title=title_prefix)
 
@@ -1904,7 +1994,33 @@ def plot_regret_per_round(
         + labs(title=title_prefix, x='Round', y='Per-round regret')
         + theme_minimal()
         + theme(panel_grid_minor='blank')
-        + ggsize(900, 260)
+        + ggsize(900, 200)
+    )
+
+
+def plot_cumulative_regret(
+    res_spo: Dict[str, list],
+    res_mse: Dict[str, list],
+    title_prefix: str,
+):
+    from lets_plot import scale_color_manual, theme_minimal
+
+    rows = []
+    for label, regrets in (
+        ('BayesianSPO', res_spo['cumulative_regret']),
+        ('BayesianMSE', res_mse['cumulative_regret']),
+    ):
+        for round_idx, value in enumerate(np.asarray(regrets, dtype=float), start=1):
+            rows.append({'round': round_idx, 'cumulative_regret': float(value), 'agent': label})
+    df = pd.DataFrame(rows)
+    return (
+        ggplot(df, aes('round', 'cumulative_regret', color='agent'))
+        + geom_line(size=1.1)
+        + scale_color_manual(values={'BayesianSPO': '#1f77b4', 'BayesianMSE': '#d62728'})
+        + labs(title=title_prefix, x='Round', y='Cumulative regret')
+        + theme_minimal()
+        + theme(panel_grid_minor='blank')
+        + ggsize(900, 200)
     )
 
 
@@ -1931,8 +2047,53 @@ def plot_prediction_error_trajectory(
         + labs(title=title_prefix, x='Round', y='Prediction MSE')
         + theme_minimal()
         + theme(panel_grid_minor='blank')
-        + ggsize(900, 260)
+        + ggsize(900, 200)
     )
+
+
+def build_regime_dashboard(
+    feature_plot,
+    decoded_latents_plot,
+    regret_plot,
+    cumulative_regret_plot,
+    prediction_error_plot,
+    loading_plot,
+    action_plot,
+    title_prefix: str,
+):
+    regret_row = gggrid(
+        [regret_plot, cumulative_regret_plot],
+        ncol=2,
+    )
+    diagnostics_row = gggrid(
+        [prediction_error_plot, loading_plot],
+        ncol=2,
+    )
+    return (
+        gggrid(
+            [
+                feature_plot,
+                decoded_latents_plot,
+                regret_row,
+                diagnostics_row,
+                action_plot,
+            ],
+            ncol=1,
+        )
+        + ggsize(1700, 3600)
+    )
+
+
+def _slugify_regime(regime: str) -> str:
+    slug = re.sub(r'[^a-z0-9]+', '_', regime.lower()).strip('_')
+    return slug or 'regime'
+
+
+def save_dashboard_plot(dashboard_plot, regime: str) -> str:
+    output_dir = Path('results') / 'feature_representation_analysis'
+    output_dir.mkdir(parents=True, exist_ok=True)
+    filename = f'{_slugify_regime(regime)}_dashboard.svg'
+    return ggsave(dashboard_plot, filename, path=str(output_dir), iframe=False)
 
 
 def run_feedback_regime_experiment(
@@ -2045,6 +2206,11 @@ def run_feedback_regime_experiment(
         res_mse,
         title_prefix=f'{regime}: regret per round',
     )
+    cumulative_regret_plot = plot_cumulative_regret(
+        res_spo,
+        res_mse,
+        title_prefix=f'{regime}: cumulative regret',
+    )
     prediction_error_plot = plot_prediction_error_trajectory(
         res_spo,
         res_mse,
@@ -2064,15 +2230,38 @@ def run_feedback_regime_experiment(
         res_mse['actions'],
         title_prefix=f'{regime}: action-space match vs oracle',
     )
+    decoded_latents_plot = plot_decoded_latents(
+        h_spo, h_mse, values_test, decisions_test,
+    )
+    dashboard_plot = build_regime_dashboard(
+        feature_plot,
+        decoded_latents_plot,
+        regret_plot,
+        cumulative_regret_plot,
+        prediction_error_plot,
+        loading_plot,
+        action_plot,
+        title_prefix=f'{regime}: dashboard',
+    )
+    dashboard_path = save_dashboard_plot(dashboard_plot, regime)
     return {
         'regime': regime,
         'summary': summary,
         'feature_plot': feature_plot,
         'regret_plot': regret_plot,
+        'cumulative_regret_plot': cumulative_regret_plot,
         'prediction_error_plot': prediction_error_plot,
         'alignment_plot': alignment_plot,
         'loading_plot': loading_plot,
         'action_plot': action_plot,
+        'decoded_latents_plot': decoded_latents_plot,
+        'dashboard_plot': dashboard_plot,
+        'dashboard_path': dashboard_path,
         'res_spo': res_spo,
         'res_mse': res_mse,
+        'h_spo': h_spo,
+        'h_mse': h_mse,
+        'X_test': X_test,
+        'decisions_test': decisions_test,
+        'values_test': values_test,
     }
