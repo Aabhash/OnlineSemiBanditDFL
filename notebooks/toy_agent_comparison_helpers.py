@@ -1155,6 +1155,7 @@ def create_agent(
     if agent_name == 'BayesianMSE':
         return BayesianMSEAgent(
             mask_grad=mask_grad,
+            minimize=getattr(env, 'minimize', False),
             **common,
         )
     if agent_name == 'BayesianPFY':

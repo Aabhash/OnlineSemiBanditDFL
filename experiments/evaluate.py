@@ -26,6 +26,7 @@ from src.agents.base import pregenerate_episode, run_agent_on_episode
 
 from src.agents.contextual import (
     BayesianSPOAgent,
+    BayesianSPOPIAgent,
     BayesianPFYAgent,
     LinUCBAgent,
     NeuralUCBAgent,
@@ -114,8 +115,6 @@ def get_agents(env, seed, config, n_rounds):
     minimize = getattr(env, 'minimize', False)
 
 
-    bayes_beta = -beta if minimize else beta
-
     agents = {
         'Random': RandomAgent(
             env.n_arms, env.weights, env.capacity, seed=seed
@@ -140,25 +139,32 @@ def get_agents(env, seed, config, n_rounds):
         ),
         'BayesianSPO': BayesianSPOAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, beta=bayes_beta, decay_rounds=n_rounds,
+            hidden_dim=hidden_dim, beta=beta, decay_rounds=n_rounds,
             lambda_reg=lambda_reg, minimize=minimize, solver=solver, seed=seed,
             mask_grad=True, nonlinear=nonlinear,
         ),
+        'BayesianSPO-PI': BayesianSPOPIAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            hidden_dim=hidden_dim, beta=beta, decay_rounds=n_rounds,
+            lambda_reg=lambda_reg, minimize=minimize, solver=solver, seed=seed,
+            mask_grad=True, nonlinear=nonlinear,
+            imputation_samples=8, imputation_scale=1.0,
+        ),
         'BayesianPFY': BayesianPFYAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, beta=bayes_beta, decay_rounds=n_rounds,
+            hidden_dim=hidden_dim, beta=beta, decay_rounds=n_rounds,
             lambda_reg=lambda_reg, minimize=minimize, solver=solver, seed=seed,
             mask_grad=True, nonlinear=nonlinear,
         ),
         'BayesianMSE': BayesianMSEAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, beta=bayes_beta, lambda_reg=lambda_reg,
+            hidden_dim=hidden_dim, beta=beta, lambda_reg=lambda_reg,
             decay_rounds=n_rounds, solver=solver, seed=seed,
-            nonlinear=nonlinear,
+            nonlinear=nonlinear, minimize=minimize,
         ),
         'WeberBLL-Online': WeberBLLAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, beta=bayes_beta, decay_rounds=n_rounds,
+            hidden_dim=hidden_dim, beta=beta, decay_rounds=n_rounds,
             lambda_reg=lambda_reg, minimize=minimize, solver=solver, seed=seed,
             mask_grad=True, nonlinear=nonlinear, phased=False,
         ),
@@ -536,14 +542,15 @@ def save_results(results, trajectories, output_dir):
     for run_key, summary in results_summary.items():
         csv_rows.append({
             'Dataset': summary['dataset'],
+            'Feedback Type': summary['feedback_type'],
             'Agent': summary['agent'],
             'Mean Regret': summary['mean_cumulative_regret'],
             'Std Regret': summary['std_cumulative_regret'],
             'Mean Time (s)': summary['mean_wall_time_seconds'],
         })
-    csv_rows.sort(key=lambda r: (r['Dataset'], r['Mean Regret']))
+    csv_rows.sort(key=lambda r: (r['Dataset'], r['Feedback Type'], r['Mean Regret']))
 
-    fieldnames = ['Dataset', 'Agent', 'Mean Regret', 'Std Regret', 'Mean Time (s)']
+    fieldnames = ['Dataset', 'Feedback Type', 'Agent', 'Mean Regret', 'Std Regret', 'Mean Time (s)']
 
     with open(f'{output_dir}/metrics/final_eval_summary.csv', 'w', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)

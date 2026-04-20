@@ -113,7 +113,7 @@ class BayesianSPO_DFE_Agent(AgentBase):
         init_lr: float = 0.001,
         max_grad_norm: float = 5.0,
         imputation: str = 'disc_explore',
-        minimize: bool = True,
+        minimize: bool | None = None,
         solver=None,
         seed: int = None,
         loss_grad_fn=None,
@@ -140,11 +140,16 @@ class BayesianSPO_DFE_Agent(AgentBase):
         self.weights_np = np.asarray(weights)
         self.capacity = capacity
         self.grid_size = grid_size
+        if minimize is None:
+            raise ValueError(
+                "BayesianSPO_DFE_Agent requires an explicit minimize=... argument "
+                "to avoid ambiguous exploration direction."
+            )
         self.hidden_dim = hidden_dim
-        self.beta = beta
+        self.beta = abs(beta)
         self.lambda_reg = lambda_reg
         self.imputation = imputation
-        self.minimize = minimize
+        self.minimize = bool(minimize)
         self.t = 0
 
 
@@ -328,7 +333,7 @@ class BayesianSPO_DFE_Agent(AgentBase):
         if self.minimize:
             values = means - jnp.abs(self.beta) * stds * bonus_j
         else:
-            values = means + self.beta * stds * bonus_j
+            values = means + jnp.abs(self.beta) * stds * bonus_j
         return self.solver(np.asarray(values))
 
     def update(self, X, selection, rewards, lr=None, full_feedback=False,

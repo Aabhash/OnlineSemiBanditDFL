@@ -35,32 +35,30 @@ def make_agents(env, seed, config):
     )
     common_spo = dict(**common_base, minimize=minimize)
 
-    beta_sign = -1.0 if minimize else 1.0
-
     agents = {
         'SPO+Greedy': BayesianSPOAgent(
             **common_spo, beta=0.0, mask_grad=True,
         ),
         'SPO+UCB': BayesianSPOAgent(
-            **common_spo, beta=1.0 * beta_sign, mask_grad=True,
+            **common_spo, beta=1.0, mask_grad=True,
         ),
         'SPO+UCB-strong': BayesianSPOAgent(
-            **common_spo, beta=3.0 * beta_sign, mask_grad=True,
+            **common_spo, beta=3.0, mask_grad=True,
         ),
         'SPO+DFE': BayesianSPO_DFE_Agent(
-            **common_spo, beta=1.0 * beta_sign, imputation='disc_explore',
+            **common_spo, beta=1.0, imputation='disc_explore',
             co_solver=co_solver, decision_focused_explore=True,
             adaptive_dfe=True, mask_grad=True,
         ),
         'SPO+DI': BayesianSPO_DFE_Agent(
-            **common_spo, beta=1.0 * beta_sign, imputation='disc_impute',
+            **common_spo, beta=1.0, imputation='disc_impute',
             co_solver=co_solver,
         ),
         'MSE+Greedy': BayesianMSEAgent(
-            **common_base, beta=0.0,
+            **common_base, beta=0.0, minimize=minimize,
         ),
         'MSE+UCB': BayesianMSEAgent(
-            **common_base, beta=1.0 * beta_sign,
+            **common_base, beta=1.0, minimize=minimize,
         ),
     }
 

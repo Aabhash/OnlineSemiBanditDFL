@@ -26,7 +26,6 @@ def make_agents(env, seed, config):
     lambda_reg = defaults['lambda_reg']
     lr = defaults['lr']
     minimize = getattr(env, 'minimize', False)
-    bayes_beta = -beta if minimize else beta
     solver = env.solve
     co_solver = make_co_solver(env)
 
@@ -40,27 +39,27 @@ def make_agents(env, seed, config):
 
     agents = {
         'SPO-masked': BayesianSPOAgent(
-            **common_spo, beta=bayes_beta, mask_grad=True,
+            **common_spo, beta=beta, mask_grad=True,
         ),
         'SPO-unmasked': BayesianSPOAgent(
-            **common_spo, beta=bayes_beta, mask_grad=False,
+            **common_spo, beta=beta, mask_grad=False,
         ),
         'DX': BayesianSPO_DFE_Agent(
-            **common_spo, beta=bayes_beta, imputation='disc_explore',
+            **common_spo, beta=beta, imputation='disc_explore',
             co_solver=co_solver, mask_grad=True,
             decision_focused_explore=False,
         ),
         'MSE': BayesianMSEAgent(
             context_dim=env.context_dim, n_arms=env.n_arms,
             weights=env.weights, capacity=env.capacity,
-            hidden_dim=hidden_dim, beta=bayes_beta,
-            lambda_reg=lambda_reg, solver=solver, seed=seed,
+            hidden_dim=hidden_dim, beta=beta,
+            lambda_reg=lambda_reg, solver=solver, seed=seed, minimize=minimize,
         ),
     }
 
     for K in [1, 5, 10]:
         agents[f'DI-K{K}'] = BayesianSPO_DFE_Agent(
-            **common_spo, beta=bayes_beta, imputation='disc_impute',
+            **common_spo, beta=beta, imputation='disc_impute',
             co_solver=co_solver, disc_K=K,
         )
 

@@ -43,7 +43,7 @@ def make_agents(env, seed, config, capacity):
             **common, beta=beta, mask_grad=True, minimize=False,
         ),
         'BayesianMSE': BayesianMSEAgent(
-            **common, beta=beta,
+            **common, beta=beta, minimize=False,
         ),
         'LinUCB': LinUCBAgent(
             env.context_dim, env.n_arms, weights, capacity,

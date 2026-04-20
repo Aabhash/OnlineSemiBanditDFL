@@ -223,6 +223,7 @@ plotting:
     LinUCB: "orange"
     NeuralUCB: "red"
     BayesianSPO: "purple"
+    BayesianSPO-PI: "mediumpurple"
     FullSPO: "pink"
     DecisionUCB: "cyan"
     EpsilonGreedy: "gold"

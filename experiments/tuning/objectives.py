@@ -9,6 +9,7 @@ from .timing import TrialTimer
 from .results_store import TrialResult, ResultsStore
 from src.agents.contextual import (
     BayesianSPOAgent,
+    BayesianSPOPIAgent,
     BayesianPFYAgent,
     BayesianSPO_DFE_Agent,
     LinUCBAgent,
@@ -237,8 +238,6 @@ def create_agent_from_params(
     if agent_name in ('BayesianSPO', 'BayesianSPO-PureSPO'):
 
         agent_params = {k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
-        if minimize and 'beta' in agent_params:
-            agent_params['beta'] = -agent_params['beta']
 
         agent_lr = params.get('init_lr', 0.001)
         return BayesianSPOAgent(
@@ -248,10 +247,19 @@ def create_agent_from_params(
             mask_grad=True, nonlinear=False,
             **agent_params
         )
+    elif agent_name == 'BayesianSPO-PI':
+        agent_params = {k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
+        agent_lr = params.get('init_lr', 0.001)
+        return BayesianSPOPIAgent(
+            env.context_dim, env.n_arms, env.weights, env.capacity,
+            lr=agent_lr,
+            decay_rounds=n_rounds, minimize=minimize, solver=solver, seed=seed,
+            mask_grad=True, nonlinear=False,
+            imputation_samples=8, imputation_scale=1.0,
+            **agent_params
+        )
     elif agent_name == 'BayesianPFY':
         agent_params = {k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
-        if minimize and 'beta' in agent_params:
-            agent_params['beta'] = -agent_params['beta']
 
         agent_lr = params.get('init_lr', 0.001)
         return BayesianPFYAgent(
@@ -293,14 +301,12 @@ def create_agent_from_params(
     elif agent_name == 'BayesianMSE':
 
         agent_params = {k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
-        if minimize and 'beta' in agent_params:
-            agent_params['beta'] = -agent_params['beta']
         agent_lr = params.get('init_lr', 0.001)
         return BayesianMSEAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             lr=agent_lr,
             decay_rounds=n_rounds, solver=solver, seed=seed,
-            nonlinear=False,
+            nonlinear=False, minimize=minimize,
             **agent_params
         )
     elif agent_name == 'Greedy':
@@ -323,8 +329,6 @@ def create_agent_from_params(
             co_solver = KnapsackSolver(env.weights, env.capacity)
 
         agent_params = {k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
-        if minimize and 'beta' in agent_params:
-            agent_params['beta'] = -agent_params['beta']
 
 
         if agent_name == 'BayesianSPO-DI':
@@ -344,8 +348,6 @@ def create_agent_from_params(
         )
     elif agent_name == 'WeberBLL-Online':
         agent_params = {k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
-        if minimize and 'beta' in agent_params:
-            agent_params['beta'] = -agent_params['beta']
         agent_lr = params.get('init_lr', 0.001)
         return WeberBLLAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
@@ -357,8 +359,6 @@ def create_agent_from_params(
 
     elif agent_name == 'BayesianSPO-Phased':
         agent_params = {k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
-        if minimize and 'beta' in agent_params:
-            agent_params['beta'] = -agent_params['beta']
         agent_lr = params.get('init_lr', 0.001)
         return BayesianSPOAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
@@ -369,8 +369,6 @@ def create_agent_from_params(
         )
     elif agent_name == 'BayesianPFY-Phased':
         agent_params = {k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
-        if minimize and 'beta' in agent_params:
-            agent_params['beta'] = -agent_params['beta']
         agent_lr = params.get('init_lr', 0.001)
         return BayesianPFYAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
@@ -381,14 +379,12 @@ def create_agent_from_params(
         )
     elif agent_name == 'BayesianMSE-Phased':
         agent_params = {k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
-        if minimize and 'beta' in agent_params:
-            agent_params['beta'] = -agent_params['beta']
         agent_lr = params.get('init_lr', 0.001)
         return BayesianMSEAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             lr=agent_lr,
             decay_rounds=n_rounds, solver=solver, seed=seed,
-            nonlinear=False, phased=True,
+            nonlinear=False, phased=True, minimize=minimize,
             **agent_params
         )
     elif agent_name == 'NeuralUCB-Phased':
@@ -408,8 +404,6 @@ def create_agent_from_params(
         )
     elif agent_name == 'WeberBLL-Phased':
         agent_params = {k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
-        if minimize and 'beta' in agent_params:
-            agent_params['beta'] = -agent_params['beta']
         agent_lr = params.get('init_lr', 0.001)
         return WeberBLLAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,

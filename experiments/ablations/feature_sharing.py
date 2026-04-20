@@ -26,7 +26,6 @@ def make_agents_for_config(env, seed, config, hidden_dim, nonlinear):
     beta = defaults['beta']
     lambda_reg = defaults['lambda_reg']
     minimize = getattr(env, 'minimize', False)
-    bayes_beta = -beta if minimize else beta
     solver = env.solve
 
     common_base = dict(
@@ -39,10 +38,10 @@ def make_agents_for_config(env, seed, config, hidden_dim, nonlinear):
     nl_tag = 'NL' if nonlinear else 'L'
     agents = {
         f'SPO-{nl_tag}-h{hidden_dim}': BayesianSPOAgent(
-            **common_base, beta=bayes_beta, mask_grad=True, minimize=minimize,
+            **common_base, beta=beta, mask_grad=True, minimize=minimize,
         ),
         f'MSE-{nl_tag}-h{hidden_dim}': BayesianMSEAgent(
-            **common_base, beta=bayes_beta,
+            **common_base, beta=beta, minimize=minimize,
         ),
     }
     return agents

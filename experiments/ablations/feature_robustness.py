@@ -162,9 +162,6 @@ def run_feature_robustness(
         env = create_env(dataset, seed, **dataset_config)
         minimize = getattr(env, 'minimize', False)
         solver = env.solve
-        bayes_beta = -beta if minimize else beta
-
-
         relevance, B_density = compute_feature_relevance(env)
         relevant_dims, irrelevant_dims = select_feature_groups(relevance, B_density)
 
@@ -186,18 +183,18 @@ def run_feature_robustness(
         agents = {
             'BayesianSPO': BayesianSPOAgent(
                 env.context_dim, env.n_arms, env.weights, env.capacity,
-                hidden_dim=hidden_dim, beta=bayes_beta, decay_rounds=n_rounds,
+                hidden_dim=hidden_dim, beta=beta, decay_rounds=n_rounds,
                 lambda_reg=lambda_reg, minimize=minimize, solver=solver, seed=seed,
                 mask_grad=True,
             ),
             'BayesianMSE': BayesianMSEAgent(
                 env.context_dim, env.n_arms, env.weights, env.capacity,
-                hidden_dim=hidden_dim, beta=bayes_beta, lambda_reg=lambda_reg,
-                decay_rounds=n_rounds, solver=solver, seed=seed,
+                hidden_dim=hidden_dim, beta=beta, lambda_reg=lambda_reg,
+                decay_rounds=n_rounds, solver=solver, seed=seed, minimize=minimize,
             ),
             'WeberBLL-Online': WeberBLLAgent(
                 env.context_dim, env.n_arms, env.weights, env.capacity,
-                hidden_dim=hidden_dim, beta=bayes_beta, decay_rounds=n_rounds,
+                hidden_dim=hidden_dim, beta=beta, decay_rounds=n_rounds,
                 lambda_reg=lambda_reg, minimize=minimize, solver=solver, seed=seed,
                 mask_grad=True, phased=False,
             ),

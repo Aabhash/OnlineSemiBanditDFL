@@ -42,7 +42,6 @@ def make_agents(env, seed, config):
     beta = defaults['beta']
     lambda_reg = defaults['lambda_reg']
     minimize = getattr(env, 'minimize', False)
-    bayes_beta = -beta if minimize else beta
     solver = env.solve
     co_solver = make_co_solver(env)
 
@@ -61,7 +60,8 @@ def make_agents(env, seed, config):
     return {
         'MSE+UCB': BayesianMSEAgent(
             **common_base,
-            beta=bayes_beta,
+            beta=beta,
+            minimize=minimize,
         ),
         'SPO+Greedy': BayesianSPOAgent(
             **common_spo,
@@ -70,17 +70,17 @@ def make_agents(env, seed, config):
         ),
         'SPO+UCB': BayesianSPOAgent(
             **common_spo,
-            beta=bayes_beta,
+            beta=beta,
             mask_grad=True,
         ),
         'SPO-unmasked': BayesianSPOAgent(
             **common_spo,
-            beta=bayes_beta,
+            beta=beta,
             mask_grad=False,
         ),
         'SPO+DFE': BayesianSPO_DFE_Agent(
             **common_spo,
-            beta=bayes_beta,
+            beta=beta,
             imputation='disc_explore',
             co_solver=co_solver,
             decision_focused_explore=True,
@@ -89,7 +89,7 @@ def make_agents(env, seed, config):
         ),
         'SPO+DI': BayesianSPO_DFE_Agent(
             **common_spo,
-            beta=bayes_beta,
+            beta=beta,
             imputation='disc_impute',
             co_solver=co_solver,
         ),

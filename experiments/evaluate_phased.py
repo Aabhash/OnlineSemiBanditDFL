@@ -125,8 +125,6 @@ def get_agents(env, seed, config, n_rounds):
 
     solver = env.solve
     minimize = getattr(env, 'minimize', False)
-    bayes_beta = -beta if minimize else beta
-
     common = dict(
         context_dim=env.context_dim, n_arms=env.n_arms,
         weights=env.weights, capacity=env.capacity,
@@ -140,22 +138,23 @@ def get_agents(env, seed, config, n_rounds):
 
     agents = {
         'BayesianSPO-Phased': BayesianSPOAgent(
-            **common, beta=bayes_beta, decay_rounds=n_rounds,
+            **common, beta=beta, decay_rounds=n_rounds,
             minimize=minimize, mask_grad=True,
             phased=True, phase_length=phase_length, phase_epochs=phase_epochs,
             max_buffer_size=phase_buffer_size,
             replay_batch_size=phase_replay_batch_size,
         ),
         'BayesianPFY-Phased': BayesianPFYAgent(
-            **common, beta=bayes_beta, decay_rounds=n_rounds,
+            **common, beta=beta, decay_rounds=n_rounds,
             minimize=minimize, mask_grad=True,
             phased=True, phase_length=phase_length, phase_epochs=phase_epochs,
             max_buffer_size=phase_buffer_size,
         ),
         'BayesianMSE-Phased': BayesianMSEAgent(
-            **common, beta=bayes_beta, decay_rounds=n_rounds,
+            **common, beta=beta, decay_rounds=n_rounds,
             phased=True, phase_length=phase_length, phase_epochs=phase_epochs,
             max_buffer_size=phase_buffer_size,
+            minimize=minimize,
         ),
         'NeuralUCB-Phased': NeuralUCBAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
@@ -167,7 +166,7 @@ def get_agents(env, seed, config, n_rounds):
             batch_size=neuralucb_batch_size,
         ),
         'WeberBLL-Phased': WeberBLLAgent(
-            **common, beta=bayes_beta, decay_rounds=n_rounds,
+            **common, beta=beta, decay_rounds=n_rounds,
             minimize=minimize, mask_grad=True, lr=lr,
             phased=True, phase_length=phase_length, phase_epochs=phase_epochs,
             max_buffer_size=phase_buffer_size,
@@ -552,14 +551,15 @@ def save_results(results, trajectories, output_dir):
     for run_key, summary in results_summary.items():
         csv_rows.append({
             'Dataset': summary['dataset'],
+            'Feedback Type': summary['feedback_type'],
             'Agent': summary['agent'],
             'Mean Regret': summary['mean_cumulative_regret'],
             'Std Regret': summary['std_cumulative_regret'],
             'Mean Time (s)': summary['mean_wall_time_seconds'],
         })
-    csv_rows.sort(key=lambda r: (r['Dataset'], r['Mean Regret']))
+    csv_rows.sort(key=lambda r: (r['Dataset'], r['Feedback Type'], r['Mean Regret']))
 
-    fieldnames = ['Dataset', 'Agent', 'Mean Regret', 'Std Regret', 'Mean Time (s)']
+    fieldnames = ['Dataset', 'Feedback Type', 'Agent', 'Mean Regret', 'Std Regret', 'Mean Time (s)']
 
     with open(f'{output_dir}/metrics/final_eval_summary.csv', 'w', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)

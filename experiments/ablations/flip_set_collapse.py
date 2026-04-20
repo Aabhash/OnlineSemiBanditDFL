@@ -35,7 +35,6 @@ def make_agents(env, seed, config, n_rounds):
     beta = defaults['beta']
     lambda_reg = defaults['lambda_reg']
     minimize = getattr(env, 'minimize', False)
-    bayes_beta = -beta if minimize else beta
     solver = env.solve
 
     common = dict(
@@ -47,11 +46,11 @@ def make_agents(env, seed, config, n_rounds):
 
     agents = {
         'BayesianSPO': BayesianSPOAgent(
-            **common, beta=bayes_beta, mask_grad=True,
+            **common, beta=beta, mask_grad=True,
             minimize=minimize, decay_rounds=n_rounds,
         ),
         'BayesianMSE': BayesianMSEAgent(
-            **common, beta=bayes_beta, decay_rounds=n_rounds,
+            **common, beta=beta, decay_rounds=n_rounds, minimize=minimize,
         ),
     }
     return agents

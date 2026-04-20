@@ -67,10 +67,11 @@ class BayesianSPOAgent(AgentBase):
         self.loss_grad_fn = make_spo_grad_fn(self.solver, minimize)
 
         if beta_start is not None and beta_end is not None:
-            self.beta_start = beta_start
-            self.beta_end = beta_end
-            self.beta = beta_start
+            self.beta_start = abs(beta_start)
+            self.beta_end = abs(beta_end)
+            self.beta = self.beta_start
         else:
+            beta = abs(beta)
             self.beta_start = beta
             self.beta_end = beta
             self.beta = beta
@@ -148,7 +149,9 @@ class BayesianSPOAgent(AgentBase):
             self.beta = self.beta_start + (self.beta_end - self.beta_start) * progress
 
         h = self._features(X)
-        ucb_values = compute_ucb_values(h, self.A_inv, self.b_bayes, self.beta)
+        ucb_values = compute_ucb_values(
+            h, self.A_inv, self.b_bayes, self.beta, minimize=self.minimize
+        )
         return self.solver(np.asarray(ucb_values))
 
     def _compute_spo_grad_h(self, X, h, Y_target, selection_mask, full_feedback):

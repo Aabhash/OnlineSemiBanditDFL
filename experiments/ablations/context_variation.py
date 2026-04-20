@@ -27,7 +27,6 @@ def make_agents(env, seed, config):
     beta = defaults['beta']
     lambda_reg = defaults['lambda_reg']
     minimize = getattr(env, 'minimize', False)
-    bayes_beta = -beta if minimize else beta
     solver = env.solve
 
     common_base = dict(
@@ -39,10 +38,10 @@ def make_agents(env, seed, config):
 
     agents = {
         'BayesianSPO': BayesianSPOAgent(
-            **common_base, beta=bayes_beta, mask_grad=True, minimize=minimize,
+            **common_base, beta=beta, mask_grad=True, minimize=minimize,
         ),
         'BayesianMSE': BayesianMSEAgent(
-            **common_base, beta=bayes_beta,
+            **common_base, beta=beta, minimize=minimize,
         ),
         'LinUCB': LinUCBAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
