@@ -11,12 +11,13 @@ cd "$SCRIPT_DIR"
 
 echo "=== Phased evaluation (stage-2 tuned HPs) ==="
 
-uv run python experiments/evaluate_phased.py --datasets topk_4arm,topk_8arm --feedback semi_bandit --full --output_dir results/eval_phased
-uv run python experiments/evaluate_phased.py --datasets topk_4arm_linear --feedback semi_bandit --full --output_dir results/eval_phased
-uv run python experiments/evaluate_phased.py --datasets shortest_path_8x8 --feedback semi_bandit --full --output_dir results/eval_phased
-uv run python experiments/evaluate_phased.py --datasets shortest_path_20x20 --feedback semi_bandit --full --output_dir results/eval_phased
-uv run python experiments/evaluate_phased.py --datasets knapsack_32 --feedback semi_bandit --full --output_dir results/eval_phased
-uv run python experiments/evaluate_phased.py --datasets knapsack_100 --feedback semi_bandit --full --output_dir results/eval_phased
+uv run python experiments/evaluate_phased.py --datasets topk_8arm --feedback semi_bandit --full --output_dir results/eval_phased --no-wandb
+uv run python experiments/evaluate_phased.py --datasets topk_8arm_linear --feedback semi_bandit --full --output_dir results/eval_phased --no-wandb
+uv run python experiments/evaluate_phased.py --datasets shortest_path_8x8 --feedback semi_bandit --full --output_dir results/eval_phased --no-wandb
+uv run python experiments/evaluate_phased.py --datasets shortest_path_20x20 --feedback semi_bandit --full --output_dir results/eval_phased --no-wandb
+uv run python experiments/evaluate_phased.py --datasets portfolio_32 --feedback semi_bandit --full --output_dir results/eval_phased --no-wandb
+uv run python experiments/evaluate_phased.py --datasets knapsack_32 --feedback semi_bandit --full --output_dir results/eval_phased --no-wandb
+uv run python experiments/evaluate_phased.py --datasets knapsack_100 --feedback semi_bandit --full --output_dir results/eval_phased --no-wandb
 
 echo ""
 echo "=== Phased evaluation complete ==="

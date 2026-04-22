@@ -18,7 +18,13 @@ sys.path.insert(0, '.')
 
 wandb = importlib.import_module('wandb') if importlib.util.find_spec('wandb') is not None else None
 
-from experiments.tuning.objectives import create_agent_from_params, uses_holdout_for_selection
+from experiments.tuning.objectives import (
+    create_agent_from_params,
+    uses_holdout_for_selection,
+    preferred_agent_name,
+    canonicalize_agent_name,
+    remap_agent_dict_to_preferred,
+)
 from experiments.tuning.results_store import ResultsStore
 from src.envs import create_env
 from src.agents import run_experiment
@@ -61,7 +67,7 @@ def load_tuned_params(
     if best_params_file.exists():
         with open(best_params_file) as f:
             data = json.load(f)
-        return {agent: info['params'] for agent, info in data.items()}
+        return remap_agent_dict_to_preferred({agent: info['params'] for agent, info in data.items()})
 
     tuned_params = {}
     trials = results_store.load_all_trials(dataset=dataset, feedback_type=feedback_type)
@@ -73,7 +79,7 @@ def load_tuned_params(
             params = results_store.get_best_params(
                 agent_name, dataset, feedback_type, use_holdout=use_holdout
             )
-            tuned_params[agent_name] = params
+            tuned_params[preferred_agent_name(agent_name)] = params
         except ValueError:
             pass
 
@@ -148,7 +154,7 @@ def get_agents(env, seed, config, n_rounds):
             hidden_dim=hidden_dim, beta=beta, decay_rounds=n_rounds,
             lambda_reg=lambda_reg, minimize=minimize, solver=solver, seed=seed,
             mask_grad=True, nonlinear=nonlinear,
-            imputation_samples=8, imputation_scale=1.0,
+            imputation_samples=4, imputation_scale=1.0,
         ),
         'BayesianPFY': BayesianPFYAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
@@ -162,11 +168,12 @@ def get_agents(env, seed, config, n_rounds):
             decay_rounds=n_rounds, solver=solver, seed=seed,
             nonlinear=nonlinear, minimize=minimize,
         ),
-        'WeberBLL-Online': WeberBLLAgent(
+        'BLL-Online': WeberBLLAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             hidden_dim=hidden_dim, beta=beta, decay_rounds=n_rounds,
             lambda_reg=lambda_reg, minimize=minimize, solver=solver, seed=seed,
-            mask_grad=True, nonlinear=nonlinear, phased=False,
+            mask_grad=False, posterior_complete_missing=True,
+            nonlinear=nonlinear, phased=False,
         ),
     }
 
@@ -1080,7 +1087,7 @@ Two-Stage Workflow Example:
 
 Examples:
   python experiments/evaluate.py --datasets knapsack_32 --quick
-  python experiments/evaluate.py --datasets knapsack_32,shortest_path_8x8 --full
+  python experiments/evaluate.py --datasets portfolio_32,knapsack_32,shortest_path_8x8 --full
   python experiments/evaluate.py --datasets knapsack_32 --use-tuned-params --agents BayesianSPO,BayesianMSE
         """
     )
@@ -1155,7 +1162,7 @@ Examples:
 
     agents_filter = None
     if args.agents:
-        agents_filter = [a.strip() for a in args.agents.split(',')]
+        agents_filter = [preferred_agent_name(canonicalize_agent_name(a.strip())) for a in args.agents.split(',')]
 
     print('=' * 70)
     print('CONSTRAINED BANDITS EVALUATION')

@@ -13,6 +13,8 @@ from experiments.tuning.objectives import (
     get_n_rounds_for_dataset,
     uses_holdout_for_selection,
     has_tunable_params,
+    canonicalize_agent_name,
+    preferred_agent_name,
 )
 from experiments.tuning.optuna_tuner import load_config
 from experiments.tuning.results_store import ResultsStore
@@ -108,6 +110,7 @@ def main():
         epilog="""
 Examples:
   python experiments/tune_hyperparams.py --agent BayesianSPO --dataset knapsack_32
+  python experiments/tune_hyperparams.py --agent BayesianSPO-PI --dataset portfolio_32
   python experiments/tune_hyperparams.py --all --dataset knapsack_32
   python experiments/tune_hyperparams.py --agent BayesianSPO --dataset knapsack_32 --quick
   python experiments/tune_hyperparams.py --all --dataset knapsack_32 --analyze
@@ -134,6 +137,12 @@ Examples:
                         help='Stage-1 tuning dir for backbone params (phased tuning only)')
 
     args = parser.parse_args()
+
+    if args.agent:
+        canonical_agent = canonicalize_agent_name(args.agent)
+        if canonical_agent != args.agent:
+            print(f"Using alias {args.agent} -> {preferred_agent_name(canonical_agent)}")
+            args.agent = canonical_agent
 
     if not args.all and not args.agent and not args.analyze_only:
         parser.error("Specify --agent <name> or --all")

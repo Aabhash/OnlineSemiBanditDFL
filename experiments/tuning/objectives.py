@@ -23,6 +23,29 @@ from src.agents.contextual import (
 from src.envs import create_env
 from src.solver import ShortestPathSolver, KnapsackSolver
 
+AGENT_ALIASES = {
+    'BLL-Online': 'WeberBLL-Online',
+}
+
+PREFERRED_AGENT_NAMES = {
+    'WeberBLL-Online': 'BLL-Online',
+}
+
+
+def canonicalize_agent_name(agent_name: str) -> str:
+    return AGENT_ALIASES.get(agent_name, agent_name)
+
+
+def preferred_agent_name(agent_name: str) -> str:
+    return PREFERRED_AGENT_NAMES.get(agent_name, agent_name)
+
+
+def remap_agent_dict_to_preferred(agent_dict: Dict[str, Any]) -> Dict[str, Any]:
+    remapped = {}
+    for agent_name, value in agent_dict.items():
+        remapped[preferred_agent_name(agent_name)] = value
+    return remapped
+
 
 @dataclass
 class ExperimentResult:
@@ -198,9 +221,8 @@ def sample_hyperparameters(
 PHASED_TO_ONLINE_BACKBONE = {
     'BayesianSPO-Phased': 'BayesianSPO',
     'BayesianPFY-Phased': 'BayesianPFY',
-    'BayesianMSE-Phased': 'BayesianMSE',
     'NeuralUCB-Phased': 'NeuralUCB',
-    'WeberBLL-Phased': 'WeberBLL-Online',
+    'WeberBLL-Phased': 'BLL-Online',
 }
 
 
@@ -229,6 +251,7 @@ def create_agent_from_params(
     lr: float,
     backbone_params: Dict[str, Any] = None,
 ):
+    agent_name = canonicalize_agent_name(agent_name)
     if backbone_params and agent_name in PHASED_TO_ONLINE_BACKBONE:
         params = merge_backbone_and_phase_params(backbone_params, params)
 
@@ -255,7 +278,7 @@ def create_agent_from_params(
             lr=agent_lr,
             decay_rounds=n_rounds, minimize=minimize, solver=solver, seed=seed,
             mask_grad=True, nonlinear=False,
-            imputation_samples=8, imputation_scale=1.0,
+            imputation_samples=4, imputation_scale=1.0,
             **agent_params
         )
     elif agent_name == 'BayesianPFY':
@@ -353,10 +376,10 @@ def create_agent_from_params(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             lr=agent_lr,
             decay_rounds=n_rounds, minimize=minimize, solver=solver, seed=seed,
-            mask_grad=True, nonlinear=False, phased=False,
+            mask_grad=False, posterior_complete_missing=True,
+            nonlinear=False, phased=False,
             **agent_params
         )
-
     elif agent_name == 'BayesianSPO-Phased':
         agent_params = {k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
         agent_lr = params.get('init_lr', 0.001)
@@ -375,16 +398,6 @@ def create_agent_from_params(
             lr=agent_lr,
             decay_rounds=n_rounds, minimize=minimize, solver=solver, seed=seed,
             mask_grad=True, nonlinear=False, phased=True,
-            **agent_params
-        )
-    elif agent_name == 'BayesianMSE-Phased':
-        agent_params = {k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
-        agent_lr = params.get('init_lr', 0.001)
-        return BayesianMSEAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            lr=agent_lr,
-            decay_rounds=n_rounds, solver=solver, seed=seed,
-            nonlinear=False, phased=True, minimize=minimize,
             **agent_params
         )
     elif agent_name == 'NeuralUCB-Phased':
@@ -409,7 +422,8 @@ def create_agent_from_params(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             lr=agent_lr,
             decay_rounds=n_rounds, minimize=minimize, solver=solver, seed=seed,
-            mask_grad=True, nonlinear=False, phased=True,
+            mask_grad=False, posterior_complete_missing=True,
+            nonlinear=False, phased=True,
             **agent_params
         )
     else:

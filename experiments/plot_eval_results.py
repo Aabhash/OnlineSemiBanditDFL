@@ -22,7 +22,6 @@ LetsPlot.setup_html()
 
 AGENT_DISPLAY = {
     'BayesianMSE':              'BayesianMSE',
-    'BayesianMSE-Phased':       'BayesianMSE-Phased',
     'BayesianSPO':              'BayesianSPO',
     'BayesianSPO-Phased':       'BayesianSPO-Phased',
     'BayesianPFY':              'BayesianPFY',
@@ -34,7 +33,8 @@ AGENT_DISPLAY = {
     'EpsilonGreedy':            'EpsGreedy',
     'Greedy':                   'Greedy',
     'Random':                   'Random',
-    'WeberBLL-Online':          'WeberBLL-Online',
+    'WeberBLL-Online':          'BLL-Online',
+    'BLL-Online':               'BLL-Online',
     'WeberBLL-Phased':          'WeberBLL-Phased',
 }
 
@@ -43,17 +43,13 @@ DATASET_LABELS = {
     'knapsack_32':         'Knapsack (n=32)',
     'shortest_path_8x8':  'Shortest Path 8×8',
     'shortest_path_20x20':'Shortest Path 20×20',
-    'topk_2arm':           'TopK (2 arms)',
-    'topk_4arm':           'TopK (4 arms)',
     'topk_8arm':           'TopK (8 arms)',
-    'topk_4arm_linear':    'TopK Linear (4 arms)',
-    'topk_16arm':          'TopK (16 arms)',
+    'topk_8arm_linear':    'TopK Linear (8 arms)',
 }
 
 
 COLORS = {
     'BayesianMSE':              '#d62728',
-    'BayesianMSE-Phased':       '#ff7f0e',
     'BayesianSPO':              '#1f77b4',
     'BayesianSPO-Phased':       '#2ca02c',
     'BayesianPFY':              '#bcbd22',
@@ -66,12 +62,12 @@ COLORS = {
     'Greedy':                   '#ffbb78',
     'Random':                   '#c7c7c7',
     'WeberBLL-Online':          '#8c564b',
+    'BLL-Online':               '#8c564b',
     'WeberBLL-Phased':          '#e377c2',
 }
 
 LINESTYLES = {
     'BayesianMSE':              'solid',
-    'BayesianMSE-Phased':       'solid',
     'BayesianSPO':              'solid',
     'BayesianSPO-Phased':       'solid',
     'BayesianPFY':              'dashed',
@@ -83,6 +79,7 @@ LINESTYLES = {
     'Greedy':                   'longdash',
     'Random':                   'dotted',
     'WeberBLL-Online':          'dashed',
+    'BLL-Online':               'dashed',
     'WeberBLL-Phased':          'dashed',
 }
 
@@ -90,7 +87,6 @@ LINESTYLES = {
 BAR_COLORS = {
     'BayesianSPO-Phased':       '#2ca02c',
     'BayesianSPO':              '#1f77b4',
-    'BayesianMSE-Phased':       '#ff7f0e',
     'BayesianPFY':              '#bcbd22',
     'BayesianMSE':              '#aaaaaa',
     'NeuralUCB':                '#aaaaaa',
@@ -101,6 +97,7 @@ BAR_COLORS = {
     'Greedy':                   '#aaaaaa',
     'Random':                   '#aaaaaa',
     'WeberBLL-Online':          '#8c564b',
+    'BLL-Online':               '#8c564b',
     'WeberBLL-Phased':          '#e377c2',
 }
 
@@ -109,16 +106,16 @@ WINDOW = 100
 
 LINE_AGENTS = [
     'LinUCB', 'NeuralUCB', 'NeuralUCB-Phased',
-    'BayesianMSE', 'BayesianMSE-Phased',
+    'BayesianMSE',
     'BayesianSPO', 'BayesianSPO-Phased',
-    'WeberBLL-Online', 'WeberBLL-Phased',
+    'BLL-Online', 'WeberBLL-Online', 'WeberBLL-Phased',
 ]
 BAR_AGENTS = [
     'Random', 'EpsGreedy', 'TS', 'LinUCB',
     'NeuralUCB', 'NeuralUCB-Phased',
-    'BayesianMSE', 'BayesianMSE-Phased',
+    'BayesianMSE',
     'BayesianSPO', 'BayesianSPO-Phased',
-    'WeberBLL-Online', 'WeberBLL-Phased',
+    'BLL-Online', 'WeberBLL-Online', 'WeberBLL-Phased',
 ]
 
 LINE_LEGEND_THEME_TL = theme(

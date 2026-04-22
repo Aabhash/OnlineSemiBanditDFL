@@ -30,8 +30,7 @@ DEFAULT_GRADIENT_MULTIPLIER = {
     'BayesianPFY': 1,
     'BayesianSPO-Phased': 5,
     'BayesianPFY-Phased': 5,
-    'BayesianMSE-Phased': 5,
-    'WeberBLL-Phased': 5, 'WeberBLL-Online': 1,
+    'WeberBLL-Phased': 5, 'WeberBLL-Online': 1, 'BLL-Online': 1,
     'NeuralUCB-Phased': 5,
 }
 
@@ -48,8 +47,7 @@ AGENT_CATEGORY = {
     'NeuralUCB': 'online', 'BayesianMSE': 'online', 'BayesianSPO': 'online',
     'BayesianPFY': 'online',
     'BayesianSPO-Phased': 'phased',
-    'BayesianMSE-Phased': 'phased',
-    'WeberBLL-Phased': 'phased', 'WeberBLL-Online': 'online',
+    'WeberBLL-Phased': 'phased', 'WeberBLL-Online': 'online', 'BLL-Online': 'online',
     'NeuralUCB-Phased': 'phased',
 }
 

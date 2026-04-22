@@ -61,8 +61,13 @@ datasets:
   # Portfolio with 32 items,
   portfolio_32:
     num_assets: 32
+    max_assets: 5
     context_dim: 5
     noise_width: 0.25
+    signal_scale: 0.05
+    baseline_return: 0.10
+    gamma: 1.0
+    solver_time_limit: 0.1
     env_type: shared_context
 
 
@@ -97,22 +102,6 @@ datasets:
     env_type: shared_context
 
   # Top-K toy problems (for toy dissection / Section 5 analysis)
-  topk_2arm:
-    n_arms: 2
-    k: 1
-    context_dim: 1
-    cost_fn: sigmoid
-    w_spread: 0.0
-    env_type: topk
-
-  topk_4arm:
-    n_arms: 4
-    k: 1
-    context_dim: 5
-    cost_fn: sigmoid
-    w_spread: 0.4
-    env_type: topk
-
   topk_8arm:
     n_arms: 8
     k: 2
@@ -122,17 +111,9 @@ datasets:
     env_type: topk
 
   # Linear cost variants (well-specified: linear features can fit perfectly)
-  topk_2arm_linear:
-    n_arms: 2
-    k: 1
-    context_dim: 1
-    cost_fn: linear
-    w_spread: 0.0
-    env_type: topk
-
-  topk_4arm_linear:
-    n_arms: 4
-    k: 1
+  topk_8arm_linear:
+    n_arms: 8
+    k: 2
     context_dim: 5
     cost_fn: linear
     w_spread: 0.4
@@ -149,7 +130,7 @@ evaluation:
     n_rounds: 1000
     n_seeds: 3
   full:
-    n_rounds: 5000
+    n_rounds: 10000
     n_seeds: 10
   output_dir: "results/eval"
 

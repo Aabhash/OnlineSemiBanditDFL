@@ -8,6 +8,8 @@ def genData(
     num_assets: int,
     deg: int = 4,
     noise_level: float = 0.5,
+    signal_scale: float = 0.05,
+    baseline_return: float = 0.1,
     seed: int = 42,
 ):
     if not isinstance(deg, int):
@@ -27,8 +29,8 @@ def genData(
     r = np.zeros((n, m))
     for i in range(n):
         r[i] = (
-            0.05 * np.dot(B, x[i].reshape(p, 1)).T / np.sqrt(p)
-            + 0.1 ** (1 / deg)
+            signal_scale * np.dot(B, x[i].reshape(p, 1)).T / np.sqrt(p)
+            + baseline_return ** (1 / deg)
         ) ** deg
         f = rnd.randn(num_features)
         eps = rnd.randn(num_assets)
@@ -47,6 +49,8 @@ class PortfolioData:
         deg: int = 4,
         noise_width: float = 0.5,
         noise_level: float = None,
+        signal_scale: float = 0.05,
+        baseline_return: float = 0.1,
         seed: int = 42,
         **kwargs,
     ):
@@ -62,18 +66,24 @@ class PortfolioData:
         self.deg = deg
         self.noise_width = noise_width if noise_level is None else noise_level
         self.noise_level = self.noise_width
-        self.rng = np.random.default_rng(seed)
+        self.signal_scale = float(signal_scale)
+        self.baseline_return = float(baseline_return)
+        self.seed = int(seed)
 
-        self.B = self.rng.binomial(1, 0.5, size=(self.num_assets, self.n_features))
-        self.L = self.rng.uniform(
+        init_rng = np.random.default_rng(self.seed)
+        self.B = init_rng.binomial(1, 0.5, size=(self.num_assets, self.n_features))
+        self.L = init_rng.uniform(
             -2.5e-3 * self.noise_width,
             2.5e-3 * self.noise_width,
             size=(self.num_assets, self.n_features),
         )
+        self.idiosyncratic_var = (1e-2 * self.noise_width) ** 2
         self.covariance = (
             self.L @ self.L.T
-            + (1e-2 * self.noise_width) ** 2 * np.eye(self.num_assets)
+            + self.idiosyncratic_var * np.eye(self.num_assets)
         )
+        self._sample_seed = self.seed + 7777
+        self.rng = np.random.default_rng(self._sample_seed)
 
     def sample(self) -> Tuple[np.ndarray, np.ndarray]:
         context = self.rng.normal(0.0, 1.0, size=self.n_features)
@@ -84,8 +94,8 @@ class PortfolioData:
         p = self.n_features
 
         mean_returns = (
-            0.05 * (self.B @ context) / np.sqrt(p)
-            + 0.1 ** (1.0 / self.deg)
+            self.signal_scale * (self.B @ context) / np.sqrt(p)
+            + self.baseline_return ** (1.0 / self.deg)
         ) ** self.deg
         f = self.rng.normal(0.0, 1.0, size=self.n_features)
         eps = self.rng.normal(0.0, 1.0, size=self.num_assets)
@@ -96,7 +106,7 @@ class PortfolioData:
         pass
 
     def reset(self):
-        pass
+        self.rng = np.random.default_rng(self._sample_seed)
 
     def get_config(self) -> dict:
         return {
@@ -105,5 +115,8 @@ class PortfolioData:
             'context_dim': self.context_dim,
             'deg': self.deg,
             'noise_width': self.noise_width,
+            'signal_scale': self.signal_scale,
+            'baseline_return': self.baseline_return,
+            'idiosyncratic_var': self.idiosyncratic_var,
             'covariance': self.covariance.copy(),
         }

@@ -42,6 +42,7 @@ class BayesianMSEAgent(AgentBase):
         phase_length: int = 50,
         phase_epochs: int = 5,
         max_buffer_size: int = None,
+        replay_batch_size: int = 1,
     ):
         self.context_dim = context_dim
         self.n_arms = n_arms
@@ -103,6 +104,7 @@ class BayesianMSEAgent(AgentBase):
         self.phased = phased
         self.phase_length = phase_length
         self.phase_epochs = phase_epochs
+        self.replay_batch_size = max(int(replay_batch_size), 1)
         if phased:
             self._init_phase_buffer(max_buffer_size)
             self._rounds_since_retrain = 0
@@ -177,21 +179,73 @@ class BayesianMSEAgent(AgentBase):
         updates, self.opt_state = self.optimizer.update(grads, self.opt_state, params)
         self._set_params(optax.apply_updates(params, updates))
 
+    def _backprop_and_step_batch(self, X_batch, grad_h_batch):
+        X_batch = jnp.asarray(X_batch)
+        grad_h_batch = jnp.asarray(grad_h_batch)
+        batch_size = max(int(X_batch.shape[0]), 1)
+        if self.nonlinear:
+            z = X_batch @ self.W1 + self.b1
+            a = jnp.maximum(0, z)
+            grad_a = grad_h_batch @ self.W2.T
+            grad_z = grad_a * (z > 0)
+            grads = {
+                'W1': (X_batch.T @ grad_z) / batch_size,
+                'b1': jnp.mean(grad_z, axis=0),
+                'W2': (a.T @ grad_h_batch) / batch_size,
+                'b2': jnp.mean(grad_h_batch, axis=0),
+            }
+        else:
+            grads = {
+                'W1': (X_batch.T @ grad_h_batch) / batch_size,
+                'b1': jnp.mean(grad_h_batch, axis=0),
+            }
+        params = self._get_params()
+        updates, self.opt_state = self.optimizer.update(grads, self.opt_state, params)
+        self._set_params(optax.apply_updates(params, updates))
+
+    def _phased_retrain_batch(self, batch_indices):
+        X_batch = jnp.stack([self._phase_buffer_X[i] for i in batch_indices])
+        h_batch = self._features(X_batch)
+        theta = jnp.einsum('nij,nj->ni', self.A_inv, self.b_bayes)
+        pred_batch = h_batch @ theta.T
+
+        grad_h_batch = []
+        for pos, idx in enumerate(batch_indices):
+            obs_mask = jnp.asarray(self._phase_buffer_obs[idx], dtype=jnp.bool_)
+            y_target = jnp.where(obs_mask, jnp.asarray(self._phase_buffer_Y[idx]), pred_batch[pos])
+            mse_grad = 2 * (pred_batch[pos] - y_target) / self.n_arms
+            if self.mask_grad:
+                mse_grad = jnp.where(obs_mask, mse_grad, 0.0)
+            grad_h_batch.append(jnp.einsum('n,ni->i', mse_grad, theta))
+
+        self._backprop_and_step_batch(X_batch, jnp.stack(grad_h_batch))
+
     def _phased_retrain(self):
+        n_buffer = len(self._phase_buffer_X)
+        if n_buffer == 0:
+            return
+        batch_size = min(self.replay_batch_size, n_buffer)
+
         for _ in range(self.phase_epochs):
-            for i in range(len(self._phase_buffer_X)):
-                X_buf = self._phase_buffer_X[i]
-                Y_buf = self._phase_buffer_Y[i]
-                obs_buf = self._phase_buffer_obs[i]
+            if batch_size <= 1:
+                for i in range(n_buffer):
+                    X_buf = self._phase_buffer_X[i]
+                    Y_buf = self._phase_buffer_Y[i]
+                    obs_buf = self._phase_buffer_obs[i]
 
-                h = self._features(X_buf)
-                pred = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
+                    h = self._features(X_buf)
+                    pred = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
 
-                obs_mask = jnp.asarray(obs_buf, dtype=jnp.bool_)
-                Y_target = jnp.where(obs_mask, jnp.asarray(Y_buf), pred)
+                    obs_mask = jnp.asarray(obs_buf, dtype=jnp.bool_)
+                    Y_target = jnp.where(obs_mask, jnp.asarray(Y_buf), pred)
 
-                grad_h = self._compute_mse_grad_h(X_buf, h, Y_target, obs_mask, False)
-                self._backprop_and_step(X_buf, grad_h)
+                    grad_h = self._compute_mse_grad_h(X_buf, h, Y_target, obs_mask, False)
+                    self._backprop_and_step(X_buf, grad_h)
+            else:
+                indices = np.random.permutation(n_buffer)
+                for start in range(0, n_buffer, batch_size):
+                    batch_indices = indices[start:start + batch_size]
+                    self._phased_retrain_batch(batch_indices)
 
 
         self.A, self.b_bayes, self.A_inv = init_per_arm_regression(
@@ -238,7 +292,7 @@ class PosteriorImputedBayesianMSEAgent(BayesianMSEAgent):
     def __init__(
         self,
         *args,
-        imputation_samples: int = 8,
+        imputation_samples: int = 4,
         imputation_scale: float = 1.0,
         seed: int = 0,
         **kwargs,

@@ -172,14 +172,3 @@ agents:
       low: 0.1
       high: 10.0
       log: true
-    fisher_beta:
-      type: float
-      low: 0.001
-      high: 1.0
-      log: true
-    phase_length:
-      type: categorical
-      choices: [25, 50, 100]
-    phase_epochs:
-      type: categorical
-      choices: [3, 5, 10]

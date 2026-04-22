@@ -11,12 +11,13 @@ cd "$SCRIPT_DIR"
 
 echo "=== Online evaluation (stage-1 tuned HPs) ==="
 
-uv run python experiments/evaluate_online.py --datasets topk_4arm,topk_8arm --feedback semi_bandit --full --output_dir results/eval_online
-uv run python experiments/evaluate_online.py --datasets topk_4arm_linear --feedback semi_bandit --full --output_dir results/eval_online
-uv run python experiments/evaluate_online.py --datasets shortest_path_8x8 --feedback semi_bandit --full --output_dir results/eval_online
-uv run python experiments/evaluate_online.py --datasets shortest_path_20x20 --feedback semi_bandit --full --output_dir results/eval_online
-uv run python experiments/evaluate_online.py --datasets knapsack_32 --feedback semi_bandit --full --output_dir results/eval_online
-uv run python experiments/evaluate_online.py --datasets knapsack_100 --feedback semi_bandit --full --output_dir results/eval_online
+uv run python experiments/evaluate_online.py --datasets topk_8arm --feedback semi_bandit --full --output_dir results/eval_online_default_10k --no-wandb
+uv run python experiments/evaluate_online.py --datasets topk_8arm_linear --feedback semi_bandit --full --output_dir results/eval_online_default_10k --no-wandb
+uv run python experiments/evaluate_online.py --datasets shortest_path_8x8 --feedback semi_bandit --full --output_dir results/eval_online_default_10k --no-wandb
+uv run python experiments/evaluate_online.py --datasets shortest_path_20x20 --feedback semi_bandit --full --output_dir results/eval_online_default_10k --no-wandb
+uv run python experiments/evaluate_online.py --datasets portfolio_32 --feedback semi_bandit --full --output_dir results/eval_online_default_10k --no-wandb
+uv run python experiments/evaluate_online.py --datasets knapsack_32 --feedback semi_bandit --full --output_dir results/eval_online_default_10k --no-wandb
+uv run python experiments/evaluate_online.py --datasets knapsack_100 --feedback semi_bandit --full --output_dir results/eval_online_default_10k --no-wandb
 
 echo ""
 echo "=== Online evaluation complete ==="

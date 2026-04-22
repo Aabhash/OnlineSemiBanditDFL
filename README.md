@@ -87,7 +87,6 @@ uv run python experiments/compute_analysis.py
 |-------|------|-------------|
 | **BayesianSPO-Phased** | SPO+ | Our best method: phased SPO+ with retrospective imputation |
 | BayesianPFY-Phased | PFY | PFY under phased training |
-| BayesianMSE-Phased | MSE | Phased MSE baseline |
 | NeuralUCB-Phased | MSE | Original NeuralUCB design (periodic batch SGD) |
 | WeberBLL-Phased | Gaussian LL | Weber et al. (phased by design) |
 

@@ -39,6 +39,7 @@ class WeberBLLAgent(AgentBase):
 
         noise_var: float = 1.0,
         fisher_beta: float = 0.1,
+        posterior_complete_missing: bool = False,
         phased: bool = True,
         phase_length: int = 50,
         phase_epochs: int = 5,
@@ -77,6 +78,7 @@ class WeberBLLAgent(AgentBase):
 
         self.noise_var = noise_var
         self.fisher_beta = fisher_beta
+        self.posterior_complete_missing = posterior_complete_missing
         self.phased = phased
         self.phase_length = phase_length
         self.phase_epochs = phase_epochs
@@ -193,6 +195,24 @@ class WeberBLLAgent(AgentBase):
 
         return (1.0 / self.noise_var) * (mse_term + uncertainty_term)
 
+    def _prepare_gradient_targets(
+        self,
+        h,
+        rewards,
+        obs_mask,
+        full_feedback: bool,
+        prob_values=None,
+    ):
+        if prob_values is not None:
+            return jnp.asarray(prob_values)
+
+        rewards = jnp.asarray(rewards)
+        if full_feedback or not self.posterior_complete_missing:
+            return rewards
+
+        pred = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
+        return jnp.where(obs_mask, rewards, pred)
+
 
     def _backprop_features(self, X, grad_h):
         X = jnp.asarray(X)
@@ -218,7 +238,10 @@ class WeberBLLAgent(AgentBase):
             h = self._features(self._phase_buffer_X[i])
             rewards = jnp.asarray(self._phase_buffer_Y[i])
             obs_mask = jnp.asarray(self._phase_buffer_obs[i], dtype=jnp.bool_)
-            grad_h = self._marginalized_grad_h(h, rewards, obs_mask, full_feedback=False)
+            targets = self._prepare_gradient_targets(
+                h, rewards, obs_mask, full_feedback=False
+            )
+            grad_h = self._marginalized_grad_h(h, targets, obs_mask, full_feedback=False)
             grads = self._backprop_features(self._phase_buffer_X[i], grad_h)
             for k in fisher:
                 fisher[k] = fisher[k] + grads[k] ** 2
@@ -274,10 +297,12 @@ class WeberBLLAgent(AgentBase):
                 h = self._features(X_buf)
 
 
-                rewards = jnp.asarray(prob_buf) if prob_buf is not None else jnp.asarray(Y_buf)
                 obs_mask = jnp.asarray(obs_buf, dtype=jnp.bool_)
+                targets = self._prepare_gradient_targets(
+                    h, Y_buf, obs_mask, full_feedback=False, prob_values=prob_buf
+                )
 
-                grad_h = self._marginalized_grad_h(h, rewards, obs_mask, full_feedback=False)
+                grad_h = self._marginalized_grad_h(h, targets, obs_mask, full_feedback=False)
                 grads = self._backprop_features(X_buf, grad_h)
                 self._apply_gradient_step(grads)
 
@@ -308,8 +333,9 @@ class WeberBLLAgent(AgentBase):
                 self._phased_retrain()
                 self._rounds_since_retrain = 0
         else:
-
-            r = jnp.asarray(prob_values) if prob_values is not None else rewards
-            grad_h = self._marginalized_grad_h(h, r, selection_mask, full_feedback)
+            targets = self._prepare_gradient_targets(
+                h, rewards, obs_mask, full_feedback, prob_values=prob_values
+            )
+            grad_h = self._marginalized_grad_h(h, targets, selection_mask, full_feedback)
             grads = self._backprop_features(X, grad_h)
             self._apply_gradient_step(grads)
