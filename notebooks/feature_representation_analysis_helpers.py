@@ -34,7 +34,6 @@ from src.envs.knapsack import KnapsackEnv
 from src.solvers.knapsack import KnapsackSolver
 from src.agents.base import pregenerate_episode, run_agent_on_episode
 from src.agents.contextual.bayesian_spo import BayesianSPOAgent
-from src.agents.contextual.bayesian_spo_pi import BayesianSPOPIAgent
 from src.agents.contextual.weber_bll import WeberBLLAgent
 from notebooks.archive.ablations import (
     AdaptivePosteriorImputedBayesianSPOAgent,
@@ -58,6 +57,130 @@ from src.agents.bayesian_utils import (
     init_per_arm_regression,
     update_bayesian_stats,
 )
+
+
+class ConfidenceWeightedAllArmPosteriorBayesianSPOAgent(BayesianSPOAgent):
+    """PI with confidence-weighted all-arm pseudo-updates and soft unmasking.
+
+    Missing arms receive:
+    - a small posterior update using posterior-mean completion, scaled by confidence
+    - a small gradient contribution in the PI update, also scaled by confidence
+
+    Observed arms keep weight 1.0 in both places.
+    """
+
+    def __init__(
+        self,
+        *args,
+        posterior_missing_cap: float = 0.15,
+        grad_missing_cap: float = 0.20,
+        confidence_scale: float = 0.05,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.posterior_missing_cap = float(posterior_missing_cap)
+        self.grad_missing_cap = float(grad_missing_cap)
+        self.confidence_scale = float(confidence_scale)
+
+    def _missing_weights(self, h, cap: float) -> np.ndarray:
+        stds = np.asarray(compute_uncertainties(h, self.A_inv), dtype=float).reshape(-1)
+        conf = self.confidence_scale / (stds + self.confidence_scale)
+        return cap * conf
+
+    def _weighted_allarm_update(self, h, y_target, observed_mask) -> None:
+        h_np = np.asarray(h, dtype=float).reshape(-1)
+        y_np = np.asarray(y_target, dtype=float).reshape(-1)
+        obs_np = np.asarray(observed_mask, dtype=bool).reshape(-1)
+        miss_w = self._missing_weights(h, self.posterior_missing_cap)
+        weights = np.where(obs_np, 1.0, miss_w)
+
+        A_np = np.asarray(self.A, dtype=float)
+        b_np = np.asarray(self.b_bayes, dtype=float)
+        outer = np.outer(h_np, h_np)
+        for arm_idx, weight in enumerate(weights):
+            if weight <= 0:
+                continue
+            A_np[arm_idx] += weight * outer
+            b_np[arm_idx] += weight * y_np[arm_idx] * h_np
+
+        self.A = jnp.asarray(A_np)
+        self.b_bayes = jnp.asarray(b_np)
+        self.A_inv = jnp.asarray(np.linalg.inv(A_np))
+
+    def _compute_spo_grad_h(self, X, h, Y_target, selection_mask, full_feedback):
+        pred = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
+        pred_np = np.asarray(pred, dtype=float).reshape(-1)
+        stds_np = np.asarray(compute_uncertainties(h, self.A_inv), dtype=float).reshape(-1)
+        target_np = np.asarray(Y_target, dtype=float).reshape(-1)
+        observed_mask_np = np.asarray(selection_mask, dtype=bool).reshape(-1)
+
+        targets = [target_np]
+        missing_mask = ~observed_mask_np
+        if missing_mask.any():
+            sampling_std = self.imputation_scale * stds_np
+            for _ in range(self.imputation_samples - 1):
+                sampled = target_np.copy()
+                sampled[missing_mask] = (
+                    pred_np[missing_mask]
+                    + sampling_std[missing_mask]
+                    * self.imputation_rng.standard_normal(missing_mask.sum())
+                )
+                targets.append(sampled)
+
+        theta = jnp.einsum("nij,nj->ni", self.A_inv, self.b_bayes)
+        grad_h_total = jnp.zeros_like(h)
+        if full_feedback:
+            arm_weights = jnp.ones(self.n_arms)
+        else:
+            miss_w = self._missing_weights(h, self.grad_missing_cap)
+            arm_weights = jnp.asarray(np.where(observed_mask_np, 1.0, miss_w))
+
+        for target_vec in targets:
+            spo_grad_val = self.loss_grad_fn(pred, jnp.asarray(target_vec))
+            spo_grad_val = spo_grad_val * arm_weights
+            grad_h_total = grad_h_total + jnp.einsum("n,ni->i", spo_grad_val, theta)
+
+        return grad_h_total / max(len(targets), 1)
+
+    def update(self, X, selection, rewards, lr: float = None, full_feedback: bool = False, **kwargs):
+        X = jnp.asarray(X)
+        selection = jnp.asarray(selection)
+        rewards = jnp.asarray(rewards)
+
+        h = self._features(X)
+        selection_mask = selection > 0.5
+        pred = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
+
+        if full_feedback:
+            y_target = rewards
+            observed_mask = jnp.ones(self.n_arms, dtype=jnp.bool_)
+        else:
+            y_target = jnp.where(selection_mask, rewards, pred)
+            observed_mask = selection_mask
+
+        self._weighted_allarm_update(h, y_target, observed_mask)
+        grad_h = self._compute_spo_grad_h(X, h, y_target, selection_mask, full_feedback)
+        self._backprop_and_step(X, grad_h)
+
+
+class HybridChosenBayesFullTargetBayesianSPOAgent(BayesianSPOAgent):
+    """Chosen-arm Bayesian updates with full true costs in the SPO target."""
+
+    def update(self, X, selection, rewards, lr: float = None, full_feedback: bool = False, **kwargs):
+        X = jnp.asarray(X)
+        selection = jnp.asarray(selection)
+        rewards = jnp.asarray(rewards)
+        true_values = jnp.asarray(kwargs.get("true_values", rewards))
+
+        h = self._features(X)
+        selection_mask = selection > 0.5
+
+        self.A, self.b_bayes, self.A_inv = update_bayesian_stats(
+            self.A, self.b_bayes, self.A_inv, h, rewards, selection_mask
+        )
+
+        grad_h = self._compute_spo_grad_h(X, h, true_values, selection_mask, True)
+        self._backprop_and_step(X, grad_h)
 
 
 # ── Task 1: Custom DGP and Oracle ──────────────────────────────────────────
@@ -180,13 +303,10 @@ def create_agent_pair(
     mask_spo: bool = False,
     mask_mse: bool = False,
     centered_spo: bool = False,
-    phased_spo: bool = False,
-    phased_mse: bool = False,
-    phase_length: int = 50,
-    phase_epochs: int = 5,
-    replay_batch_size: int = 1,
     posterior_imputed_spo: bool = False,
     posterior_imputed_predictive_spo: bool = False,
+    confidence_weighted_allarm_posterior_imputed_spo: bool = False,
+    hybrid_chosen_bayes_full_target_spo: bool = False,
     adaptive_posterior_imputed_spo: bool = False,
     quantile_posterior_imputed_spo: bool = False,
     leaky_mask_posterior_imputed_spo: bool = False,
@@ -205,8 +325,6 @@ def create_agent_pair(
     action_gap_imputation_scale: float = 1.0,
     posterior_missing_grad_weight: float = 0.25,
     posterior_projection_strength: float = 0.5,
-    comparison_balanced_replay_spo: bool = False,
-    comparison_replay_samples: int = 16,
     pair_balanced_spo: bool = False,
     pair_balanced_mse: bool = False,
     disagreement_coverage_spo: bool = False,
@@ -239,9 +357,6 @@ def create_agent_pair(
         spo_cls = WeberDecisionPFYAgent
     elif weber_blended_spo:
         spo_cls = WeberBlendedSPOAgent
-    elif comparison_balanced_replay_spo:
-        spo_cls = ComparisonBalancedReplayBayesianSPOAgent
-        phased_spo = True
     elif local_posterior_imputed_spo:
         spo_cls = LocalPosteriorImputedBayesianSPOAgent
     elif adaptive_posterior_imputed_spo:
@@ -262,10 +377,18 @@ def create_agent_pair(
         spo_cls = AntitheticPosteriorImputedBayesianSPOAgent
     elif target_posterior_imputed_spo:
         spo_cls = TargetNetworkPosteriorImputedBayesianSPOAgent
+    elif disagreement_coverage_spo and posterior_imputed_spo:
+        spo_cls = DisagreementCoverageBayesianSPOAgent
+    elif disagreement_coverage_spo and posterior_imputed_predictive_spo:
+        spo_cls = DisagreementCoverageBayesianSPOAgent
+    elif hybrid_chosen_bayes_full_target_spo:
+        spo_cls = HybridChosenBayesFullTargetBayesianSPOAgent
+    elif confidence_weighted_allarm_posterior_imputed_spo:
+        spo_cls = ConfidenceWeightedAllArmPosteriorBayesianSPOAgent
     elif posterior_imputed_spo:
-        spo_cls = BayesianSPOPIAgent
+        spo_cls = BayesianSPOAgent
     elif posterior_imputed_predictive_spo:
-        spo_cls = BayesianSPOPIAgent
+        spo_cls = BayesianSPOAgent
     elif posterior_imputed_action_gap_spo:
         spo_cls = PosteriorImputedActionGapBayesianSPOAgent
     elif action_gap_spo:
@@ -306,6 +429,13 @@ def create_agent_pair(
         imputation_samples=action_gap_imputation_samples,
         use_posterior_predictive=True,
         noise_var=1.0,
+    )
+    confidence_weighted_allarm_posterior_imputed_extra = dict(
+        imputation_samples=action_gap_imputation_samples,
+        imputation_scale=action_gap_imputation_scale,
+        posterior_missing_cap=0.15,
+        grad_missing_cap=0.20,
+        confidence_scale=0.05,
     )
     adaptive_posterior_imputed_extra = dict(
         imputation_samples=action_gap_imputation_samples,
@@ -359,13 +489,9 @@ def create_agent_pair(
         imputation_scale=action_gap_imputation_scale,
         target_tau=0.05,
     )
-    replay_extra = dict(comparison_samples=comparison_replay_samples)
     spo_kwargs = dict(
         **common,
         mask_grad=mask_spo,
-        phased=phased_spo,
-        phase_length=phase_length,
-        phase_epochs=phase_epochs,
         **({"spo_blend_weight": weber_spo_blend_weight} if weber_blended_spo else {}),
         **(local_posterior_imputed_extra if local_posterior_imputed_spo else {}),
         **(adaptive_posterior_imputed_extra if adaptive_posterior_imputed_spo else {}),
@@ -379,20 +505,17 @@ def create_agent_pair(
         **(target_posterior_imputed_extra if target_posterior_imputed_spo else {}),
         **(posterior_imputed_extra if posterior_imputed_spo else {}),
         **(posterior_imputed_predictive_extra if posterior_imputed_predictive_spo else {}),
+        **(
+            confidence_weighted_allarm_posterior_imputed_extra
+            if confidence_weighted_allarm_posterior_imputed_spo else {}
+        ),
         **(action_gap_extra if (action_gap_spo or posterior_imputed_action_gap_spo) else {}),
-        **(replay_extra if comparison_balanced_replay_spo else {}),
         **(extra if disagreement_coverage_spo else {}),
     )
-    if not (weber_bll or weber_pfy or weber_blended_spo):
-        spo_kwargs["replay_batch_size"] = replay_batch_size
     spo = spo_cls(**spo_kwargs)
     mse = mse_cls(
         **common,
         mask_grad=mask_mse,
-        phased=phased_mse,
-        phase_length=phase_length,
-        phase_epochs=phase_epochs,
-        replay_batch_size=replay_batch_size,
         **(extra if disagreement_coverage_mse else {}),
     )
     return spo, mse
@@ -752,92 +875,6 @@ class PosteriorImputedActionGapBayesianSPOAgent(ActionGapBayesianSPOAgent):
         return targets
 
 
-class ComparisonBalancedReplayBayesianSPOAgent(BayesianSPOAgent):
-    """Phased SPO variant with replay weighted toward under-covered action comparisons."""
-
-    def __init__(self, *args, comparison_samples: int = 16, seed: int = 0, **kwargs):
-        super().__init__(*args, seed=seed, **kwargs)
-        self.comparison_samples = int(comparison_samples)
-        self.disagreement_samples = self.comparison_samples
-        self.disagreement_rng = np.random.default_rng(seed)
-        self.replay_comparison_counts = np.zeros(self.n_arms, dtype=float)
-
-    def _comparison_profiles(self) -> np.ndarray:
-        profiles = []
-        for X_buf in self._phase_buffer_X:
-            h = self._features(X_buf)
-            means = np.asarray(
-                compute_bayesian_predictions(h, self.A_inv, self.b_bayes),
-                dtype=float,
-            ).reshape(-1)
-            stds = np.asarray(compute_uncertainties(h, self.A_inv), dtype=float).reshape(-1)
-            profiles.append(_comparison_profile_from_stats(self, means, stds))
-        return np.asarray(profiles, dtype=float)
-
-    def _weighted_replay_order(self, priorities: np.ndarray) -> np.ndarray:
-        available = list(range(len(priorities)))
-        order = []
-        while available:
-            local_p = np.asarray([priorities[i] for i in available], dtype=float)
-            total = float(local_p.sum())
-            if total <= 1e-12:
-                chosen = int(self.rng.choice(available))
-            else:
-                chosen = int(self.rng.choice(available, p=local_p / total))
-            order.append(chosen)
-            available.remove(chosen)
-        return np.asarray(order, dtype=int)
-
-    def _replay_single(self, idx: int) -> None:
-        X_buf = self._phase_buffer_X[idx]
-        Y_buf = self._phase_buffer_Y[idx]
-        prob_buf = self._phase_buffer_prob[idx]
-        obs_buf = self._phase_buffer_obs[idx]
-
-        h = self._features(X_buf)
-        pred = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
-
-        obs_mask = jnp.asarray(obs_buf, dtype=jnp.bool_)
-        if prob_buf is not None:
-            Y_target = jnp.asarray(prob_buf)
-        else:
-            Y_target = jnp.where(obs_mask, jnp.asarray(Y_buf), pred)
-
-        grad_h = self._compute_spo_grad_h(X_buf, h, Y_target, obs_mask, False)
-        self._backprop_and_step(X_buf, grad_h)
-
-    def _phased_retrain(self):
-        n_buffer = len(self._phase_buffer_X)
-        if n_buffer == 0:
-            return
-        batch_size = min(self.replay_batch_size, n_buffer)
-
-        for _epoch in range(self.phase_epochs):
-            profiles = self._comparison_profiles()
-            deficit = 1.0 / np.sqrt(self.replay_comparison_counts + 1.0)
-            priorities = np.maximum(profiles @ deficit, 1e-8)
-            order = self._weighted_replay_order(priorities)
-
-            if batch_size <= 1:
-                for idx in order:
-                    self._replay_single(int(idx))
-                    self.replay_comparison_counts += profiles[int(idx)]
-            else:
-                for start in range(0, n_buffer, batch_size):
-                    batch_indices = order[start:start + batch_size]
-                    self._phased_retrain_batch(batch_indices)
-                    self.replay_comparison_counts += profiles[batch_indices].sum(axis=0)
-
-        self.A, self.b_bayes, self.A_inv = init_per_arm_regression(
-            self.n_arms, self.hidden_dim, self.lambda_reg)
-        for i in range(len(self._phase_buffer_X)):
-            h = self._features(self._phase_buffer_X[i])
-            obs_mask = jnp.asarray(self._phase_buffer_obs[i], dtype=jnp.bool_)
-            rewards = jnp.asarray(self._phase_buffer_Y[i])
-            self.A, self.b_bayes, self.A_inv = update_bayesian_stats(
-                self.A, self.b_bayes, self.A_inv, h, rewards, obs_mask)
-
-
 PAIR_SWAP_PERM = np.array([2, 3, 0, 1], dtype=int)
 
 
@@ -911,7 +948,7 @@ def train_with_checkpoints(
             mask = selection > 0.5
             observed[mask] = true_vals[mask]
 
-        agent.update(X, selection, observed, full_feedback=full_feedback)
+        agent.update(X, selection, observed, full_feedback=full_feedback, true_values=true_vals)
 
         if pair_swap_augment:
             X_swapped = swap_pair_context(X)
@@ -922,6 +959,7 @@ def train_with_checkpoints(
                 selection_swapped,
                 observed_swapped,
                 full_feedback=full_feedback,
+                true_values=swap_pair_items(true_vals),
             )
 
         if (t + 1) % checkpoint_interval == 0:
@@ -1993,11 +2031,11 @@ def default_representation_configs() -> List[Tuple[str, Dict]]:
     return [
         (
             'BayesianSPO (partial, masked)',
-            dict(agent_name='BayesianSPO', full_feedback=False, mask_grad=True, phased=False),
+            dict(agent_name='BayesianSPO', full_feedback=False, mask_grad=True),
         ),
         (
             'BayesianMSE (partial)',
-            dict(agent_name='BayesianMSE', full_feedback=False, mask_grad=False, phased=False),
+            dict(agent_name='BayesianMSE', full_feedback=False, mask_grad=False),
         ),
     ]
 
@@ -2110,9 +2148,6 @@ def _make_agent(
         solver=top1_solver,
         seed=seed,
         nonlinear=nonlinear,
-        phased=cfg.get('phased', False),
-        phase_length=cfg.get('phase_length', 50),
-        phase_epochs=cfg.get('phase_epochs', 5),
     )
     if agent_name == 'BayesianSPO':
         return BayesianSPOAgent(**common, mask_grad=cfg.get('mask_grad', True))
@@ -2914,11 +2949,11 @@ def latent_representation_configs() -> List[Tuple[str, Dict]]:
     return [
         (
             'BayesianSPO (partial, masked)',
-            dict(agent_name='BayesianSPO', full_feedback=False, mask_grad=True, phased=False),
+            dict(agent_name='BayesianSPO', full_feedback=False, mask_grad=True),
         ),
         (
             'BayesianMSE (partial)',
-            dict(agent_name='BayesianMSE', full_feedback=False, mask_grad=False, phased=False),
+            dict(agent_name='BayesianMSE', full_feedback=False, mask_grad=False),
         ),
     ]
 
@@ -3032,9 +3067,6 @@ def _make_latent_agent(
         solver=topk_solver,
         seed=seed,
         nonlinear=nonlinear,
-        phased=cfg.get('phased', False),
-        phase_length=cfg.get('phase_length', 50),
-        phase_epochs=cfg.get('phase_epochs', 5),
     )
     if cfg['agent_name'] == 'BayesianSPO':
         return BayesianSPOAgent(**common, mask_grad=cfg.get('mask_grad', True))
@@ -4327,13 +4359,11 @@ def run_exact2_feedback_regime_experiment(
     mask_spo: bool = False,
     mask_mse: bool = False,
     centered_spo: bool = False,
-    phased_spo: bool = False,
-    phased_mse: bool = False,
-    phase_length: int = 50,
-    phase_epochs: int = 5,
     replay_batch_size: int = 1,
     posterior_imputed_spo: bool = False,
     posterior_imputed_predictive_spo: bool = False,
+    confidence_weighted_allarm_posterior_imputed_spo: bool = False,
+    hybrid_chosen_bayes_full_target_spo: bool = False,
     adaptive_posterior_imputed_spo: bool = False,
     quantile_posterior_imputed_spo: bool = False,
     leaky_mask_posterior_imputed_spo: bool = False,
@@ -4382,13 +4412,11 @@ def run_exact2_feedback_regime_experiment(
         mask_spo=mask_spo,
         mask_mse=mask_mse,
         centered_spo=centered_spo,
-        phased_spo=phased_spo,
-        phased_mse=phased_mse,
-        phase_length=phase_length,
-        phase_epochs=phase_epochs,
         replay_batch_size=replay_batch_size,
         posterior_imputed_spo=posterior_imputed_spo,
         posterior_imputed_predictive_spo=posterior_imputed_predictive_spo,
+        confidence_weighted_allarm_posterior_imputed_spo=confidence_weighted_allarm_posterior_imputed_spo,
+        hybrid_chosen_bayes_full_target_spo=hybrid_chosen_bayes_full_target_spo,
         adaptive_posterior_imputed_spo=adaptive_posterior_imputed_spo,
         quantile_posterior_imputed_spo=quantile_posterior_imputed_spo,
         leaky_mask_posterior_imputed_spo=leaky_mask_posterior_imputed_spo,
@@ -4440,13 +4468,11 @@ def run_exact2_feedback_regime_experiment(
         mask_spo=mask_spo,
         mask_mse=mask_mse,
         centered_spo=centered_spo,
-        phased_spo=phased_spo,
-        phased_mse=phased_mse,
-        phase_length=phase_length,
-        phase_epochs=phase_epochs,
         replay_batch_size=replay_batch_size,
         posterior_imputed_spo=posterior_imputed_spo,
         posterior_imputed_predictive_spo=posterior_imputed_predictive_spo,
+        confidence_weighted_allarm_posterior_imputed_spo=confidence_weighted_allarm_posterior_imputed_spo,
+        hybrid_chosen_bayes_full_target_spo=hybrid_chosen_bayes_full_target_spo,
         adaptive_posterior_imputed_spo=adaptive_posterior_imputed_spo,
         quantile_posterior_imputed_spo=quantile_posterior_imputed_spo,
         leaky_mask_posterior_imputed_spo=leaky_mask_posterior_imputed_spo,

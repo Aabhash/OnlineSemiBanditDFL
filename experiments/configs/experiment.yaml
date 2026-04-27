@@ -182,18 +182,51 @@ ablations:
     n_seeds: 5
     output_dir: "results/ablations/context_variation"
 
+  feature_robustness:
+    dataset: knapsack_32
+    n_rounds: 2500
+    n_seeds: 5
+    eval_interval: 250
+    n_test: 200
+    noise_scales: [0.5, 1.0, 2.0]
+    output_dir: "results/ablations/feature_robustness"
+
   imputation_strategy:
     datasets: [knapsack_32, shortest_path_8x8]
     n_rounds: 2500
     n_seeds: 5
     output_dir: "results/ablations/imputation"
 
+  masking_dose_response:
+    datasets: [knapsack_32, shortest_path_8x8]
+    missing_grad_weights: [0.0, 0.05, 0.1, 0.25, 0.5, 1.0]
+    n_rounds: 2500
+    n_seeds: 5
+    tuning_dir: "results/FINAL/tuning"
+    output_dir: "results/ablations/masking_dose_response"
+
+  beta_sensitivity:
+    datasets: [knapsack_32, shortest_path_8x8]
+    beta_multipliers: [0.316, 0.562, 1.0, 1.778, 3.162]
+    n_rounds: 2500
+    n_seeds: 5
+    tuning_dir: "results/FINAL/tuning"
+    output_dir: "results/ablations/beta_sensitivity"
+
+  lambda_reg_sweep:
+    datasets: [knapsack_32, shortest_path_8x8]
+    lambda_reg_values: [0.01, 0.1, 1.0, 10.0]
+    n_rounds: 2500
+    n_seeds: 5
+    tuning_dir: "results/FINAL/tuning"
+    output_dir: "results/ablations/lambda_reg_sweep"
+
   imputation_samples:
     datasets: [knapsack_32, knapsack_100, shortest_path_8x8, shortest_path_20x20, portfolio_32]
     m_values: [1, 4, 8, 12]
     n_rounds: 2500
     n_seeds: 5
-    tuning_dir: "results/tuning"
+    tuning_dir: "results/FINAL/tuning"
     output_dir: "results/ablations/imputation_samples"
 
   flip_set_collapse:

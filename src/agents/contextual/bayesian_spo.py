@@ -42,6 +42,7 @@ class BayesianSPOAgent(AgentBase):
         imputation_scale: float = 1.0,
         use_posterior_predictive: bool = False,
         noise_var: float = 1.0,
+        missing_grad_weight: float = 0.0,
     ):
         self.context_dim = context_dim
         self.n_arms = n_arms
@@ -64,6 +65,7 @@ class BayesianSPOAgent(AgentBase):
         self.imputation_scale = float(imputation_scale)
         self.use_posterior_predictive = bool(use_posterior_predictive)
         self.noise_var = float(noise_var)
+        self.missing_grad_weight = float(missing_grad_weight)
         self.imputation_rng = np.random.default_rng(seed if seed else 0)
 
 
@@ -179,7 +181,9 @@ class BayesianSPOAgent(AgentBase):
         for target_vec in targets:
             spo_grad_val = self.loss_grad_fn(pred, jnp.asarray(target_vec))
             if self.mask_grad and not full_feedback:
-                spo_grad_val = jnp.where(selection_mask, spo_grad_val, 0.0)
+                missing_weight = jnp.asarray(self.missing_grad_weight, dtype=spo_grad_val.dtype)
+                grad_weight = jnp.where(selection_mask, 1.0, missing_weight)
+                spo_grad_val = spo_grad_val * grad_weight
             grad_h_total = grad_h_total + jnp.einsum("n,ni->i", spo_grad_val, theta)
 
         return grad_h_total / max(len(targets), 1)

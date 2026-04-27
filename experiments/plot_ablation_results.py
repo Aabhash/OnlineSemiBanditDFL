@@ -2,6 +2,7 @@
 import argparse
 import importlib
 import importlib.util
+import json
 import os
 import sys
 import pickle
@@ -265,6 +266,87 @@ def plot_context_variation(results_dir, output_dir, fmt='pdf'):
     print(f'  Saved context_variation.{fmt}')
 
 
+def plot_feature_robustness(results_dir, output_dir, fmt='pdf'):
+    if plt is None:
+        print('matplotlib not available, skipping plots')
+        return
+
+    ablation_dir = resolve_ablation_dir(results_dir, 'feature_robustness')
+    if not os.path.isdir(ablation_dir):
+        print('  feature_robustness: no data found, skipping')
+        return
+
+    json_files = sorted(
+        os.path.join(ablation_dir, name)
+        for name in os.listdir(ablation_dir)
+        if name.endswith('.json')
+    )
+    if not json_files:
+        print('  feature_robustness: no data found, skipping')
+        return
+
+    for data_path in json_files:
+        with open(data_path) as f:
+            data = json.load(f)
+        if not data:
+            continue
+
+        stem = os.path.splitext(os.path.basename(data_path))[0]
+        dataset_name = stem.split('_n')[0]
+        agent_names = sorted({
+            agent
+            for seed_data in data.values()
+            for agent in seed_data.get('agents', {})
+        })
+
+        regret_means, regret_stds = [], []
+        ratio_means, ratio_stds = [], []
+        for agent in agent_names:
+            regrets = []
+            ratios = []
+            for seed_data in data.values():
+                agent_data = seed_data.get('agents', {}).get(agent)
+                if not agent_data:
+                    continue
+                regrets.append(agent_data.get('final_cumulative_regret', np.nan))
+                evals = agent_data.get('eval_metrics', [])
+                if evals:
+                    last = evals[-1]
+                    irr = last.get('irrelevant_noise1.0_decision_change', np.nan)
+                    rel = last.get('relevant_noise1.0_decision_change', np.nan)
+                    if np.isfinite(irr) and np.isfinite(rel):
+                        ratios.append(irr / max(rel, 1e-8))
+            regret_means.append(np.nanmean(regrets) if regrets else np.nan)
+            regret_stds.append(np.nanstd(regrets) if regrets else 0.0)
+            ratio_means.append(np.nanmean(ratios) if ratios else np.nan)
+            ratio_stds.append(np.nanstd(ratios) if ratios else 0.0)
+
+        x = np.arange(len(agent_names))
+        fig, axes = plt.subplots(1, 2, figsize=(13, 4.5))
+
+        axes[0].bar(x, regret_means, yerr=regret_stds, capsize=4,
+                    edgecolor='black', linewidth=0.5)
+        axes[0].set_xticks(x)
+        axes[0].set_xticklabels(agent_names, rotation=25, ha='right')
+        axes[0].set_ylabel('Final Cumulative Regret')
+        axes[0].set_title('Online Regret')
+
+        axes[1].bar(x, ratio_means, yerr=ratio_stds, capsize=4,
+                    edgecolor='black', linewidth=0.5, color='seagreen')
+        axes[1].axhline(1.0, color='gray', linestyle='--', linewidth=1)
+        axes[1].set_xticks(x)
+        axes[1].set_xticklabels(agent_names, rotation=25, ha='right')
+        axes[1].set_ylabel('Irrelevant / Relevant Decision Change')
+        axes[1].set_title('Perturbation Focus')
+
+        fig.suptitle(f'Feature Robustness: {dataset_name}', fontsize=13)
+        plt.tight_layout()
+        title = f'feature_robustness_{dataset_name}'
+        plt.savefig(os.path.join(output_dir, f'{title}.{fmt}'), bbox_inches='tight')
+        plt.close()
+        print(f'  Saved {title}.{fmt}')
+
+
 def plot_flip_set(results_dir, output_dir, fmt='pdf'):
     if plt is None:
         print('matplotlib not available, skipping plots')
@@ -472,6 +554,165 @@ def plot_imputation_samples(results_dir, output_dir, fmt='pdf'):
         print(f'  Saved {title}.{fmt}')
 
 
+def plot_masking_dose_response(results_dir, output_dir, fmt='pdf'):
+    if plt is None:
+        print('matplotlib not available, skipping plots')
+        return
+
+    ablation_dir = resolve_ablation_dir(results_dir, 'masking_dose_response')
+    entries = list_result_entries(ablation_dir)
+    if not entries:
+        print('  masking_dose_response: no data found, skipping')
+        return
+
+    for dataset_name, data_path in entries:
+        data = load_pkl(data_path)
+        if data is None:
+            continue
+
+        weight_pairs = []
+        for name, _ in data.keys():
+            if not name.startswith('w'):
+                continue
+            try:
+                weight_pairs.append((float(name[1:]), name))
+            except ValueError:
+                continue
+        weight_pairs = sorted(set(weight_pairs))
+        if not weight_pairs:
+            print(f'  masking_dose_response ({dataset_name}): no weight-named agents, skipping')
+            continue
+
+        seeds = sorted(set(seed for _, seed in data.keys()))
+        weights = [weight for weight, _ in weight_pairs]
+        means, stds = [], []
+        for weight, name in weight_pairs:
+            regs = [data[(name, seed)]['final_regret'] for seed in seeds if (name, seed) in data]
+            means.append(np.mean(regs) if regs else np.nan)
+            stds.append(np.std(regs) if regs else 0.0)
+
+        fig, ax = plt.subplots(figsize=(7, 4.5))
+        ax.errorbar(weights, means, yerr=stds, marker='o', capsize=3)
+        ax.set_xlabel('Missing-arm gradient weight')
+        ax.set_ylabel('Final cumulative regret')
+        ax.set_title(f'Masking dose-response: {dataset_name}')
+        ax.set_xscale('symlog', linthresh=0.05)
+        ax.set_xticks(weights)
+        ax.set_xticklabels([str(weight) for weight in weights])
+        ax.grid(True, alpha=0.3)
+        plt.tight_layout()
+        title = 'masking_dose_response' if dataset_name == '.' else f'masking_dose_response_{dataset_name}'
+        plt.savefig(os.path.join(output_dir, f'{title}.{fmt}'), bbox_inches='tight')
+        plt.close()
+        print(f'  Saved {title}.{fmt}')
+
+
+def plot_beta_sensitivity(results_dir, output_dir, fmt='pdf'):
+    if plt is None:
+        print('matplotlib not available, skipping plots')
+        return
+
+    ablation_dir = resolve_ablation_dir(results_dir, 'beta_sensitivity')
+    entries = list_result_entries(ablation_dir)
+    if not entries:
+        print('  beta_sensitivity: no data found, skipping')
+        return
+
+    for dataset_name, data_path in entries:
+        data = load_pkl(data_path)
+        if data is None:
+            continue
+
+        beta_pairs = []
+        for name, _ in data.keys():
+            if not name.startswith('beta'):
+                continue
+            try:
+                beta_pairs.append((float(name[4:]), name))
+            except ValueError:
+                continue
+        beta_pairs = sorted(set(beta_pairs))
+        if not beta_pairs:
+            print(f'  beta_sensitivity ({dataset_name}): no beta-named agents, skipping')
+            continue
+
+        seeds = sorted(set(seed for _, seed in data.keys()))
+        beta_values = [beta for beta, _ in beta_pairs]
+        means, stds = [], []
+        for beta, name in beta_pairs:
+            regs = [data[(name, seed)]['final_regret'] for seed in seeds if (name, seed) in data]
+            means.append(np.mean(regs) if regs else np.nan)
+            stds.append(np.std(regs) if regs else 0.0)
+
+        fig, ax = plt.subplots(figsize=(7, 4.5))
+        ax.errorbar(beta_values, means, yerr=stds, marker='o', capsize=3)
+        ax.set_xlabel('UCB scale beta')
+        ax.set_ylabel('Final cumulative regret')
+        ax.set_title(f'Beta sensitivity: {dataset_name}')
+        ax.set_xscale('log')
+        ax.set_xticks(beta_values)
+        ax.set_xticklabels([f'{beta:g}' for beta in beta_values])
+        ax.grid(True, alpha=0.3)
+        plt.tight_layout()
+        title = 'beta_sensitivity' if dataset_name == '.' else f'beta_sensitivity_{dataset_name}'
+        plt.savefig(os.path.join(output_dir, f'{title}.{fmt}'), bbox_inches='tight')
+        plt.close()
+        print(f'  Saved {title}.{fmt}')
+
+
+def plot_lambda_reg_sweep(results_dir, output_dir, fmt='pdf'):
+    if plt is None:
+        print('matplotlib not available, skipping plots')
+        return
+
+    ablation_dir = resolve_ablation_dir(results_dir, 'lambda_reg_sweep')
+    entries = list_result_entries(ablation_dir)
+    if not entries:
+        print('  lambda_reg_sweep: no data found, skipping')
+        return
+
+    for dataset_name, data_path in entries:
+        data = load_pkl(data_path)
+        if data is None:
+            continue
+
+        lambda_pairs = []
+        for name, _ in data.keys():
+            if not name.startswith('lambda'):
+                continue
+            try:
+                lambda_pairs.append((float(name[6:]), name))
+            except ValueError:
+                continue
+        lambda_pairs = sorted(set(lambda_pairs))
+        if not lambda_pairs:
+            print(f'  lambda_reg_sweep ({dataset_name}): no lambda-named agents, skipping')
+            continue
+
+        seeds = sorted(set(seed for _, seed in data.keys()))
+        lambda_values = [value for value, _ in lambda_pairs]
+        means, stds = [], []
+        for value, name in lambda_pairs:
+            regs = [data[(name, seed)]['final_regret'] for seed in seeds if (name, seed) in data]
+            means.append(np.mean(regs) if regs else np.nan)
+            stds.append(np.std(regs) if regs else 0.0)
+
+        fig, ax = plt.subplots(figsize=(7, 4.5))
+        ax.errorbar(lambda_values, means, yerr=stds, marker='o', capsize=3)
+        ax.set_xlabel('Prior precision lambda_reg')
+        ax.set_ylabel('Final cumulative regret')
+        ax.set_title(f'Lambda sensitivity: {dataset_name}')
+        ax.set_xscale('log')
+        ax.set_xticks(lambda_values)
+        ax.set_xticklabels([f'{value:g}' for value in lambda_values])
+        ax.grid(True, alpha=0.3)
+        plt.tight_layout()
+        title = 'lambda_reg_sweep' if dataset_name == '.' else f'lambda_reg_sweep_{dataset_name}'
+        plt.savefig(os.path.join(output_dir, f'{title}.{fmt}'), bbox_inches='tight')
+        plt.close()
+        print(f'  Saved {title}.{fmt}')
+
+
 PLOT_FUNCTIONS = {
     'kn_ratio': plot_kn_ratio,
     'kn_ratio_sweep': plot_kn_ratio,
@@ -480,13 +721,30 @@ PLOT_FUNCTIONS = {
     'imputation': plot_imputation,
     'imputation_strategy': plot_imputation,
     'imputation_samples': plot_imputation_samples,
+    'masking_dose_response': plot_masking_dose_response,
+    'beta_sensitivity': plot_beta_sensitivity,
+    'lambda_reg_sweep': plot_lambda_reg_sweep,
     'mechanism': plot_mechanism,
     'mechanism_ablation': plot_mechanism,
     'feature_sharing': plot_feature_sharing,
+    'feature_robustness': plot_feature_robustness,
     'context_variation': plot_context_variation,
     'flip_set': plot_flip_set,
     'flip_set_collapse': plot_flip_set,
 }
+
+DEFAULT_ABLATIONS = [
+    'kn_ratio',
+    'mechanism',
+    'feature_sharing',
+    'flip_set',
+    'context_variation',
+    'feature_robustness',
+    'masking_dose_response',
+    'beta_sensitivity',
+    'lambda_reg_sweep',
+    'imputation_samples',
+]
 
 
 def main():
@@ -495,7 +753,7 @@ def main():
     parser.add_argument('--output', type=str, default=OUTPUT_DIR)
     parser.add_argument('--format', type=str, default='pdf', choices=['pdf', 'png', 'svg'])
     parser.add_argument('--ablations', type=str, default=None,
-                        help='Comma-separated ablation names (default: all)')
+                        help='Comma-separated ablation names (default: runner set)')
     args = parser.parse_args()
 
     os.makedirs(args.output, exist_ok=True)
@@ -503,7 +761,7 @@ def main():
     if args.ablations:
         ablations = [a.strip() for a in args.ablations.split(',')]
     else:
-        ablations = list(PLOT_FUNCTIONS.keys())
+        ablations = DEFAULT_ABLATIONS
 
     print(f'Plotting ablations: {ablations}')
     print(f'Reading from: {args.results_dir}')

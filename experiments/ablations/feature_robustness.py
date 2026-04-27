@@ -10,12 +10,16 @@ from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
-import yaml
 
 from src.envs import create_env
 from src.agents.contextual import BayesianSPOAgent, BayesianMSEAgent
 from src.agents.contextual.weber_bll import WeberBLLAgent
 from src.agents.base import pregenerate_episode, run_agent_on_episode
+from experiments.ablations.common import (
+    get_quick_params,
+    load_config,
+    make_dataset_config,
+)
 
 
 def compute_feature_relevance(env, n_samples=200):
@@ -139,13 +143,11 @@ def run_feature_robustness(
     n_test=100,
     noise_scales=(0.5, 1.0, 2.0),
     output_dir='results/ablations/feature_robustness',
+    config_path='experiments/configs/experiment.yaml',
     verbose=True,
 ):
-    with open('experiments/configs/experiment.yaml') as f:
-        config = yaml.safe_load(f)
-
-    dataset_config = config['datasets'][dataset].copy()
-    dataset_config.pop('env_type', None)
+    config = load_config(config_path)
+    dataset_config = make_dataset_config(dataset, config)
 
     defaults = config['agent_defaults']
     hidden_dim = defaults['hidden_dim']
@@ -305,19 +307,31 @@ def run_feature_robustness(
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Feature robustness ablation')
-    parser.add_argument('--dataset', type=str, default='knapsack_32')
-    parser.add_argument('--n_rounds', type=int, default=500)
-    parser.add_argument('--n_seeds', type=int, default=3)
-    parser.add_argument('--eval_interval', type=int, default=50)
-    parser.add_argument('--n_test', type=int, default=100)
-    parser.add_argument('--output_dir', type=str, default='results/ablations/feature_robustness')
+    parser.add_argument('--config', default='experiments/configs/experiment.yaml')
+    parser.add_argument('--mode', choices=['quick', 'full'], default='quick')
+    parser.add_argument('--dataset', type=str, default=None)
+    parser.add_argument('--n_rounds', type=int, default=None)
+    parser.add_argument('--n_seeds', type=int, default=None)
+    parser.add_argument('--eval_interval', type=int, default=None)
+    parser.add_argument('--n_test', type=int, default=None)
+    parser.add_argument('--noise_scales', type=float, nargs='+', default=None)
+    parser.add_argument('--output', '--output_dir', dest='output_dir', type=str, default=None)
     args = parser.parse_args()
 
+    config = load_config(args.config)
+    abl_cfg = config['ablations']['feature_robustness']
+    if args.mode == 'quick':
+        abl_cfg = get_quick_params(abl_cfg)
+        abl_cfg['eval_interval'] = min(abl_cfg.get('eval_interval', 100), 100)
+        abl_cfg['n_test'] = min(abl_cfg.get('n_test', 100), 50)
+
     run_feature_robustness(
-        dataset=args.dataset,
-        n_rounds=args.n_rounds,
-        n_seeds=args.n_seeds,
-        eval_interval=args.eval_interval,
-        n_test=args.n_test,
-        output_dir=args.output_dir,
+        dataset=args.dataset or abl_cfg.get('dataset', 'knapsack_32'),
+        n_rounds=args.n_rounds or abl_cfg['n_rounds'],
+        n_seeds=args.n_seeds or abl_cfg['n_seeds'],
+        eval_interval=args.eval_interval or abl_cfg.get('eval_interval', 50),
+        n_test=args.n_test or abl_cfg.get('n_test', 100),
+        noise_scales=tuple(args.noise_scales or abl_cfg.get('noise_scales', [0.5, 1.0, 2.0])),
+        output_dir=args.output_dir or abl_cfg['output_dir'],
+        config_path=args.config,
     )

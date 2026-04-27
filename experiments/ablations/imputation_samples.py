@@ -40,6 +40,10 @@ def resolve_base_hp(env, defaults, tuned_params):
             'beta': tuned_params.get('beta', defaults['beta']),
             'hidden_dim': tuned_params.get('hidden_dim', defaults['hidden_dim']),
             'lambda_reg': tuned_params.get('lambda_reg', defaults['lambda_reg']),
+            'imputation_samples': tuned_params.get('imputation_samples', 1),
+            'imputation_scale': tuned_params.get('imputation_scale', 1.0),
+            'use_posterior_predictive': tuned_params.get('use_posterior_predictive', False),
+            'noise_var': tuned_params.get('noise_var', 1.0),
         }
     else:
         hp = {
@@ -47,6 +51,10 @@ def resolve_base_hp(env, defaults, tuned_params):
             'beta': defaults['beta'],
             'hidden_dim': defaults['hidden_dim'],
             'lambda_reg': defaults['lambda_reg'],
+            'imputation_samples': 1,
+            'imputation_scale': 1.0,
+            'use_posterior_predictive': False,
+            'noise_var': 1.0,
         }
     return hp
 
@@ -61,6 +69,9 @@ def make_agents(env, seed, base_hp, m_values):
         hidden_dim=base_hp['hidden_dim'], lambda_reg=base_hp['lambda_reg'],
         lr=base_hp['lr'], solver=solver, seed=seed,
         beta=base_hp['beta'], mask_grad=True, minimize=minimize,
+        imputation_scale=base_hp.get('imputation_scale', 1.0),
+        use_posterior_predictive=base_hp.get('use_posterior_predictive', False),
+        noise_var=base_hp.get('noise_var', 1.0),
     )
 
     return {

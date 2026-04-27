@@ -112,6 +112,10 @@ uv run python experiments/compute_analysis.py
 |----------|--------|--------|
 | Context variation | noise: [0,0.05,0.1,0.25,0.5,1] | `ablations/context_variation.py` |
 | Feature robustness | Perturbation sensitivity | `ablations/feature_robustness.py` |
+| Masking dose-response | missing-arm gradient weight: [0,0.05,0.1,0.25,0.5,1] | `ablations/masking_dose_response.py` |
+| Beta sensitivity | UCB scale around the tuned BayesianSPO value | `ablations/beta_sensitivity.py` |
+| Lambda sensitivity | Bayesian prior precision / regularization sweep | `ablations/lambda_reg_sweep.py` |
+| Imputation samples | M: [1,4,8,12] using final tuned BayesianSPO params | `ablations/imputation_samples.py` |
 
 ### Optional deep dives
 
@@ -124,10 +128,9 @@ Default ablation workflow:
 
 ```bash
 ./run_ablations.sh
-uv run python experiments/plot_ablation_results.py --results-dir results/ablations --output results/figures/ablations --format pdf
 ```
 
-`run_ablations.sh` saves ablation result files only. Run the plotting command afterward to render figures from the saved results.
+`run_ablations.sh` runs full ablations by default, writes result files under `results/ablations/`, and renders figures under `results/figures/ablations/`. For a smoke run, use `ABLATION_MODE=quick ./run_ablations.sh`.
 
 ## Project Structure
 
@@ -146,6 +149,6 @@ experiments/
   plot_eval_results.py      # Main evaluation plots
   plot_ablation_results.py  # Ablation plots
   tune_hyperparams.py       # Optuna HP tuning
-  ablations/                # 8 ablation / analysis scripts
+  ablations/                # Ablation and analysis scripts
 notebooks/                  # 4 exploratory notebooks
 ```
