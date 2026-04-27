@@ -89,25 +89,9 @@ agents:
       low: 0.01
       high: 10.0
       log: true
-
-  BayesianSPO-PI:
-    tune_lr: true
-    init_lr:
+    imputation_samples:
       type: categorical
-      choices: [0.0003, 0.001, 0.003]
-    beta:
-      type: float
-      low: 0.1
-      high: 5.0
-      log: true
-    hidden_dim:
-      type: categorical
-      choices: [8, 16, 32]
-    lambda_reg:
-      type: float
-      low: 0.01
-      high: 10.0
-      log: true
+      choices: [1, 2, 4]
 
   BayesianPFY:
     tune_lr: true
@@ -127,6 +111,20 @@ agents:
       low: 0.01
       high: 10.0
       log: true
+    imputation_samples:
+      type: categorical
+      choices: [1, 2, 4]
+    pfy_n_samples:
+      type: categorical
+      choices: [1, 2]
+    pfy_sigma:
+      type: float
+      low: 0.1
+      high: 10.0
+      log: true
+    pfy_noise:
+      type: categorical
+      choices: [gumbel, normal]
 
   BayesianMSE:
     tune_lr: true

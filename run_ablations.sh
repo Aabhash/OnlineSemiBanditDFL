@@ -28,6 +28,7 @@ echo "=== Running appendix ablations ==="
 
 uv run python experiments/ablations/context_variation.py --no-plot
 uv run python experiments/ablations/feature_robustness.py
+uv run python experiments/ablations/imputation_samples.py --mode full --use-tuned-params --no-plot
 
 # ====================================================================
 # Optional deep-dive sweeps (not part of the default consolidated run)

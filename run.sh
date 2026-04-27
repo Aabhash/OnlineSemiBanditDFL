@@ -12,16 +12,13 @@ cd "$SCRIPT_DIR"
 echo "=== Step 1: Online evaluation ==="
 bash "$SCRIPT_DIR/run_online.sh"
 
-echo "=== Step 2: Phased evaluation ==="
-bash "$SCRIPT_DIR/run_phased.sh"
+echo "=== Step 2: Post-processing ==="
 
-echo "=== Step 3: Post-processing ==="
-
-uv run python experiments/compute_analysis.py --results-dir results/eval_online/metrics results/eval_phased/metrics --output results/compute
-uv run python experiments/plot_eval_results.py --input results/eval_online/metrics results/eval_phased/metrics --format pdf
+uv run python experiments/compute_analysis.py --results-dir results/eval_online_10k/metrics --output results/compute
+uv run python experiments/plot_eval_results.py --input results/eval_online_10k/metrics --format pdf
 
 echo ""
 echo "=== Complete ==="
-echo "  Data:         results/eval_online/  results/eval_phased/"
+echo "  Data:         results/eval_online_10k/"
 echo "  Compute:      results/compute/"
 echo "  Figures:      results/figures/"

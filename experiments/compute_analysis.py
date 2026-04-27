@@ -28,17 +28,11 @@ DEFAULT_GRADIENT_MULTIPLIER = {
     'Random': 0, 'EpsilonGreedy': 1, 'TS': 0, 'LinUCB': 0,
     'NeuralUCB': 1, 'BayesianMSE': 1, 'BayesianSPO': 1,
     'BayesianPFY': 1,
-    'BayesianSPO-Phased': 5,
-    'BayesianPFY-Phased': 5,
-    'WeberBLL-Phased': 5, 'WeberBLL-Online': 1, 'BLL-Online': 1,
-    'NeuralUCB-Phased': 5,
+    'WeberBLL-Online': 1, 'BLL-Online': 1,
 }
 
 
 def get_gradient_multiplier(agent_name, data):
-    hp = data.get('hyperparameters', {})
-    if 'phase_epochs' in hp:
-        return int(hp['phase_epochs'])
     return DEFAULT_GRADIENT_MULTIPLIER.get(agent_name, 1)
 
 AGENT_CATEGORY = {
@@ -46,12 +40,10 @@ AGENT_CATEGORY = {
     'LinUCB': 'baseline',
     'NeuralUCB': 'online', 'BayesianMSE': 'online', 'BayesianSPO': 'online',
     'BayesianPFY': 'online',
-    'BayesianSPO-Phased': 'phased',
-    'WeberBLL-Phased': 'phased', 'WeberBLL-Online': 'online', 'BLL-Online': 'online',
-    'NeuralUCB-Phased': 'phased',
+    'WeberBLL-Online': 'online', 'BLL-Online': 'online',
 }
 
-CATEGORY_COLORS = {'baseline': '#95a5a6', 'online': '#3498db', 'phased': '#2ecc71'}
+CATEGORY_COLORS = {'baseline': '#95a5a6', 'online': '#3498db'}
 
 
 def load_results_summary(results_dirs):
@@ -74,7 +66,6 @@ def load_results_summary(results_dirs):
         print('  python experiments/evaluate.py --output_dir results/eval')
         print('  or')
         print('  python experiments/evaluate_online.py --output_dir results/eval_online')
-        print('  python experiments/evaluate_phased.py --output_dir results/eval_phased')
         return None
 
     return merged
@@ -172,7 +163,7 @@ def generate_pareto_plot(summary, output_dir):
         legend_elements = [
             Line2D([0], [0], marker='o', color='w',
                    markerfacecolor=CATEGORY_COLORS[c], markersize=8, label=c.title())
-            for c in ['baseline', 'online', 'phased']
+            for c in ['baseline', 'online']
         ]
         ax.legend(handles=legend_elements, fontsize=9)
 
@@ -226,7 +217,6 @@ def main():
                         default=[
                             'results/eval/metrics',
                             'results/eval_online/metrics',
-                            'results/eval_phased/metrics',
                         ],
                         help='One or more directories with results_summary.json')
     parser.add_argument('--output', type=str, default=OUTPUT_DIR)

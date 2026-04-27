@@ -23,11 +23,8 @@ LetsPlot.setup_html()
 AGENT_DISPLAY = {
     'BayesianMSE':              'BayesianMSE',
     'BayesianSPO':              'BayesianSPO',
-    'BayesianSPO-Phased':       'BayesianSPO-Phased',
     'BayesianPFY':              'BayesianPFY',
-    'BayesianPFY-Phased':       'BayesianPFY-Phased',
     'NeuralUCB':                'NeuralUCB',
-    'NeuralUCB-Phased':         'NeuralUCB-Phased',
     'LinUCB':                   'LinUCB',
     'TS':                       'TS',
     'EpsilonGreedy':            'EpsGreedy',
@@ -35,7 +32,6 @@ AGENT_DISPLAY = {
     'Random':                   'Random',
     'WeberBLL-Online':          'BLL-Online',
     'BLL-Online':               'BLL-Online',
-    'WeberBLL-Phased':          'WeberBLL-Phased',
 }
 
 DATASET_LABELS = {
@@ -51,11 +47,8 @@ DATASET_LABELS = {
 COLORS = {
     'BayesianMSE':              '#d62728',
     'BayesianSPO':              '#1f77b4',
-    'BayesianSPO-Phased':       '#2ca02c',
     'BayesianPFY':              '#bcbd22',
-    'BayesianPFY-Phased':       '#dbdb8d',
     'NeuralUCB':                '#7f7f7f',
-    'NeuralUCB-Phased':         '#393b79',
     'LinUCB':                   '#8c564b',
     'TS':                       '#7f7f7f',
     'EpsGreedy':                '#aec7e8',
@@ -63,16 +56,13 @@ COLORS = {
     'Random':                   '#c7c7c7',
     'WeberBLL-Online':          '#8c564b',
     'BLL-Online':               '#8c564b',
-    'WeberBLL-Phased':          '#e377c2',
 }
 
 LINESTYLES = {
     'BayesianMSE':              'solid',
     'BayesianSPO':              'solid',
-    'BayesianSPO-Phased':       'solid',
     'BayesianPFY':              'dashed',
     'NeuralUCB':                'dotdash',
-    'NeuralUCB-Phased':         'dotdash',
     'LinUCB':                   'dotdash',
     'TS':                       'dotted',
     'EpsGreedy':                'twodash',
@@ -80,17 +70,14 @@ LINESTYLES = {
     'Random':                   'dotted',
     'WeberBLL-Online':          'dashed',
     'BLL-Online':               'dashed',
-    'WeberBLL-Phased':          'dashed',
 }
 
 
 BAR_COLORS = {
-    'BayesianSPO-Phased':       '#2ca02c',
     'BayesianSPO':              '#1f77b4',
     'BayesianPFY':              '#bcbd22',
     'BayesianMSE':              '#aaaaaa',
     'NeuralUCB':                '#aaaaaa',
-    'NeuralUCB-Phased':         '#393b79',
     'LinUCB':                   '#aaaaaa',
     'TS':                       '#aaaaaa',
     'EpsGreedy':                '#aaaaaa',
@@ -98,24 +85,23 @@ BAR_COLORS = {
     'Random':                   '#aaaaaa',
     'WeberBLL-Online':          '#8c564b',
     'BLL-Online':               '#8c564b',
-    'WeberBLL-Phased':          '#e377c2',
 }
 
 WINDOW = 100
 
 
 LINE_AGENTS = [
-    'LinUCB', 'NeuralUCB', 'NeuralUCB-Phased',
+    'LinUCB', 'NeuralUCB',
     'BayesianMSE',
-    'BayesianSPO', 'BayesianSPO-Phased',
-    'BLL-Online', 'WeberBLL-Online', 'WeberBLL-Phased',
+    'BayesianSPO',
+    'BLL-Online', 'WeberBLL-Online',
 ]
 BAR_AGENTS = [
     'Random', 'EpsGreedy', 'TS', 'LinUCB',
-    'NeuralUCB', 'NeuralUCB-Phased',
+    'NeuralUCB',
     'BayesianMSE',
-    'BayesianSPO', 'BayesianSPO-Phased',
-    'BLL-Online', 'WeberBLL-Online', 'WeberBLL-Phased',
+    'BayesianSPO',
+    'BLL-Online', 'WeberBLL-Online',
 ]
 
 LINE_LEGEND_THEME_TL = theme(
@@ -462,7 +448,6 @@ def main():
                         default=[
                             'results/eval/metrics',
                             'results/eval_online/metrics',
-                            'results/eval_phased/metrics',
                         ],
                         help='One or more directories containing trajectories_*.pkl files')
     parser.add_argument('--regrets_json', type=str, default=None,
@@ -504,7 +489,7 @@ def main():
                         organized[ds][fb_mode] = {}
                     organized[ds][fb_mode].update(agent_dict)
     if not organized:
-        print('No trajectory files found. Run evaluate.py, evaluate_online.py, or evaluate_phased.py first.')
+        print('No trajectory files found. Run evaluate.py or evaluate_online.py first.')
         organized = None
 
 

@@ -47,11 +47,6 @@ class BayesianSPO_EmpUCB_Agent(AgentBase):
         minimize: bool = False,
         solver=None,
         seed: int = None,
-
-        phased: bool = False,
-        phase_length: int = 50,
-        phase_epochs: int = 5,
-        max_buffer_size: int = None,
     ):
         self.context_dim = context_dim
         self.n_arms = n_arms
@@ -105,14 +100,6 @@ class BayesianSPO_EmpUCB_Agent(AgentBase):
 
         self.A, self.b_bayes, self.A_inv = init_per_arm_regression(n_arms, hidden_dim, lambda_reg)
         self._obs_counts = np.zeros(n_arms, dtype=np.float64)
-
-
-        self.phased = phased
-        self.phase_length = phase_length
-        self.phase_epochs = phase_epochs
-        if phased:
-            self._init_phase_buffer(max_buffer_size)
-            self._rounds_since_retrain = 0
 
     def _get_params(self):
         if self.nonlinear:
@@ -179,35 +166,6 @@ class BayesianSPO_EmpUCB_Agent(AgentBase):
         updates, self.opt_state = self.optimizer.update(grads, self.opt_state, params)
         self._set_params(optax.apply_updates(params, updates))
 
-    def _phased_retrain(self):
-        for _epoch in range(self.phase_epochs):
-            for i in range(len(self._phase_buffer_X)):
-                X_buf = self._phase_buffer_X[i]
-                Y_buf = self._phase_buffer_Y[i]
-                prob_buf = self._phase_buffer_prob[i]
-                obs_buf = self._phase_buffer_obs[i]
-
-                h = self._features(X_buf)
-                pred = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
-
-                obs_mask = jnp.asarray(obs_buf, dtype=jnp.bool_)
-                if prob_buf is not None:
-                    Y_target = jnp.asarray(prob_buf)
-                else:
-                    Y_target = jnp.where(obs_mask, jnp.asarray(Y_buf), pred)
-
-                grad_h = self._compute_spo_grad_h(X_buf, h, Y_target, obs_mask, False)
-                self._backprop_and_step(X_buf, grad_h)
-
-        self.A, self.b_bayes, self.A_inv = init_per_arm_regression(
-            self.n_arms, self.hidden_dim, self.lambda_reg)
-        for i in range(len(self._phase_buffer_X)):
-            h = self._features(self._phase_buffer_X[i])
-            obs_mask = jnp.asarray(self._phase_buffer_obs[i], dtype=jnp.bool_)
-            rewards = jnp.asarray(self._phase_buffer_Y[i])
-            self.A, self.b_bayes, self.A_inv = update_bayesian_stats(
-                self.A, self.b_bayes, self.A_inv, h, rewards, obs_mask)
-
     def update(self, X, selection, rewards, lr: float = None, full_feedback: bool = False,
                **kwargs):
         prob_values = kwargs.get("prob_values")
@@ -230,24 +188,16 @@ class BayesianSPO_EmpUCB_Agent(AgentBase):
         else:
             self._obs_counts += obs_np
 
-        if self.phased:
-            self._append_phase_buffer(X, rewards, selection, prob_values, obs_mask)
-
-            self._rounds_since_retrain += 1
-            if self._rounds_since_retrain >= self.phase_length:
-                self._phased_retrain()
-                self._rounds_since_retrain = 0
+        pred = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
+        if prob_values is not None:
+            Y_target = jnp.asarray(prob_values)
+        elif full_feedback:
+            Y_target = rewards
         else:
-            pred = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
-            if prob_values is not None:
-                Y_target = jnp.asarray(prob_values)
-            elif full_feedback:
-                Y_target = rewards
-            else:
-                Y_target = jnp.where(selection > 0.5, rewards, pred)
+            Y_target = jnp.where(selection > 0.5, rewards, pred)
 
-            grad_h = self._compute_spo_grad_h(X, h, Y_target, selection_mask, full_feedback)
-            self._backprop_and_step(X, grad_h)
+        grad_h = self._compute_spo_grad_h(X, h, Y_target, selection_mask, full_feedback)
+        self._backprop_and_step(X, grad_h)
 
 
 class SPO_EmpUCB_Agent(AgentBase):

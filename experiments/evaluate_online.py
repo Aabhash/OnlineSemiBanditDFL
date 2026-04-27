@@ -32,7 +32,6 @@ from src.agents.base import pregenerate_episode, run_agent_on_episode
 
 from src.agents.contextual import (
     BayesianSPOAgent,
-    BayesianSPOPIAgent,
     BayesianPFYAgent,
     LinUCBAgent,
     NeuralUCBAgent,
@@ -93,7 +92,6 @@ def create_agent_with_tuned_params(
     seed: int,
     n_rounds: int,
     config: Dict[str, Any],
-    backbone_params: Dict[str, Any] = None,
 ):
     lr = tuned_params.get('lr', config['agent_defaults']['lr'])
 
@@ -104,7 +102,6 @@ def create_agent_with_tuned_params(
         seed=seed,
         n_rounds=n_rounds,
         lr=lr,
-        backbone_params=backbone_params,
     )
 
 
@@ -118,7 +115,6 @@ def get_agents(env, seed, config, n_rounds):
     epsilon = defaults['epsilon']
     decay_epsilon = defaults['decay_epsilon']
     nonlinear = defaults.get('nonlinear', False)
-    phase_buffer_size = defaults.get('phase_buffer_size')
     neuralucb_max_history_size = defaults.get('neuralucb_max_history_size', 512)
     neuralucb_batch_size = defaults.get('neuralucb_batch_size', 32)
 
@@ -155,13 +151,7 @@ def get_agents(env, seed, config, n_rounds):
             hidden_dim=hidden_dim, beta=beta, decay_rounds=n_rounds,
             lambda_reg=lambda_reg, minimize=minimize, solver=solver, seed=seed,
             mask_grad=True, nonlinear=nonlinear,
-        ),
-        'BayesianSPO-PI': BayesianSPOPIAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, beta=beta, decay_rounds=n_rounds,
-            lambda_reg=lambda_reg, minimize=minimize, solver=solver, seed=seed,
-            mask_grad=True, nonlinear=nonlinear,
-            imputation_samples=4, imputation_scale=1.0,
+            imputation_samples=1, imputation_scale=1.0,
         ),
         'BayesianPFY': BayesianPFYAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
@@ -174,14 +164,13 @@ def get_agents(env, seed, config, n_rounds):
             hidden_dim=hidden_dim, beta=beta, lambda_reg=lambda_reg,
             decay_rounds=n_rounds, solver=solver, seed=seed,
             nonlinear=nonlinear, minimize=minimize,
-            max_buffer_size=phase_buffer_size,
         ),
         'BLL-Online': WeberBLLAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             hidden_dim=hidden_dim, beta=beta, decay_rounds=n_rounds,
             lambda_reg=lambda_reg, minimize=minimize, solver=solver, seed=seed,
             mask_grad=False, posterior_complete_missing=True,
-            nonlinear=nonlinear, phased=False,
+            nonlinear=nonlinear,
         ),
     }
 

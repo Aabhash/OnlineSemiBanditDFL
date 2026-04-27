@@ -144,11 +144,8 @@ agent_defaults:
   epsilon: 0.1
   decay_epsilon: true
   nonlinear: false
-  phase_buffer_size: 256
   neuralucb_max_history_size: 256
   neuralucb_batch_size: 16
-  phase_length: 100
-  phase_epochs: 2
 
 ablations:
   kn_ratio:
@@ -191,6 +188,14 @@ ablations:
     n_seeds: 5
     output_dir: "results/ablations/imputation"
 
+  imputation_samples:
+    datasets: [knapsack_32, knapsack_100, shortest_path_8x8, shortest_path_20x20, portfolio_32]
+    m_values: [1, 4, 8, 12]
+    n_rounds: 2500
+    n_seeds: 5
+    tuning_dir: "results/tuning"
+    output_dir: "results/ablations/imputation_samples"
+
   flip_set_collapse:
     datasets: [knapsack_32, shortest_path_8x8]
     n_rounds: 2500
@@ -204,7 +209,6 @@ plotting:
     LinUCB: "orange"
     NeuralUCB: "red"
     BayesianSPO: "purple"
-    BayesianSPO-PI: "mediumpurple"
     FullSPO: "pink"
     DecisionUCB: "cyan"
     EpsilonGreedy: "gold"

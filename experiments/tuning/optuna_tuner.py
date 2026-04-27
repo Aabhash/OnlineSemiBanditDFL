@@ -31,7 +31,6 @@ class BanditHyperparameterTuner:
         config_path: str,
         search_space_dir: str,
         output_dir: Optional[str] = None,
-        backbone_tuning_dir: Optional[str] = None,
     ):
         self.config = load_config(config_path)
         self.search_spaces = load_search_spaces(search_space_dir)
@@ -43,10 +42,6 @@ class BanditHyperparameterTuner:
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         self.results_store = ResultsStore(str(self.output_dir))
-        if backbone_tuning_dir:
-            self.backbone_results_store = ResultsStore(backbone_tuning_dir)
-        else:
-            self.backbone_results_store = self.results_store
         self.timer = ComputeTimer(use_gpu=self.config['compute']['use_gpu'])
 
         db_path = self.output_dir / 'optuna.db'
@@ -118,7 +113,6 @@ class BanditHyperparameterTuner:
             search_space=search_space,
             results_store=self.results_store,
             feedback_type=feedback_type,
-            backbone_results_store=self.backbone_results_store,
         )
 
         if n_trials is None:

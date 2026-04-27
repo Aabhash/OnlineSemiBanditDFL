@@ -415,6 +415,63 @@ def plot_mechanism(results_dir, output_dir, fmt='pdf'):
         print(f'  Saved {title}.{fmt}')
 
 
+def plot_imputation_samples(results_dir, output_dir, fmt='pdf'):
+    if plt is None:
+        print('matplotlib not available, skipping plots')
+        return
+
+    ablation_dir = resolve_ablation_dir(results_dir, 'imputation_samples')
+    entries = list_result_entries(ablation_dir)
+    if not entries:
+        print('  imputation_samples: no data found, skipping')
+        return
+
+    for dataset_name, data_path in entries:
+        data = load_pkl(data_path)
+        if data is None:
+            continue
+
+        agents = sorted(set(name for (name, _) in data.keys()))
+        seeds = sorted(set(s for (_, s) in data.keys()))
+
+        # Parse the M value out of agent names like 'M1', 'M4', ...
+        m_pairs = []
+        for name in agents:
+            if not name.startswith('M'):
+                continue
+            try:
+                m_pairs.append((int(name[1:]), name))
+            except ValueError:
+                continue
+        m_pairs.sort()
+        if not m_pairs:
+            print(f'  imputation_samples ({dataset_name}): no M-named agents, skipping')
+            continue
+
+        m_values = [m for m, _ in m_pairs]
+        means, stds = [], []
+        for m, name in m_pairs:
+            regs = [data[(name, s)]['final_regret'] for s in seeds if (name, s) in data]
+            means.append(np.mean(regs) if regs else np.nan)
+            stds.append(np.std(regs) if regs else 0)
+
+        fig, ax = plt.subplots(figsize=(7, 4.5))
+        ax.errorbar(m_values, means, yerr=stds, marker='o', capsize=3,
+                    color='mediumpurple')
+        ax.set_xlabel('Imputation samples $M$')
+        ax.set_ylabel('Final cumulative regret')
+        ax.set_title(f'BayesianSPO: regret vs. $M$ ({dataset_name})')
+        ax.set_xscale('log', base=2)
+        ax.set_xticks(m_values)
+        ax.set_xticklabels([str(m) for m in m_values])
+        ax.grid(True, alpha=0.3)
+        plt.tight_layout()
+        title = 'imputation_samples' if dataset_name == '.' else f'imputation_samples_{dataset_name}'
+        plt.savefig(os.path.join(output_dir, f'{title}.{fmt}'), bbox_inches='tight')
+        plt.close()
+        print(f'  Saved {title}.{fmt}')
+
+
 PLOT_FUNCTIONS = {
     'kn_ratio': plot_kn_ratio,
     'kn_ratio_sweep': plot_kn_ratio,
@@ -422,6 +479,7 @@ PLOT_FUNCTIONS = {
     'exploration_strategy': plot_exploration,
     'imputation': plot_imputation,
     'imputation_strategy': plot_imputation,
+    'imputation_samples': plot_imputation_samples,
     'mechanism': plot_mechanism,
     'mechanism_ablation': plot_mechanism,
     'feature_sharing': plot_feature_sharing,

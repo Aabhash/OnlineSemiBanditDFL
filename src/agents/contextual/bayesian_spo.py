@@ -38,12 +38,10 @@ class BayesianSPOAgent(AgentBase):
         minimize: bool = False,
         solver=None,
         seed: int = None,
-
-        phased: bool = False,
-        phase_length: int = 50,
-        phase_epochs: int = 5,
-        max_buffer_size: int = None,
-        replay_batch_size: int = 1,
+        imputation_samples: int = 1,
+        imputation_scale: float = 1.0,
+        use_posterior_predictive: bool = False,
+        noise_var: float = 1.0,
     ):
         self.context_dim = context_dim
         self.n_arms = n_arms
@@ -62,6 +60,11 @@ class BayesianSPOAgent(AgentBase):
         self.lambda_reg = lambda_reg
         self.decay_rounds = decay_rounds
         self.t = 0
+        self.imputation_samples = max(int(imputation_samples), 1)
+        self.imputation_scale = float(imputation_scale)
+        self.use_posterior_predictive = bool(use_posterior_predictive)
+        self.noise_var = float(noise_var)
+        self.imputation_rng = np.random.default_rng(seed if seed else 0)
 
 
         self.loss_grad_fn = make_spo_grad_fn(self.solver, minimize)
@@ -99,15 +102,6 @@ class BayesianSPOAgent(AgentBase):
 
         self.A, self.b_bayes, self.A_inv = init_per_arm_regression(n_arms, hidden_dim, lambda_reg)
 
-
-        self.phased = phased
-        self.phase_length = phase_length
-        self.phase_epochs = phase_epochs
-        self.replay_batch_size = max(int(replay_batch_size), 1)
-        self.rng = np.random.default_rng(seed if seed else 0)
-        if phased:
-            self._init_phase_buffer(max_buffer_size)
-            self._rounds_since_retrain = 0
 
     def _get_params(self):
         if self.nonlinear:
@@ -156,14 +150,39 @@ class BayesianSPOAgent(AgentBase):
 
     def _compute_spo_grad_h(self, X, h, Y_target, selection_mask, full_feedback):
         pred = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
+        pred_np = np.asarray(pred, dtype=float).reshape(-1)
+        stds_np = np.asarray(compute_uncertainties(h, self.A_inv), dtype=float).reshape(-1)
+        target_np = np.asarray(Y_target, dtype=float).reshape(-1)
+        if full_feedback:
+            observed_mask_np = np.ones(self.n_arms, dtype=bool)
+        else:
+            observed_mask_np = np.asarray(selection_mask, dtype=bool).reshape(-1)
 
-        spo_grad_val = self.loss_grad_fn(pred, Y_target)
+        targets = [target_np]
+        missing_mask = ~observed_mask_np
+        if missing_mask.any():
+            if self.use_posterior_predictive:
+                sampling_std = np.sqrt(stds_np ** 2 + self.noise_var)
+            else:
+                sampling_std = self.imputation_scale * stds_np
+            for _ in range(self.imputation_samples - 1):
+                sampled = target_np.copy()
+                sampled[missing_mask] = (
+                    pred_np[missing_mask]
+                    + sampling_std[missing_mask]
+                    * self.imputation_rng.standard_normal(missing_mask.sum())
+                )
+                targets.append(sampled)
 
-        if self.mask_grad and not full_feedback:
-            spo_grad_val = jnp.where(selection_mask, spo_grad_val, 0.0)
+        theta = jnp.einsum("nij,nj->ni", self.A_inv, self.b_bayes)
+        grad_h_total = jnp.zeros_like(h)
+        for target_vec in targets:
+            spo_grad_val = self.loss_grad_fn(pred, jnp.asarray(target_vec))
+            if self.mask_grad and not full_feedback:
+                spo_grad_val = jnp.where(selection_mask, spo_grad_val, 0.0)
+            grad_h_total = grad_h_total + jnp.einsum("n,ni->i", spo_grad_val, theta)
 
-        theta = jnp.einsum('nij,nj->ni', self.A_inv, self.b_bayes)
-        return jnp.einsum('n,ni->i', spo_grad_val, theta)
+        return grad_h_total / max(len(targets), 1)
 
     def _backprop_and_step(self, X, grad_h):
         X = jnp.asarray(X)
@@ -183,100 +202,6 @@ class BayesianSPOAgent(AgentBase):
         updates, self.opt_state = self.optimizer.update(grads, self.opt_state, params)
         self._set_params(optax.apply_updates(params, updates))
 
-    def _backprop_and_step_batch(self, X_batch, grad_h_batch):
-        X_batch = jnp.asarray(X_batch)
-        grad_h_batch = jnp.asarray(grad_h_batch)
-        batch_size = max(int(X_batch.shape[0]), 1)
-        if self.nonlinear:
-            z = X_batch @ self.W1 + self.b1
-            a = jnp.maximum(0, z)
-            grad_a = grad_h_batch @ self.W2.T
-            grad_z = grad_a * (z > 0)
-            grads = {
-                'W1': (X_batch.T @ grad_z) / batch_size,
-                'b1': jnp.mean(grad_z, axis=0),
-                'W2': (a.T @ grad_h_batch) / batch_size,
-                'b2': jnp.mean(grad_h_batch, axis=0),
-            }
-        else:
-            grads = {
-                'W1': (X_batch.T @ grad_h_batch) / batch_size,
-                'b1': jnp.mean(grad_h_batch, axis=0),
-            }
-
-        params = self._get_params()
-        updates, self.opt_state = self.optimizer.update(grads, self.opt_state, params)
-        self._set_params(optax.apply_updates(params, updates))
-
-    def _phased_retrain_batch(self, batch_indices):
-        X_batch = jnp.stack([self._phase_buffer_X[i] for i in batch_indices])
-        h_batch = self._features(X_batch)
-        theta = jnp.einsum('nij,nj->ni', self.A_inv, self.b_bayes)
-        pred_batch = h_batch @ theta.T
-
-        y_targets = []
-        obs_masks = []
-        grad_h_batch = []
-
-        for pos, idx in enumerate(batch_indices):
-            obs_mask = jnp.asarray(self._phase_buffer_obs[idx], dtype=jnp.bool_)
-            prob_buf = self._phase_buffer_prob[idx]
-            if prob_buf is not None:
-                y_target = jnp.asarray(prob_buf)
-            else:
-                y_target = jnp.where(obs_mask, jnp.asarray(self._phase_buffer_Y[idx]), pred_batch[pos])
-
-            spo_grad_val = self.loss_grad_fn(pred_batch[pos], y_target)
-            if self.mask_grad:
-                spo_grad_val = jnp.where(obs_mask, spo_grad_val, 0.0)
-
-            y_targets.append(y_target)
-            obs_masks.append(obs_mask)
-            grad_h_batch.append(jnp.einsum('n,ni->i', spo_grad_val, theta))
-
-        self._backprop_and_step_batch(X_batch, jnp.stack(grad_h_batch))
-
-    def _phased_retrain(self):
-        n_buffer = len(self._phase_buffer_X)
-        if n_buffer == 0:
-            return
-        batch_size = min(self.replay_batch_size, n_buffer)
-
-        for _epoch in range(self.phase_epochs):
-            if batch_size <= 1:
-                for i in range(n_buffer):
-                    X_buf = self._phase_buffer_X[i]
-                    Y_buf = self._phase_buffer_Y[i]
-                    prob_buf = self._phase_buffer_prob[i]
-                    obs_buf = self._phase_buffer_obs[i]
-
-                    h = self._features(X_buf)
-                    pred = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
-
-                    obs_mask = jnp.asarray(obs_buf, dtype=jnp.bool_)
-                    if prob_buf is not None:
-                        Y_target = jnp.asarray(prob_buf)
-                    else:
-                        Y_target = jnp.where(obs_mask, jnp.asarray(Y_buf), pred)
-
-                    grad_h = self._compute_spo_grad_h(X_buf, h, Y_target, obs_mask, False)
-                    self._backprop_and_step(X_buf, grad_h)
-            else:
-                indices = self.rng.permutation(n_buffer)
-                for start in range(0, n_buffer, batch_size):
-                    batch_indices = indices[start:start + batch_size]
-                    self._phased_retrain_batch(batch_indices)
-
-
-        self.A, self.b_bayes, self.A_inv = init_per_arm_regression(
-            self.n_arms, self.hidden_dim, self.lambda_reg)
-        for i in range(len(self._phase_buffer_X)):
-            h = self._features(self._phase_buffer_X[i])
-            obs_mask = jnp.asarray(self._phase_buffer_obs[i], dtype=jnp.bool_)
-            rewards = jnp.asarray(self._phase_buffer_Y[i])
-            self.A, self.b_bayes, self.A_inv = update_bayesian_stats(
-                self.A, self.b_bayes, self.A_inv, h, rewards, obs_mask)
-
     def update(self, X, selection, rewards, lr: float = None, full_feedback: bool = False,
                **kwargs):
         prob_values = kwargs.get("prob_values")
@@ -292,24 +217,14 @@ class BayesianSPOAgent(AgentBase):
             self.A, self.b_bayes, self.A_inv, h, rewards, obs_mask
         )
 
-        if self.phased:
+        pred = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
 
-            self._append_phase_buffer(X, rewards, selection, prob_values, obs_mask)
-
-            self._rounds_since_retrain += 1
-            if self._rounds_since_retrain >= self.phase_length:
-                self._phased_retrain()
-                self._rounds_since_retrain = 0
+        if prob_values is not None:
+            Y_target = jnp.asarray(prob_values)
+        elif full_feedback:
+            Y_target = rewards
         else:
+            Y_target = jnp.where(selection > 0.5, rewards, pred)
 
-            pred = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
-
-            if prob_values is not None:
-                Y_target = jnp.asarray(prob_values)
-            elif full_feedback:
-                Y_target = rewards
-            else:
-                Y_target = jnp.where(selection > 0.5, rewards, pred)
-
-            grad_h = self._compute_spo_grad_h(X, h, Y_target, selection_mask, full_feedback)
-            self._backprop_and_step(X, grad_h)
+        grad_h = self._compute_spo_grad_h(X, h, Y_target, selection_mask, full_feedback)
+        self._backprop_and_step(X, grad_h)

@@ -1,6 +1,6 @@
 # Decision-Focused Learning for Combinatorial Semi-Bandits
 
-This repository implements **BayesianSPO**, a decision-focused learning method for combinatorial semi-bandit problems. The key contribution is **phased training with retrospective imputation**: freezing features during online data collection, then batch-retraining with SPO+ using the accumulated posterior for high-quality imputation of unobserved arms.
+This repository implements **BayesianSPO**, a decision-focused learning method for online combinatorial semi-bandit problems. The main contribution is **Bayesian decoupling for masked decision-focused learning**: an analytically updated per-arm Bayesian last-layer head provides UCB exploration and stable imputations, while masked SPO+ updates train the shared feature representation only through observed arms.
 
 ## Problem Setting
 
@@ -12,7 +12,7 @@ This repository implements **BayesianSPO**, a decision-focused learning method f
 
 **Challenge:** SPO+ requires the full cost vector, but 50-95% is unobserved — the *imputation bottleneck*.
 
-**Solution:** BayesianSPO with phased training. Online phase collects data with Bayesian UCB exploration (features frozen). Offline phase retrains features with SPO+ using retrospective imputation from the accumulated posterior, then replays to rebuild consistent posteriors.
+**Solution:** BayesianSPO separates prediction/imputation from decision-focused representation learning. The Bayesian head is updated from observed semi-bandit feedback and supplies uncertainty-aware action selection plus completions for unobserved arms; the SPO+ gradient is masked before feature updates so imputed missing arms do not directly corrupt the representation. Posterior-imputed variants optionally average the masked SPO+ gradient over sampled completions.
 
 ## Installation
 
@@ -25,12 +25,11 @@ uv sync
 ## Quick Start
 
 ```bash
-# Full pipeline: tune → evaluate → plot
-bash tune_online.sh     # Stage-1 online HP tuning (no wandb)
-bash tune_phased.sh     # Stage-2 phased HP refinement
-bash run_online.sh      # Online evaluation
-bash run_phased.sh      # Phased evaluation
-bash run.sh             # Combined wrapper: online + phased + post-processing
+# Main pipeline: tune → evaluate → plot
+bash tune_online.sh     # Online HP tuning (no wandb)
+bash run_online.sh      # Main online evaluation
+bash run.sh             # Combined wrapper: online evaluation + post-processing
+
 bash run_ablations.sh   # Ablation sweeps
 ```
 
@@ -43,11 +42,8 @@ uv run python experiments/tune_hyperparams.py --all --dataset knapsack_32 --feed
 # Evaluate online agents
 uv run python experiments/evaluate_online.py --datasets knapsack_32 --feedback semi_bandit --full --output_dir results/eval_online
 
-# Evaluate phased agents
-uv run python experiments/evaluate_phased.py --datasets knapsack_32 --feedback semi_bandit --full --output_dir results/eval_phased
-
 # Generate plots from saved results (no re-running)
-uv run python experiments/plot_eval_results.py --input results/eval_online/metrics results/eval_phased/metrics --format pdf
+uv run python experiments/plot_eval_results.py --input results/eval_online/metrics --format pdf
 uv run python experiments/compute_analysis.py
 ```
 
@@ -59,6 +55,7 @@ uv run python experiments/compute_analysis.py
 | `knapsack_100` | 100 | ~6-7 | ~19-22% | Heterogeneous weights, larger-scale knapsack |
 | `shortest_path_8x8` | 112 | ~14 | ~12% | 8×8 grid shortest path |
 | `shortest_path_20x20` | 760 | ~38 | ~5% | 20×20 grid shortest path |
+| `portfolio_32` | 32 | 5 | ~16% | Cardinality-constrained binary portfolio |
 | `topk_2arm` | 2 | 1 | 50% | 2-arm toy (sigmoid costs) |
 | `topk_4arm` | 4 | 1 | 25% | 4-arm toy (sigmoid costs) |
 | `topk_8arm` | 8 | 2 | 25% | 8-arm toy (sigmoid costs) |
@@ -71,7 +68,7 @@ uv run python experiments/compute_analysis.py
 
 | Agent | Loss | Description |
 |-------|------|-------------|
-| **BayesianSPO** | SPO+ | Masked SPO+ with per-arm Bayesian UCB (our method) |
+| **BayesianSPO** | SPO+ | Main method: per-arm Bayesian UCB/imputation with masked SPO+ feature updates; `imputation_samples=1` recovers the deterministic posterior-mean path and `M>1` averages posterior-sampled completions |
 | BayesianPFY | PFY | Perturbed Fenchel-Young loss variant |
 | BayesianMSE | MSE | Prediction-focused baseline |
 | NeuralUCB | MSE | Neural network with NTK uncertainty |
@@ -81,23 +78,12 @@ uv run python experiments/compute_analysis.py
 | EpsilonGreedy | MSE | ε-greedy with neural network |
 | Random | — | Uniform random selection |
 
-### Phased (periodic batch retraining)
-
-| Agent | Loss | Description |
-|-------|------|-------------|
-| **BayesianSPO-Phased** | SPO+ | Our best method: phased SPO+ with retrospective imputation |
-| BayesianPFY-Phased | PFY | PFY under phased training |
-| NeuralUCB-Phased | MSE | Original NeuralUCB design (periodic batch SGD) |
-| WeberBLL-Phased | Gaussian LL | Weber et al. (phased by design) |
-
 ## Pipeline
 
 ```
-tune_online.sh → results/tuning/           (stage-1 Optuna DB + best HP JSON)
-tune_phased.sh → results/tuning_phased/    (stage-2 phased HP JSON)
-run_online.sh  → results/eval_online/      (online agent data)
-run_phased.sh  → results/eval_phased/      (phased agent data)
-run.sh         → results/compute/          (wrapper + post-processing)
+tune_online.sh → results/tuning/           (online Optuna DB + best HP JSON)
+run_online.sh  → results/eval_online/      (main online agent data)
+run.sh         → results/compute/          (online wrapper + compute analysis)
                  results/figures/          (regret + diagnostic plots)
 run_ablations.sh → results/ablations/      (ablation data + per-ablation figures)
 ```
@@ -156,7 +142,6 @@ src/
   solver.py                 # Gurobi knapsack + DP shortest path
 experiments/
   evaluate_online.py        # Online agent evaluation
-  evaluate_phased.py        # Phased agent evaluation
   compute_analysis.py       # Wallclock + Pareto analysis
   plot_eval_results.py      # Main evaluation plots
   plot_ablation_results.py  # Ablation plots

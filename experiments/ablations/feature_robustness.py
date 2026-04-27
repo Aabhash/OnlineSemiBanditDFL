@@ -196,7 +196,7 @@ def run_feature_robustness(
                 env.context_dim, env.n_arms, env.weights, env.capacity,
                 hidden_dim=hidden_dim, beta=beta, decay_rounds=n_rounds,
                 lambda_reg=lambda_reg, minimize=minimize, solver=solver, seed=seed,
-                mask_grad=True, phased=False,
+                mask_grad=True,
             ),
         }
 

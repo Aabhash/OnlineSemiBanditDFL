@@ -38,13 +38,7 @@ class WeberBLLAgent(AgentBase):
         seed: int = None,
 
         noise_var: float = 1.0,
-        fisher_beta: float = 0.1,
         posterior_complete_missing: bool = False,
-        phased: bool = True,
-        phase_length: int = 50,
-        phase_epochs: int = 5,
-        fisher_eps: float = 1e-8,
-        max_buffer_size: int = None,
     ):
         self.context_dim = context_dim
         self.n_arms = n_arms
@@ -77,19 +71,7 @@ class WeberBLLAgent(AgentBase):
 
 
         self.noise_var = noise_var
-        self.fisher_beta = fisher_beta
         self.posterior_complete_missing = posterior_complete_missing
-        self.phased = phased
-        self.phase_length = phase_length
-        self.phase_epochs = phase_epochs
-        self.fisher_eps = fisher_eps
-
-
-        if phased:
-            self._init_phase_buffer(max_buffer_size)
-            self._rounds_since_retrain = 0
-        self._fisher_diag = None
-        self._param_anchor = None
 
 
         key = jax.random.PRNGKey(seed if seed is not None else 0)
@@ -228,87 +210,11 @@ class WeberBLLAgent(AgentBase):
         return {'W1': jnp.outer(X, grad_h), 'b1': grad_h}
 
 
-    def _compute_fisher_diagonal(self):
-        N = len(self._phase_buffer_X)
-        if N == 0:
-            return {k: jnp.zeros_like(v) for k, v in self._get_params().items()}
-
-        fisher = {k: jnp.zeros_like(v) for k, v in self._get_params().items()}
-        for i in range(N):
-            h = self._features(self._phase_buffer_X[i])
-            rewards = jnp.asarray(self._phase_buffer_Y[i])
-            obs_mask = jnp.asarray(self._phase_buffer_obs[i], dtype=jnp.bool_)
-            targets = self._prepare_gradient_targets(
-                h, rewards, obs_mask, full_feedback=False
-            )
-            grad_h = self._marginalized_grad_h(h, targets, obs_mask, full_feedback=False)
-            grads = self._backprop_features(self._phase_buffer_X[i], grad_h)
-            for k in fisher:
-                fisher[k] = fisher[k] + grads[k] ** 2
-
-        return {k: v / N + self.fisher_eps for k, v in fisher.items()}
-
-    def _add_fisher_reg(self, grads):
-        if self.fisher_beta <= 0.0 or self._fisher_diag is None or self._param_anchor is None:
-            return grads
-        grads = dict(grads)
-        params = self._get_params()
-        for k in grads:
-            grads[k] = grads[k] + self.fisher_beta * self._fisher_diag[k] * (params[k] - self._param_anchor[k])
-        return grads
-
-
     def _apply_gradient_step(self, grads):
-        grads = self._add_fisher_reg(grads)
         params = self._get_params()
         updates, self.opt_state = self.optimizer.update(grads, self.opt_state, params)
         new_params = optax.apply_updates(params, updates)
         self._set_params(new_params)
-
-
-    def _reset_bayesian_stats(self):
-        self.A, self.b_bayes, self.A_inv = init_per_arm_regression(
-            self.n_arms, self.hidden_dim, self.lambda_reg)
-
-    def _replay_buffer_bayesian(self):
-        self._reset_bayesian_stats()
-        for i in range(len(self._phase_buffer_X)):
-            h = self._features(self._phase_buffer_X[i])
-            obs_mask = jnp.asarray(self._phase_buffer_obs[i], dtype=jnp.bool_)
-            rewards = jnp.asarray(self._phase_buffer_Y[i])
-            self.A, self.b_bayes, self.A_inv = update_bayesian_stats(
-                self.A, self.b_bayes, self.A_inv, h, rewards, obs_mask)
-
-    def _phased_retrain(self):
-
-        self._fisher_diag = self._compute_fisher_diagonal()
-
-
-        self._param_anchor = {k: v.copy() for k, v in self._get_params().items()}
-
-
-        for _epoch in range(self.phase_epochs):
-            for i in range(len(self._phase_buffer_X)):
-                X_buf = self._phase_buffer_X[i]
-                Y_buf = self._phase_buffer_Y[i]
-                prob_buf = self._phase_buffer_prob[i]
-                obs_buf = self._phase_buffer_obs[i]
-
-                h = self._features(X_buf)
-
-
-                obs_mask = jnp.asarray(obs_buf, dtype=jnp.bool_)
-                targets = self._prepare_gradient_targets(
-                    h, Y_buf, obs_mask, full_feedback=False, prob_values=prob_buf
-                )
-
-                grad_h = self._marginalized_grad_h(h, targets, obs_mask, full_feedback=False)
-                grads = self._backprop_features(X_buf, grad_h)
-                self._apply_gradient_step(grads)
-
-
-        self._replay_buffer_bayesian()
-
 
     def update(self, X, selection, rewards, lr: float = None, full_feedback: bool = False,
                **kwargs):
@@ -324,18 +230,9 @@ class WeberBLLAgent(AgentBase):
         self.A, self.b_bayes, self.A_inv = update_bayesian_stats(
             self.A, self.b_bayes, self.A_inv, h, rewards, obs_mask)
 
-        if self.phased:
-
-            self._append_phase_buffer(X, rewards, selection, prob_values, obs_mask)
-
-            self._rounds_since_retrain += 1
-            if self._rounds_since_retrain >= self.phase_length:
-                self._phased_retrain()
-                self._rounds_since_retrain = 0
-        else:
-            targets = self._prepare_gradient_targets(
-                h, rewards, obs_mask, full_feedback, prob_values=prob_values
-            )
-            grad_h = self._marginalized_grad_h(h, targets, selection_mask, full_feedback)
-            grads = self._backprop_features(X, grad_h)
-            self._apply_gradient_step(grads)
+        targets = self._prepare_gradient_targets(
+            h, rewards, obs_mask, full_feedback, prob_values=prob_values
+        )
+        grad_h = self._marginalized_grad_h(h, targets, selection_mask, full_feedback)
+        grads = self._backprop_features(X, grad_h)
+        self._apply_gradient_step(grads)

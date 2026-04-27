@@ -3,63 +3,37 @@ from src.agents.contextual.bayesian_spo import BayesianSPOAgent
 
 
 class BayesianPFYAgent(BayesianSPOAgent):
+    """PFY with optional posterior-imputation (Monte Carlo over completions of unobserved arms).
+
+    Inherits the M-averaging machinery from `BayesianSPOAgent` and only overrides
+    `loss_grad_fn` to use the PFY gradient instead of SPO+. With `imputation_samples=1`
+    (the default), the gradient is computed deterministically from posterior-mean
+    completion of unobserved arms, matching the previous PFY agent. With `M > 1`,
+    the PFY gradient is averaged over `M` posterior samples for the unobserved
+    coordinates.
+    """
 
     def __init__(
         self,
-        context_dim: int,
-        n_arms: int,
-        weights,
-        capacity: float,
-        hidden_dim: int = 32,
-        beta: float = 1.0,
-        beta_start: float = None,
-        beta_end: float = None,
-        lambda_reg: float = 1.0,
-        lr: float = 0.001,
-        decay_rounds: int = 300,
-        max_grad_norm: float = 5.0,
-        mask_grad: bool = False,
-        nonlinear: bool = False,
-        minimize: bool = False,
-        solver=None,
-        seed: int = None,
-
-        phased: bool = False,
-        phase_length: int = 50,
-        phase_epochs: int = 5,
-        max_buffer_size: int = None,
-
+        *args,
         pfy_n_samples: int = 1,
         pfy_sigma: float = 1.0,
-        pfy_noise: str = 'normal'
+        pfy_noise: str = 'normal',
+        imputation_samples: int = 1,
+        imputation_scale: float = 1.0,
+        seed: int = 0,
+        **kwargs,
     ):
         super().__init__(
-            context_dim=context_dim,
-            n_arms=n_arms,
-            weights=weights,
-            capacity=capacity,
-            hidden_dim=hidden_dim,
-            beta=beta,
-            beta_start=beta_start,
-            beta_end=beta_end,
-            lambda_reg=lambda_reg,
-            lr=lr,
-            decay_rounds=decay_rounds,
-            max_grad_norm=max_grad_norm,
-            mask_grad=mask_grad,
-            nonlinear=nonlinear,
-            minimize=minimize,
-            solver=solver,
+            *args,
+            imputation_samples=imputation_samples,
+            imputation_scale=imputation_scale,
             seed=seed,
-            phased=phased,
-            phase_length=phase_length,
-            phase_epochs=phase_epochs,
-            max_buffer_size=max_buffer_size,
+            **kwargs,
         )
-
         self.loss_grad_fn = make_pfy_grad_fn(
             self.solver,
-            minimize=minimize,
+            minimize=self.minimize,
             n_samples=pfy_n_samples,
             sigma=pfy_sigma,
             noise=pfy_noise,

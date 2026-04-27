@@ -32,7 +32,6 @@ from src.agents.base import pregenerate_episode, run_agent_on_episode
 
 from src.agents.contextual import (
     BayesianSPOAgent,
-    BayesianSPOPIAgent,
     BayesianPFYAgent,
     LinUCBAgent,
     NeuralUCBAgent,
@@ -148,13 +147,7 @@ def get_agents(env, seed, config, n_rounds):
             hidden_dim=hidden_dim, beta=beta, decay_rounds=n_rounds,
             lambda_reg=lambda_reg, minimize=minimize, solver=solver, seed=seed,
             mask_grad=True, nonlinear=nonlinear,
-        ),
-        'BayesianSPO-PI': BayesianSPOPIAgent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            hidden_dim=hidden_dim, beta=beta, decay_rounds=n_rounds,
-            lambda_reg=lambda_reg, minimize=minimize, solver=solver, seed=seed,
-            mask_grad=True, nonlinear=nonlinear,
-            imputation_samples=4, imputation_scale=1.0,
+            imputation_samples=1, imputation_scale=1.0,
         ),
         'BayesianPFY': BayesianPFYAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
@@ -173,7 +166,7 @@ def get_agents(env, seed, config, n_rounds):
             hidden_dim=hidden_dim, beta=beta, decay_rounds=n_rounds,
             lambda_reg=lambda_reg, minimize=minimize, solver=solver, seed=seed,
             mask_grad=False, posterior_complete_missing=True,
-            nonlinear=nonlinear, phased=False,
+            nonlinear=nonlinear,
         ),
     }
 

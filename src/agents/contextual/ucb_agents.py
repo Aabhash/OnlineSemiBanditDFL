@@ -141,10 +141,6 @@ class NeuralUCBAgent(AgentBase):
         minimize: bool = False,
         solver=None,
         seed: int = None,
-
-        phased: bool = False,
-        phase_length: int = 50,
-        phase_epochs: int = 5,
         max_history_size: int = 512,
         batch_size: int = 32,
     ):
@@ -203,12 +199,6 @@ class NeuralUCBAgent(AgentBase):
             'W2': self.W2, 'b2': self.b2,
         }
         self.opt_state = self.optimizer.init(init_params)
-
-
-        self.phased = phased
-        self.phase_length = phase_length
-        self.phase_epochs = phase_epochs
-        self._rounds_since_retrain = 0
 
     def _get_params(self):
         return {'W1': self.W1, 'b1': self.b1, 'W2': self.W2, 'b2': self.b2}
@@ -325,16 +315,6 @@ class NeuralUCBAgent(AgentBase):
         self.history_Y.append(np.asarray(Y_target))
         self.history_mask.append(np.asarray(mask))
 
-    def _phased_retrain(self):
-        n_samples = len(self.history_X)
-        if n_samples == 0:
-            return
-        for _ in range(self.phase_epochs):
-            # Keep the original replay volume (one sampled update per buffered example
-            # per epoch), but use the JITted minibatch train step for speed.
-            for _ in range(n_samples):
-                self._train_step(batch_size=min(self.batch_size, n_samples))
-
     def update(self, X: np.ndarray, selection: np.ndarray, rewards: np.ndarray,
                lr: float = None, full_feedback: bool = False, **kwargs):
         X_jax = jnp.asarray(X)
@@ -363,15 +343,7 @@ class NeuralUCBAgent(AgentBase):
         obs_mask = mask.astype(jnp.float32)
 
         self._append_history(X_jax, Y_target, obs_mask)
-
-        if self.phased:
-
-            self._rounds_since_retrain += 1
-            if self._rounds_since_retrain >= self.phase_length:
-                self._phased_retrain()
-                self._rounds_since_retrain = 0
-        else:
-            self._train_step()
+        self._train_step()
 
 
 class UCBBayesianAgent(AgentBase):
