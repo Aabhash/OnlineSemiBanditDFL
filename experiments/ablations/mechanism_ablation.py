@@ -14,7 +14,6 @@ plt = importlib.import_module('matplotlib.pyplot') if importlib.util.find_spec('
 from experiments.ablations.common import (
     get_quick_params,
     load_config,
-    make_co_solver,
     make_dataset_config,
     run_ablation_sweep,
     save_results,
@@ -22,7 +21,6 @@ from experiments.ablations.common import (
 from src.agents.contextual import (
     BayesianMSEAgent,
     BayesianSPOAgent,
-    BayesianSPO_DFE_Agent,
 )
 
 
@@ -31,8 +29,6 @@ AGENT_ORDER = [
     'SPO+Greedy',
     'SPO+UCB',
     'SPO-unmasked',
-    'SPO+DFE',
-    'SPO+DI',
 ]
 
 
@@ -43,7 +39,6 @@ def make_agents(env, seed, config):
     lambda_reg = defaults['lambda_reg']
     minimize = getattr(env, 'minimize', False)
     solver = env.solve
-    co_solver = make_co_solver(env)
 
     common_base = dict(
         context_dim=env.context_dim,
@@ -77,21 +72,6 @@ def make_agents(env, seed, config):
             **common_spo,
             beta=beta,
             mask_grad=False,
-        ),
-        'SPO+DFE': BayesianSPO_DFE_Agent(
-            **common_spo,
-            beta=beta,
-            imputation='disc_explore',
-            co_solver=co_solver,
-            decision_focused_explore=True,
-            adaptive_dfe=True,
-            mask_grad=True,
-        ),
-        'SPO+DI': BayesianSPO_DFE_Agent(
-            **common_spo,
-            beta=beta,
-            imputation='disc_impute',
-            co_solver=co_solver,
         ),
     }
 

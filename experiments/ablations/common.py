@@ -72,13 +72,28 @@ def run_ablation_sweep(
 
 
 def recompute_optimals(episode: dict, solver_fn: Callable) -> dict:
-    new_episode = copy.deepcopy(episode)
-    for rd in new_episode['rounds_data']:
+    new_episode = dict(episode)
+    new_rounds = []
+
+    for rd in episode['rounds_data']:
+        new_rd = {}
+        for key, value in rd.items():
+            if isinstance(value, np.ndarray):
+                new_rd[key] = value.copy()
+            else:
+                try:
+                    new_rd[key] = copy.deepcopy(value)
+                except TypeError:
+                    new_rd[key] = value
+
         true_vals = rd['true_values']
         optimal = solver_fn(true_vals)
         optimal = np.asarray(optimal)
-        rd['optimal_action'] = optimal.copy()
-        rd['optimal_value'] = float(np.sum(true_vals * optimal))
+        new_rd['optimal_action'] = optimal.copy()
+        new_rd['optimal_value'] = float(np.sum(true_vals * optimal))
+        new_rounds.append(new_rd)
+
+    new_episode['rounds_data'] = new_rounds
     return new_episode
 
 

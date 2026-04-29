@@ -157,10 +157,22 @@ ablations:
     output_dir: "results/ablations/kn_ratio"
 
   exploration_strategy:
-    datasets: [knapsack_32, shortest_path_8x8]
-    n_rounds: 2500
+    datasets: [knapsack_32, shortest_path_8x8, portfolio_32]
+    n_rounds: 10000
     n_seeds: 5
+    tuning_dir: "results/FINAL/tuning"
     output_dir: "results/ablations/exploration"
+
+  ts_scale_sweep:
+    datasets: [knapsack_32, shortest_path_8x8, portfolio_32]
+    ts_scale_multipliers: [0.125, 0.25, 0.5, 1.0, 2.0]
+    dataset_ts_scale_multipliers:
+      portfolio_32: [0.0625, 0.125, 0.25]
+    quick_ts_scale_multipliers: [0.25, 1.0]
+    n_rounds: 10000
+    n_seeds: 5
+    tuning_dir: "results/FINAL/tuning"
+    output_dir: "results/ablations/ts_scale"
 
   mechanism:
     datasets: [knapsack_32, shortest_path_8x8]

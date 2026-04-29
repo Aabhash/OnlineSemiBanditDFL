@@ -43,6 +43,8 @@ class BayesianSPOAgent(AgentBase):
         use_posterior_predictive: bool = False,
         noise_var: float = 1.0,
         missing_grad_weight: float = 0.0,
+        exploration_strategy: str = "ucb",
+        ts_scale: float = 1.0,
     ):
         self.context_dim = context_dim
         self.n_arms = n_arms
@@ -66,7 +68,24 @@ class BayesianSPOAgent(AgentBase):
         self.use_posterior_predictive = bool(use_posterior_predictive)
         self.noise_var = float(noise_var)
         self.missing_grad_weight = float(missing_grad_weight)
-        self.imputation_rng = np.random.default_rng(seed if seed else 0)
+        seed_value = seed if seed is not None else 0
+        self.imputation_rng = np.random.default_rng(seed_value)
+        strategy = exploration_strategy.lower()
+        strategy_aliases = {
+            "ucb": "ucb",
+            "greedy": "greedy",
+            "ts": "ts",
+            "thompson": "ts",
+            "thompson_sampling": "ts",
+        }
+        if strategy not in strategy_aliases:
+            raise ValueError(
+                f"Unknown exploration_strategy={exploration_strategy!r}; "
+                "expected one of 'greedy', 'ucb', or 'ts'."
+            )
+        self.exploration_strategy = strategy_aliases[strategy]
+        self.ts_scale = float(ts_scale)
+        self.action_rng = np.random.default_rng(seed_value + 7919)
 
 
         self.loss_grad_fn = make_spo_grad_fn(self.solver, minimize)
@@ -81,7 +100,7 @@ class BayesianSPOAgent(AgentBase):
             self.beta_end = beta
             self.beta = beta
 
-        key = jax.random.PRNGKey(seed if seed else 0)
+        key = jax.random.PRNGKey(seed_value)
         if nonlinear:
             k1, k2 = jax.random.split(key)
             self.W1 = jax.random.normal(k1, (context_dim, hidden_dim)) * 0.1
@@ -145,10 +164,25 @@ class BayesianSPOAgent(AgentBase):
             self.beta = self.beta_start + (self.beta_end - self.beta_start) * progress
 
         h = self._features(X)
-        ucb_values = compute_ucb_values(
-            h, self.A_inv, self.b_bayes, self.beta, minimize=self.minimize
-        )
-        return self.solver(np.asarray(ucb_values))
+        if self.exploration_strategy == "ucb":
+            values = compute_ucb_values(
+                h, self.A_inv, self.b_bayes, self.beta, minimize=self.minimize
+            )
+        elif self.exploration_strategy == "greedy":
+            values = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
+        else:
+            means = np.asarray(
+                compute_bayesian_predictions(h, self.A_inv, self.b_bayes),
+                dtype=float,
+            )
+            stds = np.asarray(compute_uncertainties(h, self.A_inv), dtype=float)
+            values = (
+                means
+                + self.ts_scale
+                * stds
+                * self.action_rng.standard_normal(self.n_arms)
+            )
+        return self.solver(np.asarray(values))
 
     def _compute_spo_grad_h(self, X, h, Y_target, selection_mask, full_feedback):
         pred = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
