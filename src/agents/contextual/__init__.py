@@ -7,6 +7,7 @@ from src.agents.contextual.ucb_agents import LinUCBAgent, NeuralUCBAgent, UCBAge
 from src.agents.contextual.ts_agents import ThompsonSamplingAgent
 from src.agents.contextual.greedy_agents import GreedyAgent, EpsilonGreedyAgent
 from src.agents.contextual.neural_agents import BayesianMSEAgent, PosteriorImputedBayesianMSEAgent
+from src.agents.contextual.deterministic_head import DeterministicHeadAgent, DeterministicSPOAgent, DeterministicMSEAgent
 from src.agents.contextual.baselines import RandomAgent
 
 __all__ = [
@@ -24,5 +25,8 @@ __all__ = [
     'EpsilonGreedyAgent',
     'BayesianMSEAgent',
     'PosteriorImputedBayesianMSEAgent',
+    'DeterministicHeadAgent',
+    'DeterministicSPOAgent',
+    'DeterministicMSEAgent',
     'RandomAgent',
 ]

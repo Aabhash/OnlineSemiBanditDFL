@@ -11,6 +11,7 @@ sys.path.insert(0, '.')
 from src.envs import create_env
 from src.agents.base import pregenerate_episode, run_agent_on_episode
 from src.solvers.knapsack import KnapsackSolver
+from src.solvers.portfolio import PortfolioSolver
 from src.solvers.shortest_path import ShortestPathSolver
 
 
@@ -24,8 +25,45 @@ def make_co_solver(env):
 
     if grid_size is not None:
         return ShortestPathSolver(grid_size)
-    else:
-        return KnapsackSolver(env.weights, env.capacity)
+
+    data = getattr(env, 'data', None)
+    covariance = getattr(data, 'covariance', None)
+    if covariance is not None and hasattr(env, 'gamma') and hasattr(env, 'max_assets'):
+        return PortfolioSolver(
+            covariance=covariance,
+            gamma=env.gamma,
+            max_assets=env.max_assets,
+            factor_loadings=getattr(data, 'L', None),
+            idiosyncratic_var=getattr(data, 'idiosyncratic_var', None),
+            time_limit=getattr(env, 'solver_time_limit', None),
+        )
+
+    return KnapsackSolver(env.weights, env.capacity)
+
+
+def make_agent_solver(env):
+    """Return a fresh solver callable for one agent.
+
+    Portfolio solvers carry warm-start state, so sharing env.solve across agents
+    can make otherwise identical variants diverge under a time limit.
+    """
+    grid_size = getattr(env, 'grid_size', None)
+    if grid_size is not None:
+        return ShortestPathSolver(grid_size).solve
+
+    data = getattr(env, 'data', None)
+    covariance = getattr(data, 'covariance', None)
+    if covariance is not None and hasattr(env, 'gamma') and hasattr(env, 'max_assets'):
+        return PortfolioSolver(
+            covariance=covariance,
+            gamma=env.gamma,
+            max_assets=env.max_assets,
+            factor_loadings=getattr(data, 'L', None),
+            idiosyncratic_var=getattr(data, 'idiosyncratic_var', None),
+            time_limit=getattr(env, 'solver_time_limit', None),
+        ).solve
+
+    return KnapsackSolver(env.weights, env.capacity).solve
 
 
 def run_ablation_sweep(
@@ -39,8 +77,12 @@ def run_ablation_sweep(
     diagnostics: bool = True,
     output_dir: str = 'results/ablations',
     verbose: bool = True,
+    compact: bool = False,
+    keep_trajectory: bool = False,
+    initial_results: Optional[Dict[str, Any]] = None,
+    save_path: Optional[str] = None,
 ) -> Dict[str, Any]:
-    all_results = {}
+    all_results = dict(initial_results or {})
 
     for seed_idx, seed in enumerate(seeds):
         if verbose:
@@ -53,6 +95,12 @@ def run_ablation_sweep(
         agents = make_agents_fn(env, seed)
 
         for agent_name, agent in agents.items():
+            key = (agent_name, seed)
+            if key in all_results:
+                if verbose:
+                    print(f'    {agent_name}... skipped', flush=True)
+                continue
+
             if verbose:
                 print(f'    {agent_name}...', end=' ', flush=True)
 
@@ -62,8 +110,9 @@ def run_ablation_sweep(
                 diagnostics=diagnostics, co_solver=co_solver,
             )
 
-            key = (agent_name, seed)
-            all_results[key] = result
+            all_results[key] = compact_result(result, keep_trajectory) if compact else result
+            if save_path is not None:
+                save_results(all_results, save_path)
 
             if verbose:
                 print(f'regret={result["final_regret"]:.0f}', flush=True)
@@ -104,6 +153,28 @@ def save_results(results: Any, path: str):
     print(f'Results saved to {path}')
 
 
+def compact_result(result: dict, keep_trajectory: bool = False) -> dict:
+    n_rounds = len(result.get('regrets') or [])
+    compact = {
+        'n_rounds': int(n_rounds),
+        'final_regret': float(result['final_regret']),
+        'final_reward': float(result['final_reward']),
+        'final_optimal': float(result['final_optimal']),
+        'obs_counts': result.get('obs_counts'),
+    }
+    if keep_trajectory:
+        compact['cumulative_regret'] = result.get('cumulative_regret', [])
+        compact['regrets'] = result.get('regrets', [])
+    for key in (
+        'overall_mae', 'contested_mae', 'noncontested_mae', 'rank_corr',
+        'mean_sigma', 'contested_sigma', 'flip_set_size', 'decision_correct',
+        'contested_sigma_sum', 'flip_contested_mae', 'diagnostic_rounds',
+    ):
+        if key in result:
+            compact[key] = result[key]
+    return compact
+
+
 def load_results(path: str) -> Any:
     with open(path, 'rb') as f:
         return pickle.load(f)
@@ -114,6 +185,50 @@ def get_quick_params(ablation_config: dict) -> dict:
     cfg['n_rounds'] = min(cfg.get('n_rounds', 2500), 500)
     cfg['n_seeds'] = min(cfg.get('n_seeds', 5), 2)
     return cfg
+
+
+def select_ablation_seeds(config: dict, n_seeds: int, quick: bool = False) -> List[int]:
+    if quick:
+        return list(range(n_seeds))
+    return list(config.get('evaluation_seeds', list(range(n_seeds))))[:n_seeds]
+
+
+def filter_results_for_run(
+    results: Dict[Any, Any],
+    agent_names: List[str],
+    seeds: List[int],
+    n_rounds: Optional[int] = None,
+) -> Dict[Any, Any]:
+    agent_set = set(agent_names)
+    seed_set = set(seeds)
+    filtered = {}
+    for key, value in results.items():
+        if isinstance(key, tuple) and len(key) >= 2:
+            agent_name, seed = key[0], key[-1]
+            if agent_name in agent_set and seed in seed_set:
+                if n_rounds is not None and not result_matches_rounds(value, n_rounds):
+                    continue
+                filtered[key] = value
+    return filtered
+
+
+def result_matches_rounds(result: Any, n_rounds: int) -> bool:
+    if not isinstance(result, dict):
+        return False
+
+    stored_rounds = result.get('n_rounds')
+    if stored_rounds is not None:
+        return int(stored_rounds) == int(n_rounds)
+
+    for key in ('regrets', 'cumulative_regret', 'rewards', 'optimal_rewards'):
+        values = result.get(key)
+        if values is not None:
+            try:
+                return len(values) == int(n_rounds)
+            except TypeError:
+                return False
+
+    return False
 
 
 def make_dataset_config(dataset: str, config: dict, **overrides) -> dict:

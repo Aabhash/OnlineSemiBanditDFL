@@ -9,12 +9,15 @@ sys.path.insert(0, ".")
 
 from experiments.ablations.common import (  # noqa: E402
     get_quick_params,
+    filter_results_for_run,
     load_config,
+    load_results,
     make_dataset_config,
     run_ablation_sweep,
     save_results,
+    select_ablation_seeds,
 )
-from experiments.ablations.exploration_strategy import (  # noqa: E402
+from experiments.ablations.posterior_strategy_ablation import (  # noqa: E402
     STRATEGY_LABELS,
     load_tuned_params,
     resolve_base_hp,
@@ -90,6 +93,11 @@ def main():
     )
     parser.add_argument("--no-plot", action="store_true")
     parser.add_argument("--use-tuned-params", action="store_true")
+    parser.add_argument(
+        "--no-resume",
+        action="store_true",
+        help="Ignore any existing dataset results and recompute from scratch.",
+    )
     parser.add_argument("--tuning-dir", default=None)
     parser.add_argument(
         "--plot-format",
@@ -110,7 +118,7 @@ def main():
     datasets = args.datasets or abl_cfg.get("datasets", ["knapsack_32"])
     n_rounds = abl_cfg["n_rounds"]
     n_seeds = abl_cfg["n_seeds"]
-    seeds = list(range(n_seeds))
+    seeds = select_ablation_seeds(config, n_seeds, quick=args.mode == "quick")
     default_multipliers = args.ts_scale_multipliers or abl_cfg["ts_scale_multipliers"]
     dataset_multipliers = abl_cfg.get("dataset_ts_scale_multipliers", {})
     output_dir = args.output or abl_cfg["output_dir"]
@@ -120,6 +128,7 @@ def main():
     print("\n=== TS-scale sweep ===")
     print(f"Datasets: {datasets}")
     print(f"n_rounds={n_rounds}, n_seeds={n_seeds}")
+    print(f"Seeds: {seeds}")
     print(f"Strategy: {STRATEGY_LABELS['ts']}")
     print(f"Default scale multipliers of tuned beta: {[float(v) for v in default_multipliers]}")
     print(f"Use tuned params: {args.use_tuned_params} (tuning_dir={tuning_dir})")
@@ -130,6 +139,11 @@ def main():
         multipliers = [
             float(v)
             for v in dataset_multipliers.get(dataset, default_multipliers)
+        ]
+        variant_labels = [
+            agent_name(method, multiplier)
+            for multiplier in multipliers
+            for method in ("BayesianSPO", "BayesianMSE")
         ]
         print(f"  scale multipliers: {multipliers}")
         tuned_spo = (
@@ -160,6 +174,19 @@ def main():
             f"{[round(float(mse_hp['beta']) * m, 6) for m in multipliers]}"
         )
 
+        ds_dir = os.path.join(output_dir, dataset)
+        result_path = os.path.join(ds_dir, "results.pkl")
+        existing_results = {}
+        if os.path.exists(result_path) and not args.no_resume:
+            loaded_results = load_results(result_path)
+            existing_results = filter_results_for_run(
+                loaded_results, variant_labels, seeds, n_rounds=n_rounds
+            )
+            print(
+                f"  resuming from {result_path} "
+                f"({len(existing_results)}/{len(loaded_results)} matching entries)"
+            )
+
         results = run_ablation_sweep(
             make_agents_fn=lambda env, seed: make_agents(
                 env, seed, spo_hp, mse_hp, multipliers
@@ -170,10 +197,13 @@ def main():
             n_rounds=n_rounds,
             diagnostics=False,
             output_dir=output_dir,
+            compact=True,
+            keep_trajectory=False,
+            initial_results=existing_results,
+            save_path=result_path,
         )
 
-        ds_dir = os.path.join(output_dir, dataset)
-        save_results(results, os.path.join(ds_dir, "results.pkl"))
+        save_results(results, result_path)
 
     if not args.no_plot:
         from experiments.plot_ablation_results import plot_ts_scale_sweep

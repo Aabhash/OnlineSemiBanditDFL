@@ -12,7 +12,7 @@ plt = importlib.import_module('matplotlib.pyplot') if importlib.util.find_spec('
 
 from experiments.ablations.common import (
     load_config, make_co_solver, make_dataset_config,
-    run_ablation_sweep, save_results, get_quick_params,
+    run_ablation_sweep, save_results, get_quick_params, compact_result,
 )
 from src.agents.contextual import (
     BayesianSPOAgent, BayesianMSEAgent, LinUCBAgent,
@@ -141,7 +141,7 @@ def main():
                 lr=lr, full_feedback=False,
                 diagnostics=True, co_solver=co_solver,
             )
-            all_results[('LinUCB', seed)] = result
+            all_results[('LinUCB', seed)] = compact_result(result, keep_trajectory=False)
             print(f'regret={result["final_regret"]:.0f}', flush=True)
 
                                                   
@@ -156,7 +156,7 @@ def main():
                             lr=lr, full_feedback=False,
                             diagnostics=True, co_solver=co_solver,
                         )
-                        all_results[(agent_name, seed)] = result
+                        all_results[(agent_name, seed)] = compact_result(result, keep_trajectory=False)
                         print(f'regret={result["final_regret"]:.0f}', flush=True)
 
         ds_dir = os.path.join(output_dir, dataset)

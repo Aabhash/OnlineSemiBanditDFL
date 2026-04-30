@@ -147,6 +147,8 @@ def main():
             lr=base_hp['lr'],
             diagnostics=True,
             output_dir=output_dir,
+            compact=True,
+            keep_trajectory=False,
         )
 
         ds_dir = os.path.join(output_dir, dataset)

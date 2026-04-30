@@ -12,7 +12,7 @@ plt = importlib.import_module('matplotlib.pyplot') if importlib.util.find_spec('
 
 from experiments.ablations.common import (
     load_config, make_co_solver, make_dataset_config,
-    save_results, get_quick_params,
+    save_results, get_quick_params, compact_result,
 )
 from src.agents.contextual import BayesianSPOAgent
 from src.agents.base import pregenerate_episode, run_agent_on_episode
@@ -169,7 +169,7 @@ def main():
                     lr=base_hp['lr'], full_feedback=False,
                     diagnostics=True, co_solver=co_solver,
                 )
-                all_results[(agent_name, seed)] = result
+                all_results[(agent_name, seed)] = compact_result(result, keep_trajectory=False)
                 print(f'regret={result["final_regret"]:.0f}', flush=True)
 
         ds_dir = os.path.join(output_dir, dataset)

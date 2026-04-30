@@ -14,7 +14,7 @@ plt = importlib.import_module('matplotlib.pyplot') if importlib.util.find_spec('
 
 from experiments.ablations.common import (
     load_config, make_co_solver, make_dataset_config,
-    save_results, get_quick_params,
+    save_results, get_quick_params, compact_result,
 )
 from src.envs import create_env
 from src.agents.base import pregenerate_episode, run_agent_on_episode
@@ -22,10 +22,22 @@ from src.agents.contextual import BayesianSPOAgent, BayesianMSEAgent
 
 
 def make_fixed_context_episode(episode, n_rounds):
-    ep = copy.deepcopy(episode)
-    fixed_ctx = ep['rounds_data'][0]['context'].copy()
-    for rd in ep['rounds_data'][:n_rounds]:
-        rd['context'] = fixed_ctx.copy()
+    ep = dict(episode)
+    fixed_ctx = episode['rounds_data'][0]['context'].copy()
+    rounds = []
+    for rd in episode['rounds_data'][:n_rounds]:
+        new_rd = {}
+        for key, value in rd.items():
+            if isinstance(value, np.ndarray):
+                new_rd[key] = value.copy()
+            else:
+                try:
+                    new_rd[key] = copy.deepcopy(value)
+                except TypeError:
+                    new_rd[key] = value
+        new_rd['context'] = fixed_ctx.copy()
+        rounds.append(new_rd)
+    ep['rounds_data'] = rounds
     return ep
 
 
@@ -216,17 +228,18 @@ def main():
     config = load_config(args.config)
 
 
-    default_datasets = ['knapsack_32', 'shortest_path_8x8']
+    abl_cfg = config['ablations'].get('flip_set_collapse', {})
+    default_datasets = abl_cfg.get('datasets', ['knapsack_32', 'shortest_path_8x8'])
     datasets = args.datasets or default_datasets
 
-    n_rounds = 2500
-    n_seeds = 5
+    n_rounds = int(abl_cfg.get('n_rounds', 2500))
+    n_seeds = int(abl_cfg.get('n_seeds', 5))
     if args.mode == 'quick':
         n_rounds = 500
         n_seeds = 2
 
     seeds = list(range(n_seeds))
-    output_dir = args.output or 'results/ablations/flip_set'
+    output_dir = args.output or abl_cfg.get('output_dir', 'results/ablations/flip_set')
     lr = config['agent_defaults']['lr']
 
     print(f'\n=== Flip Set Collapse Ablation ===')
@@ -259,7 +272,9 @@ def main():
                         lr=lr, full_feedback=False,
                         diagnostics=True, co_solver=co_solver,
                     )
-                    all_results[(agent_name, regime, ds_name, seed)] = result
+                    all_results[(agent_name, regime, ds_name, seed)] = compact_result(
+                        result, keep_trajectory=True
+                    )
                     fs = result.get('flip_set_size', [])
                     fs_end = fs[-1] if fs else 'N/A'
                     print(f'regret={result["final_regret"]:.0f}, flip_end={fs_end}', flush=True)

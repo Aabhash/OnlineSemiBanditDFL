@@ -102,27 +102,22 @@ uv run python experiments/compute_analysis.py
 | Ablation | Sweeps | Script |
 |----------|--------|--------|
 | k/n ratio | capacity: [4,8,12,16,20,24,28] | `ablations/kn_ratio_sweep.py` |
-| Mechanism ablation | MSE+UCB, SPO+Greedy, SPO+UCB, SPO-unmasked, SPO+DFE, SPO+DI | `ablations/mechanism_ablation.py` |
-| Feature sharing | hidden_dim: [1,4,8,16,32,64] | `ablations/feature_sharing.py` |
-| Flip set collapse | Fixed vs changing context dynamics | `ablations/flip_set_collapse.py` |
+| Masked-imputation dose response | missing-arm gradient weight: [0,0.05,0.1,0.25,0.5,1] for BayesianSPO and BayesianMSE | `ablations/posterior_strategy_ablation.py --preset imputation` |
+| Feature sharing | hidden_dim: [1,4,8,16,32,64] on all five benchmarks | `ablations/feature_sharing.py` |
+| Architecture | Bayesian last-layer vs deterministic jointly trained head | `ablations/architecture_ablation.py` |
+| Decoupling | decoupled BayesianSPO vs coupled deterministic SPO head | `ablations/decoupling_ablation.py` |
 
 ### Appendix / support
 
 | Ablation | Sweeps | Script |
 |----------|--------|--------|
-| Context variation | noise: [0,0.05,0.1,0.25,0.5,1] | `ablations/context_variation.py` |
-| Feature robustness | Perturbation sensitivity | `ablations/feature_robustness.py` |
-| Masking dose-response | missing-arm gradient weight: [0,0.05,0.1,0.25,0.5,1] | `ablations/masking_dose_response.py` |
-| Beta sensitivity | UCB scale around the tuned BayesianSPO value | `ablations/beta_sensitivity.py` |
-| Lambda sensitivity | Bayesian prior precision / regularization sweep | `ablations/lambda_reg_sweep.py` |
-| Imputation samples | M: [1,4,8,12] using final tuned BayesianSPO params | `ablations/imputation_samples.py` |
-
-### Optional deep dives
-
-| Ablation | Sweeps | Script |
-|----------|--------|--------|
-| Exploration strategy | Greedy, UCB, DFE, DI | `ablations/exploration_strategy.py` |
-| Imputation strategy | Masked, unmasked, DI-K | `ablations/imputation_strategy.py` |
+| Context variation | noise: [0,0.05,0.1,0.25,0.5,1] on all five benchmarks | `ablations/context_variation.py` |
+| Feature robustness | Perturbation sensitivity on all five benchmarks | `ablations/feature_robustness.py` |
+| Beta sensitivity | UCB scale around the tuned BayesianSPO value on all five benchmarks | `ablations/beta_sensitivity.py` |
+| Exploration strategy | Greedy, tuned UCB, and TS for tuned BayesianSPO and BayesianMSE on all five benchmarks | `ablations/posterior_strategy_ablation.py --preset exploration` |
+| TS scale sweep | Thompson-sampling scale around each method's tuned UCB beta on all five benchmarks | `ablations/ts_scale_sweep.py` |
+| Lambda sensitivity | Bayesian prior precision / regularization sweep on all five benchmarks | `ablations/lambda_reg_sweep.py` |
+| Imputation samples | M: [1,4,8,12] using final tuned BayesianSPO params on all five benchmarks | `ablations/imputation_samples.py` |
 
 Default ablation workflow:
 

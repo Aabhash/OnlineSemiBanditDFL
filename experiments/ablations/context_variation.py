@@ -12,7 +12,7 @@ plt = importlib.import_module('matplotlib.pyplot') if importlib.util.find_spec('
 
 from experiments.ablations.common import (
     load_config, make_co_solver, make_dataset_config,
-    save_results, get_quick_params,
+    save_results, get_quick_params, compact_result,
 )
 from src.envs import create_env
 from src.agents.base import pregenerate_episode, run_agent_on_episode
@@ -111,6 +111,8 @@ def main():
     parser.add_argument('--config', default='experiments/configs/experiment.yaml')
     parser.add_argument('--mode', choices=['quick', 'full'], default='quick')
     parser.add_argument('--output', default=None)
+    parser.add_argument('--datasets', nargs='+', default=None,
+                        help='Datasets to run (default: config datasets)')
     parser.add_argument('--no-plot', action='store_true', help='Save data only, skip plotting')
     args = parser.parse_args()
 
@@ -121,7 +123,7 @@ def main():
         abl_cfg = get_quick_params(abl_cfg)
         abl_cfg['noise_widths'] = [0.0, 0.25, 1.0]
 
-    dataset = abl_cfg['dataset']
+    datasets = args.datasets or abl_cfg.get('datasets', [abl_cfg.get('dataset', 'knapsack_32')])
     noise_widths = abl_cfg['noise_widths']
     n_rounds = abl_cfg['n_rounds']
     n_seeds = abl_cfg['n_seeds']
@@ -129,37 +131,41 @@ def main():
     output_dir = args.output or abl_cfg['output_dir']
     lr = config['agent_defaults']['lr']
 
-    print(f'\n=== Context Variation: {dataset} ===')
+    print(f'\n=== Context Variation ===')
+    print(f'datasets={datasets}')
     print(f'noise_widths={noise_widths}')
 
-    all_results = {}
+    for dataset in datasets:
+        print(f'\n--- {dataset} ---')
+        all_results = {}
 
-    for nw in noise_widths:
-        print(f'\n  noise_width={nw}:')
+        for nw in noise_widths:
+            print(f'\n  noise_width={nw}:')
 
-        for seed_idx, seed in enumerate(seeds):
-            print(f'    Seed {seed_idx + 1}/{len(seeds)} (seed={seed}):')
+            for seed_idx, seed in enumerate(seeds):
+                print(f'    Seed {seed_idx + 1}/{len(seeds)} (seed={seed}):')
 
-            dc = make_dataset_config(dataset, config, noise_width=nw)
-            env = create_env(dataset, seed=seed, **dc)
-            co_solver = make_co_solver(env)
-            episode = pregenerate_episode(env, n_rounds)
+                dc = make_dataset_config(dataset, config, noise_width=nw)
+                env = create_env(dataset, seed=seed, **dc)
+                co_solver = make_co_solver(env)
+                episode = pregenerate_episode(env, n_rounds)
 
-            agents = make_agents(env, seed, config)
+                agents = make_agents(env, seed, config)
 
-            for agent_name, agent in agents.items():
-                print(f'      {agent_name}...', end=' ', flush=True)
-                result = run_agent_on_episode(
-                    agent, episode, n_rounds,
-                    lr=lr, full_feedback=False,
-                    diagnostics=True, co_solver=co_solver,
-                )
-                all_results[(agent_name, nw, seed)] = result
-                print(f'regret={result["final_regret"]:.0f}', flush=True)
+                for agent_name, agent in agents.items():
+                    print(f'      {agent_name}...', end=' ', flush=True)
+                    result = run_agent_on_episode(
+                        agent, episode, n_rounds,
+                        lr=lr, full_feedback=False,
+                        diagnostics=False, co_solver=co_solver,
+                    )
+                    all_results[(agent_name, nw, seed)] = compact_result(result, keep_trajectory=False)
+                    print(f'regret={result["final_regret"]:.0f}', flush=True)
 
-    save_results(all_results, os.path.join(output_dir, 'results.pkl'))
-    if not args.no_plot:
-        plot_results(all_results, noise_widths, seeds, output_dir)
+        ds_dir = os.path.join(output_dir, dataset)
+        save_results(all_results, os.path.join(ds_dir, 'results.pkl'))
+        if not args.no_plot:
+            plot_results(all_results, noise_widths, seeds, ds_dir)
 
 
 if __name__ == '__main__':

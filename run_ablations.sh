@@ -27,8 +27,10 @@ echo "Figure format: ${ABLATION_FIG_FORMAT}"
 echo "=== Running main-text ablations ==="
 
 uv run python experiments/ablations/kn_ratio_sweep.py --mode "$ABLATION_MODE" --no-plot
-uv run python experiments/ablations/mechanism_ablation.py --mode "$ABLATION_MODE" --no-plot
+uv run python experiments/ablations/posterior_strategy_ablation.py --preset imputation --mode "$ABLATION_MODE" --use-tuned-params --tuning-dir "$ABLATION_TUNING_DIR" --no-plot
 uv run python experiments/ablations/feature_sharing.py --mode "$ABLATION_MODE" --no-plot
+uv run python experiments/ablations/architecture_ablation.py --mode "$ABLATION_MODE" --use-tuned-params --tuning-dir "$ABLATION_TUNING_DIR"
+uv run python experiments/ablations/decoupling_ablation.py --mode "$ABLATION_MODE" --use-tuned-params --tuning-dir "$ABLATION_TUNING_DIR"
 
 # ====================================================================
 # Appendix / supporting ablations
@@ -38,9 +40,8 @@ echo "=== Running appendix ablations ==="
 
 uv run python experiments/ablations/context_variation.py --mode "$ABLATION_MODE" --no-plot
 uv run python experiments/ablations/feature_robustness.py --mode "$ABLATION_MODE"
-uv run python experiments/ablations/masking_dose_response.py --mode "$ABLATION_MODE" --use-tuned-params --tuning-dir "$ABLATION_TUNING_DIR" --no-plot
 uv run python experiments/ablations/beta_sensitivity.py --mode "$ABLATION_MODE" --use-tuned-params --tuning-dir "$ABLATION_TUNING_DIR" --no-plot
-uv run python experiments/ablations/exploration_strategy.py --mode "$ABLATION_MODE" --use-tuned-params --tuning-dir "$ABLATION_TUNING_DIR" --no-plot
+uv run python experiments/ablations/posterior_strategy_ablation.py --preset exploration --mode "$ABLATION_MODE" --use-tuned-params --tuning-dir "$ABLATION_TUNING_DIR" --no-plot
 uv run python experiments/ablations/ts_scale_sweep.py --mode "$ABLATION_MODE" --use-tuned-params --tuning-dir "$ABLATION_TUNING_DIR" --no-plot
 uv run python experiments/ablations/lambda_reg_sweep.py --mode "$ABLATION_MODE" --use-tuned-params --tuning-dir "$ABLATION_TUNING_DIR" --no-plot
 uv run python experiments/ablations/imputation_samples.py --mode "$ABLATION_MODE" --use-tuned-params --tuning-dir "$ABLATION_TUNING_DIR" --no-plot
@@ -50,7 +51,6 @@ uv run python experiments/ablations/imputation_samples.py --mode "$ABLATION_MODE
 # ====================================================================
 
 # uv run python experiments/ablations/flip_set_collapse.py --mode "$ABLATION_MODE" --no-plot
-# uv run python experiments/ablations/imputation_strategy.py
 
 # ====================================================================
 # Render figures from the saved ablation results

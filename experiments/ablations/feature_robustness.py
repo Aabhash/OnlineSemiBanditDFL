@@ -162,6 +162,12 @@ def run_feature_robustness(
             print(f'\n=== Seed {seed} ===')
 
         env = create_env(dataset, seed, **dataset_config)
+        if not hasattr(getattr(env, 'data', None), '_generate_values'):
+            raise ValueError(
+                f"feature_robustness requires env.data._generate_values, which is only "
+                f"defined on KnapsackData. Got dataset={dataset!r}; restrict --datasets "
+                f"to knapsack_* envs."
+            )
         minimize = getattr(env, 'minimize', False)
         solver = env.solve
         relevance, B_density = compute_feature_relevance(env)
@@ -310,6 +316,8 @@ if __name__ == '__main__':
     parser.add_argument('--config', default='experiments/configs/experiment.yaml')
     parser.add_argument('--mode', choices=['quick', 'full'], default='quick')
     parser.add_argument('--dataset', type=str, default=None)
+    parser.add_argument('--datasets', nargs='+', default=None,
+                        help='Datasets to run (default: config datasets)')
     parser.add_argument('--n_rounds', type=int, default=None)
     parser.add_argument('--n_seeds', type=int, default=None)
     parser.add_argument('--eval_interval', type=int, default=None)
@@ -325,13 +333,21 @@ if __name__ == '__main__':
         abl_cfg['eval_interval'] = min(abl_cfg.get('eval_interval', 100), 100)
         abl_cfg['n_test'] = min(abl_cfg.get('n_test', 100), 50)
 
-    run_feature_robustness(
-        dataset=args.dataset or abl_cfg.get('dataset', 'knapsack_32'),
-        n_rounds=args.n_rounds or abl_cfg['n_rounds'],
-        n_seeds=args.n_seeds or abl_cfg['n_seeds'],
-        eval_interval=args.eval_interval or abl_cfg.get('eval_interval', 50),
-        n_test=args.n_test or abl_cfg.get('n_test', 100),
-        noise_scales=tuple(args.noise_scales or abl_cfg.get('noise_scales', [0.5, 1.0, 2.0])),
-        output_dir=args.output_dir or abl_cfg['output_dir'],
-        config_path=args.config,
-    )
+    if args.datasets is not None:
+        datasets = args.datasets
+    elif args.dataset is not None:
+        datasets = [args.dataset]
+    else:
+        datasets = abl_cfg.get('datasets', [abl_cfg.get('dataset', 'knapsack_32')])
+
+    for dataset in datasets:
+        run_feature_robustness(
+            dataset=dataset,
+            n_rounds=args.n_rounds or abl_cfg['n_rounds'],
+            n_seeds=args.n_seeds or abl_cfg['n_seeds'],
+            eval_interval=args.eval_interval or abl_cfg.get('eval_interval', 50),
+            n_test=args.n_test or abl_cfg.get('n_test', 100),
+            noise_scales=tuple(args.noise_scales or abl_cfg.get('noise_scales', [0.5, 1.0, 2.0])),
+            output_dir=args.output_dir or abl_cfg['output_dir'],
+            config_path=args.config,
+        )

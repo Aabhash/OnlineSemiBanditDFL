@@ -12,7 +12,7 @@ plt = importlib.import_module('matplotlib.pyplot') if importlib.util.find_spec('
 
 from experiments.ablations.common import (
     load_config, make_dataset_config, recompute_optimals,
-    save_results, get_quick_params,
+    save_results, get_quick_params, compact_result,
 )
 from src.envs import create_env
 from src.agents.base import pregenerate_episode, run_agent_on_episode
@@ -161,9 +161,9 @@ def main():
                 result = run_agent_on_episode(
                     agent, episode, n_rounds,
                     lr=lr, full_feedback=False,
-                    diagnostics=True, co_solver=co_solver,
+                    diagnostics=False, co_solver=co_solver,
                 )
-                all_results[(agent_name, cap, seed)] = result
+                all_results[(agent_name, cap, seed)] = compact_result(result, keep_trajectory=False)
                 print(f'regret={result["final_regret"]:.0f}', flush=True)
 
     save_results(all_results, os.path.join(output_dir, 'results.pkl'))

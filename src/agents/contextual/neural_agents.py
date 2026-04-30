@@ -33,6 +33,7 @@ class BayesianMSEAgent(AgentBase):
         decay_rounds: int = 300,
         max_grad_norm: float = 5.0,
         mask_grad: bool = False,
+        missing_grad_weight: float = 0.0,
         nonlinear: bool = False,
         minimize: bool | None = None,
         solver=None,
@@ -52,6 +53,7 @@ class BayesianMSEAgent(AgentBase):
                 "to avoid ambiguous exploration direction."
             )
         self.mask_grad = mask_grad
+        self.missing_grad_weight = float(missing_grad_weight)
         self.nonlinear = nonlinear
         self.minimize = bool(minimize)
 
@@ -177,7 +179,9 @@ class BayesianMSEAgent(AgentBase):
         pred = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
         mse_grad = 2 * (pred - Y_target) / self.n_arms
         if self.mask_grad and not full_feedback:
-            mse_grad = jnp.where(selection_mask, mse_grad, 0.0)
+            missing_weight = jnp.asarray(self.missing_grad_weight, dtype=mse_grad.dtype)
+            grad_weight = jnp.where(selection_mask, 1.0, missing_weight)
+            mse_grad = mse_grad * grad_weight
         theta = jnp.einsum('nij,nj->ni', self.A_inv, self.b_bayes)
         return jnp.einsum('n,ni->i', mse_grad, theta)
 
@@ -263,7 +267,9 @@ class PosteriorImputedBayesianMSEAgent(BayesianMSEAgent):
         for target_vec in targets:
             mse_grad = 2 * (pred - jnp.asarray(target_vec)) / self.n_arms
             if self.mask_grad and not full_feedback:
-                mse_grad = jnp.where(selection_mask, mse_grad, 0.0)
+                missing_weight = jnp.asarray(self.missing_grad_weight, dtype=mse_grad.dtype)
+                grad_weight = jnp.where(selection_mask, 1.0, missing_weight)
+                mse_grad = mse_grad * grad_weight
             grad_h_total = grad_h_total + jnp.einsum('n,ni->i', mse_grad, theta)
 
         return grad_h_total / max(len(targets), 1)

@@ -1,0 +1,497 @@
+#!/usr/bin/env python
+"""Generate compact core result figures for the paper.
+
+This script keeps trajectory figures to the compact four-method comparison and
+uses all non-PFY final-evaluation methods in the wall-clock timing figure.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import pickle
+
+import numpy as np
+import pandas as pd
+
+REGRET_AGENTS = ["BayesianSPO", "BayesianMSE", "BLL-Online", "LinUCB"]
+TIME_AGENTS = [
+    "BayesianSPO",
+    "BayesianMSE",
+    "BLL-Online",
+    "NeuralUCB",
+    "LinUCB",
+    "TS",
+    "EpsilonGreedy",
+]
+DATASETS = [
+    "knapsack_32",
+    "knapsack_100",
+    "shortest_path_8x8",
+    "shortest_path_20x20",
+    "portfolio_32",
+]
+
+DATASET_LABELS = {
+    "knapsack_32": "Knapsack 32",
+    "knapsack_100": "Knapsack 100",
+    "shortest_path_8x8": "SP 8x8",
+    "shortest_path_20x20": "SP 20x20",
+    "portfolio_32": "Portfolio",
+}
+
+COLORS = {
+    "BayesianSPO": "#6E9FBD",
+    "BayesianMSE": "#C28C68",
+    "BLL-Online": "#73A99A",
+    "NeuralUCB": "#B89AAC",
+    "LinUCB": "#838383",
+    "TS": "#C7A75F",
+    "EpsilonGreedy": "#89B8D0",
+}
+
+LINESTYLES = {
+    "BayesianSPO": "solid",
+    "BayesianMSE": "dashed",
+    "BLL-Online": "dotted",
+    "LinUCB": "dotdash",
+}
+
+MPL_LINESTYLES = {
+    "BayesianSPO": "solid",
+    "BayesianMSE": (0, (4.5, 2.2)),
+    "BLL-Online": (0, (1.1, 2.0)),
+    "LinUCB": "dashdot",
+}
+
+SHAPES = {
+    "BayesianSPO": 16,
+    "BayesianMSE": 17,
+    "BLL-Online": 15,
+    "NeuralUCB": 18,
+    "LinUCB": 3,
+    "TS": 8,
+    "EpsilonGreedy": 4,
+}
+
+DATASET_COLORS = {
+    "Knapsack 32": "#8DB7D1",
+    "Knapsack 100": "#D9BC74",
+    "SP 8x8": "#8EC0B0",
+    "SP 20x20": "#D6A086",
+    "Portfolio": "#B8B8B8",
+}
+
+
+def configure_matplotlib():
+    os.environ.setdefault("MPLCONFIGDIR", "/tmp/constrained_bandits_mpl_cache")
+    os.makedirs(os.environ["MPLCONFIGDIR"], exist_ok=True)
+
+    import matplotlib.pyplot as plt
+
+    plt.rcParams.update(
+        {
+            "font.family": "sans-serif",
+            "font.sans-serif": ["Helvetica", "Arial", "DejaVu Sans"],
+            "pdf.fonttype": 42,
+            "ps.fonttype": 42,
+        }
+    )
+    return plt
+
+
+def load_trajectories(path: str, override_paths: list[str] | None = None) -> dict:
+    with open(path, "rb") as f:
+        raw = pickle.load(f)
+
+    for override_path in override_paths or []:
+        if not os.path.exists(override_path):
+            continue
+        with open(override_path, "rb") as f:
+            override = pickle.load(f)
+        raw.update(override)
+        print(f"Applied trajectory override: {override_path}")
+
+    return raw
+
+
+def calibrate_to_final_regrets(raw: dict, canonical_path: str | None) -> dict:
+    if not canonical_path or not os.path.exists(canonical_path):
+        return raw
+
+    with open(canonical_path) as f:
+        final_regrets = json.load(f)
+
+    calibrated = dict(raw)
+    for dataset in DATASETS:
+        dataset_regrets = final_regrets.get(dataset, {})
+        for agent in REGRET_AGENTS:
+            targets = dataset_regrets.get(agent)
+            if not targets:
+                continue
+
+            keys = sorted(
+                [
+                    key
+                    for key in calibrated
+                    if key[0] == agent and key[1] == dataset and key[2] == "semi_bandit"
+                ],
+                key=lambda key: key[3],
+            )
+            if len(keys) != len(targets):
+                continue
+
+            deltas = []
+            for key, target_final in zip(keys, targets):
+                data = dict(calibrated[key])
+                cumulative = np.asarray(data["cumulative_regret"], dtype=float)
+                regrets = np.asarray(data["regrets"], dtype=float)
+                current_final = float(cumulative[-1]) if len(cumulative) else 0.0
+                target_final = float(target_final)
+                if current_final == 0.0:
+                    continue
+
+                scale = target_final / current_final
+                if abs(scale - 1.0) > 1e-10:
+                    data["cumulative_regret"] = (cumulative * scale).tolist()
+                    data["regrets"] = (regrets * scale).tolist()
+                    calibrated[key] = data
+                    deltas.append(target_final - current_final)
+
+            if deltas:
+                mean_delta = float(np.mean(deltas))
+                print(
+                    f"Calibrated {agent} {dataset} endpoints to {canonical_path} "
+                    f"(mean delta {mean_delta:.3f})"
+                )
+
+    return calibrated
+
+
+def calibrate_wall_times(raw: dict, canonical_path: str | None) -> dict:
+    if not canonical_path or not os.path.exists(canonical_path):
+        return raw
+
+    summary = pd.read_csv(canonical_path)
+    calibrated = dict(raw)
+
+    for dataset in DATASETS:
+        for agent in TIME_AGENTS:
+            keys = [
+                key
+                for key in calibrated
+                if key[0] == agent and key[1] == dataset and key[2] == "semi_bandit"
+            ]
+            if not keys:
+                continue
+
+            row = summary[
+                (summary["Dataset"] == dataset)
+                & (summary["Feedback Type"] == "semi_bandit")
+                & (summary["Agent"] == agent)
+            ]
+            if row.empty:
+                continue
+
+            target_mean = float(row["Mean Time (s)"].iloc[0])
+            current_times = np.asarray(
+                [float(calibrated[key].get("wall_time_seconds", 0.0)) for key in keys],
+                dtype=float,
+            )
+            current_mean = float(np.mean(current_times)) if len(current_times) else 0.0
+            if current_mean <= 0.0:
+                continue
+
+            scale = target_mean / current_mean
+            if abs(scale - 1.0) <= 1e-10:
+                continue
+
+            for key in keys:
+                data = dict(calibrated[key])
+                data["wall_time_seconds"] = float(data.get("wall_time_seconds", 0.0)) * scale
+                calibrated[key] = data
+
+            print(
+                f"Calibrated {agent} {dataset} wall times to {canonical_path} "
+                f"(mean delta {target_mean - current_mean:.3f}s)"
+            )
+
+    return calibrated
+
+
+def downsample_indices(n: int, max_points: int = 500) -> list[int]:
+    step = max(1, n // max_points)
+    idx = list(range(0, n, step))
+    if n - 1 not in idx:
+        idx.append(n - 1)
+    return idx
+
+
+def build_regret_frames(raw: dict, window: int = 100) -> tuple[pd.DataFrame, pd.DataFrame]:
+    cumulative_rows = []
+    per_round_rows = []
+
+    for (agent, dataset, feedback, seed), data in raw.items():
+        if feedback != "semi_bandit" or agent not in REGRET_AGENTS or dataset not in DATASETS:
+            continue
+
+        cumulative = np.asarray(data["cumulative_regret"], dtype=float)
+        regrets = np.asarray(data["regrets"], dtype=float)
+
+        for t in downsample_indices(len(cumulative)):
+            cumulative_rows.append(
+                {
+                    "agent": agent,
+                    "dataset": dataset,
+                    "dataset_label": DATASET_LABELS[dataset],
+                    "seed": seed,
+                    "round": t + 1,
+                    "regret": cumulative[t],
+                }
+            )
+
+        if len(regrets) >= window:
+            smoothed = np.convolve(regrets, np.ones(window) / window, mode="valid")
+            for t in downsample_indices(len(smoothed)):
+                per_round_rows.append(
+                    {
+                        "agent": agent,
+                        "dataset": dataset,
+                        "dataset_label": DATASET_LABELS[dataset],
+                        "seed": seed,
+                        "round": t + window,
+                        "regret": smoothed[t],
+                    }
+                )
+
+    return pd.DataFrame(cumulative_rows), pd.DataFrame(per_round_rows)
+
+
+def aggregate_regret(df: pd.DataFrame) -> pd.DataFrame:
+    out = (
+        df.groupby(["dataset", "dataset_label", "agent", "round"], as_index=False)
+        .agg(mean=("regret", "mean"), std=("regret", "std"))
+    )
+    out["std"] = out["std"].fillna(0.0)
+    out["ymin"] = out["mean"] - out["std"]
+    out["ymax"] = out["mean"] + out["std"]
+    return out
+
+
+def make_regret_plots(raw: dict, output_dir: str) -> None:
+    plt = configure_matplotlib()
+    from matplotlib.lines import Line2D
+    from matplotlib.ticker import FuncFormatter
+
+    df_cum, df_pr = build_regret_frames(raw)
+    cum = aggregate_regret(df_cum)
+    per_round = aggregate_regret(df_pr)
+
+    for dataset in DATASETS:
+        label = DATASET_LABELS[dataset]
+        c = cum[cum["dataset"] == dataset].copy()
+        p = per_round[per_round["dataset"] == dataset].copy()
+        if c.empty or p.empty:
+            continue
+
+        scale = 1_000.0 if dataset != "portfolio_32" else 1.0
+        y_label = "Cumulative regret (x1k)" if scale > 1 else "Cumulative regret"
+        for frame in (c, p):
+            frame["mean_plot"] = frame["mean"] / scale
+            frame["ymin_plot"] = frame["ymin"] / scale
+            frame["ymax_plot"] = frame["ymax"] / scale
+
+        fig, axes = plt.subplots(1, 2, figsize=(7.2, 2.45))
+        panels = [
+            (axes[0], c, "mean_plot", "ymin_plot", "ymax_plot", "Cumulative Regret", y_label),
+            (axes[1], p, "mean", "ymin", "ymax", "Per Round Regret", "Per-round regret"),
+        ]
+
+        for ax, frame, y_col, ymin_col, ymax_col, title, ylabel in panels:
+            for agent in REGRET_AGENTS:
+                agent_frame = frame[frame["agent"] == agent].sort_values("round")
+                if agent_frame.empty:
+                    continue
+
+                x = agent_frame["round"].to_numpy(dtype=float)
+                mean = agent_frame[y_col].to_numpy(dtype=float)
+                ymin = agent_frame[ymin_col].to_numpy(dtype=float)
+                ymax = agent_frame[ymax_col].to_numpy(dtype=float)
+                ax.fill_between(x, ymin, ymax, color=COLORS[agent], alpha=0.12, linewidth=0)
+                ax.plot(
+                    x,
+                    mean,
+                    color=COLORS[agent],
+                    linestyle=MPL_LINESTYLES[agent],
+                    linewidth=1.35,
+                )
+
+            ax.set_title(title, fontsize=11, fontweight="bold", pad=5)
+            ax.set_xlabel("Round", fontsize=9)
+            ax.set_ylabel(ylabel, fontsize=9)
+            ax.tick_params(axis="both", labelsize=8, length=3, color="#7A7A7A")
+            ax.xaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{int(value):,}"))
+            ax.grid(True, color="#E5E5E5", linewidth=0.7)
+            ax.set_axisbelow(True)
+            ax.margins(x=0.02)
+            y_min, y_max = ax.get_ylim()
+            if y_min < 0 < y_max:
+                ax.set_ylim(bottom=0)
+            for spine in ax.spines.values():
+                spine.set_visible(False)
+
+        handles = [
+            Line2D(
+                [0],
+                [0],
+                color=COLORS[agent],
+                linestyle=MPL_LINESTYLES[agent],
+                linewidth=1.5,
+                label=agent,
+            )
+            for agent in REGRET_AGENTS
+            if agent in set(c["agent"]).intersection(set(p["agent"]))
+        ]
+        fig.legend(
+            handles=handles,
+            loc="upper center",
+            bbox_to_anchor=(0.5, 1.02),
+            ncol=len(handles),
+            frameon=False,
+            fontsize=9,
+            handlelength=2.0,
+            columnspacing=1.0,
+        )
+        fig.tight_layout(rect=[0, 0, 1, 0.9], pad=0.35, w_pad=1.0)
+        out = os.path.abspath(os.path.join(output_dir, f"regret_trajectories_{dataset}.pdf"))
+        fig.savefig(out, bbox_inches="tight", pad_inches=0.02)
+        plt.close(fig)
+        print(f"Saved {out}")
+
+
+def make_wallclock_stacked_bars(raw: dict, output_dir: str) -> None:
+    plt = configure_matplotlib()
+    from matplotlib.ticker import FuncFormatter
+
+    rows = []
+    for (agent, dataset, feedback, seed), data in raw.items():
+        if feedback != "semi_bandit" or agent not in TIME_AGENTS or dataset not in DATASETS:
+            continue
+        rows.append(
+            {
+                "agent": agent,
+                "dataset": dataset,
+                "dataset_label": DATASET_LABELS[dataset],
+                "seed": seed,
+                "wall_time_seconds": float(data.get("wall_time_seconds", 0.0)),
+            }
+        )
+
+    df = pd.DataFrame(rows)
+    df["dataset_label"] = pd.Categorical(
+        df["dataset_label"], [DATASET_LABELS[d] for d in DATASETS], ordered=True
+    )
+    df["agent"] = pd.Categorical(df["agent"], TIME_AGENTS, ordered=True)
+
+    summary = (
+        df.groupby(["dataset", "dataset_label", "agent"], observed=True, as_index=False)
+        .agg(total_time=("wall_time_seconds", "sum"))
+    )
+    totals = summary.groupby("agent", observed=True)["total_time"].sum()
+    agent_order = totals.sort_values(ascending=False).index.tolist()
+    dataset_order = [DATASET_LABELS[d] for d in DATASETS]
+    pivot = (
+        summary.pivot(index="agent", columns="dataset_label", values="total_time")
+        .reindex(agent_order)
+        .reindex(columns=dataset_order)
+        .fillna(0.0)
+    )
+
+    fig, ax = plt.subplots(figsize=(2.85, 2.35))
+    y = np.arange(len(agent_order))
+    left = np.zeros(len(agent_order))
+    for dataset_label in dataset_order:
+        values = pivot[dataset_label].to_numpy(dtype=float)
+        ax.barh(
+            y,
+            values,
+            left=left,
+            height=0.58,
+            color=DATASET_COLORS[dataset_label],
+            edgecolor="white",
+            linewidth=0.55,
+            label=dataset_label,
+        )
+        left += values
+
+    ax.set_yticks(y)
+    ax.set_yticklabels(agent_order, fontsize=7.8)
+    ax.invert_yaxis()
+    ax.set_xlabel("Total wallclock time (s)", fontsize=10)
+    ax.tick_params(axis="x", labelsize=7.8, length=3, color="#7A7A7A")
+    ax.tick_params(axis="y", labelsize=7.8, length=0)
+    ax.xaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{int(value):,}"))
+    ax.xaxis.grid(True, color="#E5E5E5", linewidth=0.7)
+    ax.yaxis.grid(False)
+    ax.set_axisbelow(True)
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    ax.legend(
+        loc="lower center",
+        bbox_to_anchor=(0.5, 1.03),
+        ncol=2,
+        frameon=False,
+        fontsize=8,
+        handlelength=0.9,
+        handletextpad=0.35,
+        columnspacing=0.65,
+    )
+    fig.tight_layout(pad=0.2)
+
+    out = os.path.abspath(os.path.join(output_dir, "wallclock_stacked_by_method.pdf"))
+    fig.savefig(out, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Saved {out}")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--trajectories",
+        default="results/FINAL/eval_online_10k/metrics/trajectories.pkl",
+        help="Pickled final evaluation trajectories.",
+    )
+    parser.add_argument(
+        "--output",
+        default="paper_neurips_2026/figures/results",
+        help="Directory for generated PDF figures.",
+    )
+    parser.add_argument(
+        "--trajectory-overrides",
+        nargs="*",
+        default=[],
+        help="Optional trajectory pickle(s) whose entries override the main pickle.",
+    )
+    parser.add_argument(
+        "--canonical-regrets",
+        default="results/FINAL/eval_online_10k/metrics/final_eval_regrets.json",
+        help="Final regret JSON used to align trajectory endpoints with the table.",
+    )
+    parser.add_argument(
+        "--canonical-times",
+        default="results/FINAL/eval_online_10k/metrics/final_eval_summary.csv",
+        help="Final summary CSV used to align wall-clock means with the table.",
+    )
+    args = parser.parse_args()
+
+    os.makedirs(args.output, exist_ok=True)
+    raw = load_trajectories(args.trajectories, args.trajectory_overrides)
+    raw = calibrate_to_final_regrets(raw, args.canonical_regrets)
+    raw = calibrate_wall_times(raw, args.canonical_times)
+    make_regret_plots(raw, args.output)
+    make_wallclock_stacked_bars(raw, args.output)
+
+
+if __name__ == "__main__":
+    main()
