@@ -14,8 +14,11 @@ from experiments.ablations.common import (  # noqa: E402
     compact_result,
     get_quick_params,
     load_config,
+    make_agent_solver,
     make_dataset_config,
+    result_matches_rounds,
     save_results,
+    select_ablation_seeds,
 )
 from experiments.ablations.posterior_strategy_ablation import (  # noqa: E402
     load_tuned_params,
@@ -76,22 +79,22 @@ class EpsilonGreedyWrapper:
 
 def make_agents(env, seed, spo_hp, defaults, n_rounds, lr_multipliers):
     minimize = getattr(env, "minimize", False)
-    solver = env.solve
     epsilon = float(defaults.get("epsilon", 0.1))
     decay_epsilon = bool(defaults.get("decay_epsilon", True))
 
-    base_common = dict(
-        context_dim=env.context_dim,
-        n_arms=env.n_arms,
-        weights=env.weights,
-        capacity=env.capacity,
-        solver=solver,
-        seed=seed,
-        minimize=minimize,
-    )
+    def base_common():
+        return dict(
+            context_dim=env.context_dim,
+            n_arms=env.n_arms,
+            weights=env.weights,
+            capacity=env.capacity,
+            solver=make_agent_solver(env),
+            seed=seed,
+            minimize=minimize,
+        )
 
     decoupled_ucb = BayesianSPOAgent(
-        **base_common,
+        **base_common(),
         hidden_dim=spo_hp["hidden_dim"],
         lambda_reg=spo_hp["lambda_reg"],
         lr=spo_hp["lr"],
@@ -104,7 +107,7 @@ def make_agents(env, seed, spo_hp, defaults, n_rounds, lr_multipliers):
         noise_var=spo_hp.get("noise_var", 1.0),
     )
     decoupled_greedy = BayesianSPOAgent(
-        **base_common,
+        **base_common(),
         hidden_dim=spo_hp["hidden_dim"],
         lambda_reg=spo_hp["lambda_reg"],
         lr=spo_hp["lr"],
@@ -121,7 +124,7 @@ def make_agents(env, seed, spo_hp, defaults, n_rounds, lr_multipliers):
         "DecoupledSPO-UCB": decoupled_ucb,
         "DecoupledSPO-Eps": EpsilonGreedyWrapper(
             decoupled_greedy,
-            solver=solver,
+            solver=make_agent_solver(env),
             n_arms=env.n_arms,
             epsilon=epsilon,
             decay_epsilon=decay_epsilon,
@@ -133,7 +136,7 @@ def make_agents(env, seed, spo_hp, defaults, n_rounds, lr_multipliers):
     for multiplier in lr_multipliers:
         multiplier = float(multiplier)
         agents[f"CoupledSPO-Eps-x{multiplier:g}"] = DeterministicSPOAgent(
-            **base_common,
+            **base_common(),
             hidden_dim=spo_hp["hidden_dim"],
             lr=spo_hp["lr"] * multiplier,
             epsilon=epsilon,
@@ -150,7 +153,20 @@ def main():
     parser.add_argument("--mode", choices=["quick", "full"], default="quick")
     parser.add_argument("--output", default=None)
     parser.add_argument("--datasets", nargs="+", default=None)
-    parser.add_argument("--use-tuned-params", action="store_true")
+    hp_group = parser.add_mutually_exclusive_group()
+    hp_group.add_argument(
+        "--use-tuned-params",
+        dest="use_tuned_params",
+        action="store_true",
+        default=True,
+        help="Use saved tuned hyperparameters. This is the default.",
+    )
+    hp_group.add_argument(
+        "--use-default-params",
+        dest="use_tuned_params",
+        action="store_false",
+        help="Use config agent_defaults instead of saved tuned hyperparameters.",
+    )
     parser.add_argument("--tuning-dir", default=None)
     parser.add_argument("--keep-trajectory", action="store_true", default=True)
     parser.add_argument("--summary-only", action="store_true")
@@ -158,6 +174,7 @@ def main():
     args = parser.parse_args()
 
     config = load_config(args.config)
+    quick = args.mode == "quick"
     abl_cfg = config["ablations"].get(
         "decoupling_ablation",
         {
@@ -169,13 +186,17 @@ def main():
             "output_dir": "results/ablations/decoupling",
         },
     )
-    if args.mode == "quick":
+    if quick:
         abl_cfg = get_quick_params(abl_cfg)
 
     datasets = args.datasets or abl_cfg["datasets"]
     n_rounds = int(abl_cfg["n_rounds"])
-    seeds = list(range(int(abl_cfg["n_seeds"])))
+    seeds = select_ablation_seeds(config, int(abl_cfg["n_seeds"]), quick=quick)
     lr_multipliers = [float(v) for v in abl_cfg.get("lr_multipliers", [0.5, 1.0, 2.0])]
+    variant_labels = (
+        ["DecoupledSPO-UCB", "DecoupledSPO-Eps"]
+        + [f"CoupledSPO-Eps-x{multiplier:g}" for multiplier in lr_multipliers]
+    )
     output_dir = args.output or abl_cfg["output_dir"]
     tuning_dir = args.tuning_dir or abl_cfg.get("tuning_dir", "results/FINAL/tuning")
     defaults = config["agent_defaults"]
@@ -183,7 +204,7 @@ def main():
 
     print("\n=== Coupled-vs-decoupled ablation ===")
     print(f"Datasets: {datasets}")
-    print(f"n_rounds={n_rounds}, n_seeds={len(seeds)}")
+    print(f"n_rounds={n_rounds}, seeds={seeds}")
     print(f"Coupled lr multipliers: {lr_multipliers}")
     print(f"Use tuned params: {args.use_tuned_params} (tuning_dir={tuning_dir})")
 
@@ -195,7 +216,23 @@ def main():
 
         ds_dir = os.path.join(output_dir, dataset)
         result_path = os.path.join(ds_dir, "results.pkl")
-        results = {} if args.no_resume else load_existing_results(result_path)
+        results = {}
+        if not args.no_resume:
+            loaded_results = load_existing_results(result_path)
+            for key, value in loaded_results.items():
+                if (
+                    isinstance(key, tuple)
+                    and len(key) == 2
+                    and key[0] in variant_labels
+                    and key[1] in seeds
+                    and result_matches_rounds(value, n_rounds)
+                ):
+                    results[key] = value
+            if loaded_results:
+                print(
+                    f"  resuming from {result_path} "
+                    f"({len(results)}/{len(loaded_results)} matching entries)"
+                )
         for seed_idx, seed in enumerate(seeds):
             print(f"  Seed {seed_idx + 1}/{len(seeds)} (seed={seed}):")
             env = create_env(dataset, seed=seed, **dc)

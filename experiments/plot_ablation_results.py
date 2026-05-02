@@ -5,11 +5,16 @@ import argparse
 import json
 import os
 import pickle
-import shutil
-import subprocess
+import re
 import sys
 from pathlib import Path
 
+for _cairo_lib in ("/opt/homebrew/opt/cairo/lib", "/usr/local/opt/cairo/lib"):
+    if (Path(_cairo_lib) / "libcairo.2.dylib").exists():
+        os.environ.setdefault("DYLD_LIBRARY_PATH", _cairo_lib)
+        break
+
+import cairosvg
 import numpy as np
 import pandas as pd
 from lets_plot import (
@@ -18,10 +23,12 @@ from lets_plot import (
     arrow,
     coord_flip,
     element_blank,
+    element_line,
     element_rect,
     element_text,
     facet_grid,
     facet_wrap,
+    geom_blank,
     geom_bar,
     geom_errorbar,
     geom_hline,
@@ -96,6 +103,9 @@ AGENT_SHAPES = {
 
 POINT_SIZE = 6.2
 SMALL_POINT_SIZE = 4.2
+PAPER_FONT = "Avenir Next"
+PAPER_BOLD_WEIGHT = "600"
+PAPER_EMPHASIS_FONT = "Avenir Next Demi Bold"
 
 AGENT_LABELS = {
     "BayesianSPO": "BayesianSPO",
@@ -248,19 +258,43 @@ def _summary(vals):
     return float(vals.mean()), float(vals.std())
 
 
+def _force_svg_font(svg_path: Path) -> None:
+    text = svg_path.read_text()
+    text = text.replace("font-family: sans-serif", f"font-family: {PAPER_FONT}")
+    text = text.replace("font-family: sans", f"font-family: {PAPER_FONT}")
+    text = re.sub(
+        rf"font-weight:\s*bold;\s*font-style:\s*normal;\s*font-family:\s*{re.escape(PAPER_FONT)};",
+        (
+            "font-weight: normal;\n"
+            "font-style: normal;\n"
+            f"font-family: {PAPER_EMPHASIS_FONT};"
+        ),
+        text,
+    )
+    text = text.replace("font-weight: bold", f"font-weight: {PAPER_BOLD_WEIGHT}")
+    text = text.replace("font-weight:bold", f"font-weight:{PAPER_BOLD_WEIGHT}")
+    text = re.sub(
+        rf"font-weight:\s*{re.escape(PAPER_BOLD_WEIGHT)};([^\"<>]*?)font-family:\s*{re.escape(PAPER_FONT)};",
+        rf"font-weight:normal;\1font-family:{PAPER_EMPHASIS_FONT};",
+        text,
+    )
+    svg_path.write_text(text)
+
+
 def _paper_theme(legend_position="top", rotate_x=False):
-    x_text = element_text(size=11.5, color="#444444")
+    x_text = element_text(family=PAPER_FONT, size=11.5, color="#444444")
     if rotate_x:
-        x_text = element_text(size=10.8, color="#444444", angle=25, hjust=1)
+        x_text = element_text(family=PAPER_FONT, size=10.8, color="#444444", angle=25, hjust=1)
     return theme_minimal() + theme(
         legend_position=legend_position,
         legend_title=element_blank(),
-        legend_text=element_text(size=12.0),
-        axis_title=element_text(size=13.0),
+        legend_text=element_text(family=PAPER_FONT, size=12.0, face="bold"),
+        axis_title=element_text(family=PAPER_FONT, size=13.0),
         axis_text_x=x_text,
-        axis_text_y=element_text(size=11.5, color="#444444"),
-        plot_title=element_text(size=14.0, face="bold"),
-        strip_text=element_text(size=12.5, face="bold"),
+        axis_text_y=element_text(family=PAPER_FONT, size=11.5, color="#444444"),
+        plot_title=element_text(family=PAPER_FONT, size=14.0, face="bold"),
+        plot_subtitle=element_text(family=PAPER_FONT, size=12.5, face="bold"),
+        strip_text=element_text(family=PAPER_FONT, size=12.5, face="bold"),
         panel_grid_minor=element_blank(),
     )
 
@@ -325,30 +359,24 @@ def save_plot(plot, output_dir, stem, fmt="pdf", png_width=1800):
     svg_path = output_dir / f"{stem}.svg"
     out_path = output_dir / f"{stem}.{fmt}"
 
-    ggsave(plot, svg_path.name, path=str(output_dir), iframe=False)
-
-    if fmt == "svg":
-        print(f"  Saved {stem}.svg")
-        return
-
-    converter = shutil.which("rsvg-convert")
-    if converter is None:
-        raise RuntimeError(
-            "rsvg-convert is required to convert LetsPlot SVG output; "
-            f"left intermediate SVG at {svg_path}"
-        )
-
-    if fmt == "pdf":
-        subprocess.run([converter, "-f", "pdf", "-o", str(out_path), str(svg_path)], check=True)
-    elif fmt == "png":
-        subprocess.run(
-            [converter, "-f", "png", "-w", str(png_width), "-o", str(out_path), str(svg_path)],
-            check=True,
-        )
-    else:
+    if fmt not in {"pdf", "png", "svg"}:
         raise ValueError(f"Unsupported output format: {fmt}")
 
-    svg_path.unlink(missing_ok=True)
+    if fmt == "pdf":
+        ggsave(plot, svg_path.name, path=str(output_dir), iframe=False)
+        _force_svg_font(svg_path)
+        cairosvg.svg2pdf(url=str(svg_path), write_to=str(out_path))
+        print(f"  Saved {stem}.{fmt}")
+        return
+
+    kwargs = {}
+    if fmt == "png" and png_width:
+        kwargs = {"w": png_width, "unit": "px", "dpi": 96}
+
+    ggsave(plot, out_path.name, path=str(output_dir), iframe=False, **kwargs)
+    if fmt == "svg":
+        _force_svg_font(out_path)
+
     print(f"  Saved {stem}.{fmt}")
 
 
@@ -380,50 +408,189 @@ def plot_kn_ratio(results_dir, output_dir, fmt="pdf"):
         print("  kn_ratio: no data found, skipping")
         return
 
-    caps = sorted(set(cap for _, cap, _ in data.keys()))
-    seeds = sorted(set(seed for _, _, seed in data.keys()))
-    agents = sorted(set(name for name, _, _ in data.keys()))
-    n_items = 32
-    rows = []
-    for name in agents:
-        label = display_label(name)
-        for cap in caps:
-            vals = [
-                data[(name, cap, seed)]["final_regret"]
-                for seed in seeds
-                if (name, cap, seed) in data
-            ]
-            mean, std = _summary(vals)
-            rows.append(
-                {
-                    "agent_label": label,
-                    "ratio": cap / n_items,
-                    "mean": mean,
-                    "ymin": mean - std,
-                    "ymax": mean + std,
-                }
-            )
-    df = pd.DataFrame(rows)
-    labels = ordered_labels(df["agent_label"].unique())
-    df["agent_label"] = _categorical(df["agent_label"], labels)
+    dataset_names = {
+        "knapsack_32": "Knapsack 32",
+        "knapsack_100": "Knapsack 100",
+        "portfolio_32": "Portfolio",
+    }
+    records = []
+    for key, result in data.items():
+        if not isinstance(key, tuple) or not isinstance(result, dict):
+            continue
+        if len(key) == 4:
+            dataset, name, cap, seed = key
+        elif len(key) == 3:
+            name, cap, seed = key
+            dataset = result.get("dataset", "knapsack_32")
+        else:
+            continue
+        if name not in {"BayesianSPO", "BayesianMSE"}:
+            continue
+        default_n_items = 100 if dataset == "knapsack_100" else 32
+        n_items = int(result.get("n_items", default_n_items))
+        selected_count = result.get("selected_count_mean")
+        if selected_count is None or not np.isfinite(float(selected_count)):
+            selected_count = float(cap) if float(cap) <= n_items else np.nan
+        records.append(
+            {
+                "dataset": dataset,
+                "dataset_label": dataset_names.get(dataset, dataset),
+                "agent": name,
+                "agent_label": display_label(name),
+                "capacity": float(cap),
+                "seed": int(seed),
+                "final_regret": float(result["final_regret"]),
+                "regret_scale": 1.0 if dataset == "portfolio_32" else 1000.0,
+                "selected_count_mean": float(selected_count),
+                "selected_fraction_mean": float(selected_count) / float(n_items),
+            }
+        )
+    rec_df = pd.DataFrame(records)
+    if rec_df.empty:
+        print("  kn_ratio: no plottable data, skipping")
+        return
 
-    plot = (
-        ggplot(df, aes("ratio", "mean", color="agent_label", linetype="agent_label"))
-        + geom_line(size=0.8)
-        + geom_point(size=SMALL_POINT_SIZE)
-        + geom_errorbar(aes(ymin="ymin", ymax="ymax"), width=0.018, alpha=0.55)
-        + _color_scale(labels)
-        + _linetype_scale(labels)
-        + scale_x_continuous(breaks=sorted(df["ratio"].unique()))
+    agents = sorted(rec_df["agent"].unique())
+    raw_rows = []
+    for (dataset, label, name, cap), grp in rec_df.groupby(
+        ["dataset_label", "agent_label", "agent", "capacity"]
+    ):
+        vals = grp["final_regret"].to_numpy(dtype=float)
+        if vals.size == 0:
+            continue
+        mean = float(vals.mean())
+        se = float(vals.std(ddof=1) / np.sqrt(vals.size)) if vals.size > 1 else 0.0
+        raw_rows.append(
+            {
+                "dataset_label": dataset,
+                "agent_label": label,
+                "agent": name,
+                "capacity": cap,
+                "selected_count_mean": float(grp["selected_count_mean"].mean()),
+                "selected_fraction_mean": float(grp["selected_fraction_mean"].mean()),
+                "mean": mean,
+                "mean_display": mean / float(grp["regret_scale"].iloc[0]),
+                "ymin_display": max((mean - 1.96 * se) / float(grp["regret_scale"].iloc[0]), 0.0),
+                "ymax_display": (mean + 1.96 * se) / float(grp["regret_scale"].iloc[0]),
+            }
+        )
+    raw_df = pd.DataFrame(raw_rows)
+    if raw_df.empty:
+        print("  kn_ratio: no plottable data, skipping")
+        return
+
+    raw_labels = ordered_labels(raw_df["agent_label"].unique())
+    raw_df["agent_label"] = _categorical(raw_df["agent_label"], raw_labels)
+    dataset_order = ["Knapsack 32", "Knapsack 100", "Portfolio"]
+    present_dataset_order = [label for label in dataset_order if label in set(raw_df["dataset_label"])]
+    raw_df["dataset_label"] = _categorical(raw_df["dataset_label"], present_dataset_order)
+    raw_df = raw_df.sort_values(["dataset_label", "agent_label", "selected_count_mean"]).reset_index(drop=True)
+
+    gain_rows = []
+    if {"BayesianSPO", "BayesianMSE"}.issubset(set(agents)):
+        paired_rows = []
+        for (dataset, cap, seed), grp in rec_df.groupby(["dataset_label", "capacity", "seed"]):
+            by_agent = {row["agent"]: row for _, row in grp.iterrows()}
+            if "BayesianSPO" not in by_agent or "BayesianMSE" not in by_agent:
+                continue
+            mse_regret = float(by_agent["BayesianMSE"]["final_regret"])
+            spo_regret = float(by_agent["BayesianSPO"]["final_regret"])
+            if np.isfinite(mse_regret) and np.isfinite(spo_regret) and mse_regret > 0:
+                paired_rows.append(
+                    {
+                        "dataset_label": dataset,
+                        "capacity": cap,
+                        "seed": seed,
+                        "gain": 100.0 * (mse_regret - spo_regret) / mse_regret,
+                        "selected_count_mean": 0.5 * (
+                            float(by_agent["BayesianSPO"]["selected_count_mean"])
+                            + float(by_agent["BayesianMSE"]["selected_count_mean"])
+                        ),
+                        "selected_fraction_mean": 0.5 * (
+                            float(by_agent["BayesianSPO"]["selected_fraction_mean"])
+                            + float(by_agent["BayesianMSE"]["selected_fraction_mean"])
+                        ),
+                    }
+                )
+        paired_df = pd.DataFrame(paired_rows)
+        for (dataset, cap), grp in paired_df.groupby(["dataset_label", "capacity"]):
+            gains = grp["gain"].to_numpy(dtype=float)
+            if gains.size:
+                mean = float(gains.mean())
+                se = float(gains.std(ddof=1) / np.sqrt(gains.size)) if gains.size > 1 else 0.0
+                gain_rows.append(
+                    {
+                        "dataset_label": dataset,
+                        "capacity": cap,
+                        "selected_count_mean": float(grp["selected_count_mean"].mean()),
+                        "selected_fraction_mean": float(grp["selected_fraction_mean"].mean()),
+                        "mean": mean,
+                        "ymin": mean - 1.96 * se,
+                        "ymax": mean + 1.96 * se,
+                    }
+                )
+    gain_df = pd.DataFrame(gain_rows)
+    if not gain_df.empty:
+        gain_df["dataset_label"] = _categorical(gain_df["dataset_label"], present_dataset_order)
+        gain_df = gain_df.sort_values(["dataset_label", "selected_count_mean"]).reset_index(drop=True)
+
+    raw_plot = (
+        ggplot(raw_df, aes("selected_count_mean", "mean_display", color="agent_label", linetype="agent_label"))
+        + geom_line(size=0.95)
+        + geom_point(size=3.2)
+        + geom_errorbar(aes(ymin="ymin_display", ymax="ymax_display"), width=0.0, alpha=0.58, size=0.45)
+        + facet_wrap("dataset_label", ncol=3, scales="free", order=0)
+        + _color_scale(raw_labels)
+        + _linetype_scale(raw_labels)
         + labs(
-            title="Observation-rate sweep",
-            x="Capacity ratio k/n",
-            y="Final cumulative regret",
+            x="",
+            y="Final Cumulative Regret",
+            color="",
+            linetype="",
         )
         + _paper_theme()
-        + ggsize(680, 390)
+        + theme(
+            legend_position="top",
+            legend_text=element_text(family=PAPER_FONT, size=13.2, face="bold"),
+            axis_title=element_text(size=14.0),
+            axis_text_x=element_text(size=12.0, color="#444444"),
+            axis_text_y=element_text(size=12.0, color="#444444"),
+            axis_line_x=element_line(color="#7a7a7a", size=0.35),
+            axis_ticks_x=element_line(color="#7a7a7a", size=0.35),
+            axis_ticks_length_x=4,
+            panel_grid_minor=element_blank(),
+            plot_margin=[4, 8, 0, 54],
+        )
     )
-    save_plot(plot, output_dir, "kn_ratio_sweep", fmt)
+    if not gain_df.empty:
+        gain_plot = (
+            ggplot(gain_df, aes("selected_count_mean", "mean"))
+            + geom_hline(yintercept=0.0, linetype="dashed", color="#555555", size=0.55)
+            + geom_ribbon(aes(ymin="ymin", ymax="ymax"), fill=PAPER_COLORS["BayesianSPO"], alpha=0.16)
+            + geom_line(color=PAPER_COLORS["BayesianSPO"], size=1.05)
+            + geom_point(color="#222222", size=3.7)
+            + geom_point(color=PAPER_COLORS["BayesianSPO"], size=2.9)
+            + facet_wrap("dataset_label", ncol=3, scales="free_x", order=0)
+            + labs(
+                x="Capacity/cardinality sweep (empirical selected components per round)",
+                y="Regret gap vs\nBayesianSPO (%)",
+            )
+            + _paper_theme(legend_position="none")
+            + theme(
+                axis_title=element_text(size=14.0),
+                axis_text_x=element_text(size=12.0, color="#444444"),
+                axis_text_y=element_text(size=12.0, color="#444444"),
+                axis_line_x=element_line(color="#7a7a7a", size=0.35),
+                axis_ticks_x=element_line(color="#7a7a7a", size=0.35),
+                axis_ticks_length_x=4,
+                panel_grid_minor=element_blank(),
+                plot_margin=[0, 8, 8, 54],
+            )
+        )
+        plot = gggrid([raw_plot, gain_plot], ncol=1, align=True, heights=[0.52, 0.48]) + ggsize(1080, 560)
+    else:
+        plot = raw_plot + ggsize(1080, 340)
+    save_plot(plot, output_dir, "kn_ratio_sweep", fmt, png_width=1800)
 
 
 def _bar_plot_from_final(data, title, stem, output_dir, fmt):
@@ -616,12 +783,12 @@ def plot_exploration_relative(results_dir, output_dir, fmt="pdf"):
             )
         cap_df = pd.DataFrame(cap_rows)
         arrow_df, label_df = _baseline_callout_frames(
-            "UCB baseline", x_limits, y=0.27, yend=0.60
+            f"{method} Baseline - UCB", x_limits, y=0.27, yend=0.60
         )
         plot_theme = _paper_theme(legend_position="top" if show_legend else "none")
         plot_theme += theme(panel_border=element_rect(color="#c7c7c7", fill="transparent", size=0.45))
         if show_legend:
-            plot_theme += theme(legend_title=element_text(size=12.0, face="bold"))
+            plot_theme += theme(legend_title=element_text(family=PAPER_FONT, size=12.0, face="bold"))
         return (
             ggplot(method_df)
             + geom_rect(
@@ -661,7 +828,7 @@ def plot_exploration_relative(results_dir, output_dir, fmt="pdf"):
                 data=label_df,
                 inherit_aes=False,
                 color="#222222",
-                fontface="bold",
+                family=PAPER_FONT,
                 size=4.5,
                 hjust=0.0,
             )
@@ -756,7 +923,7 @@ def _append_ablation_pair(rows, data, dataset, check, tuned_regret, ablation_age
     )
 
 
-def plot_ablation_design_summary(results_dir, output_dir, fmt="pdf"):
+def _plot_mixed_ablation_design_summary(results_dir, output_dir, fmt="pdf"):
     dataset_names = _dataset_label_map()
     canonical_regrets = _load_canonical_bayesian_spo_regrets(dataset_names)
     rows = []
@@ -912,6 +1079,7 @@ def plot_ablation_design_summary(results_dir, output_dir, fmt="pdf"):
     point_df["facet"] = _categorical(point_df["facet"], facet_order)
     point_df["kind"] = _categorical(point_df["kind"], ["Tuned BayesianSPO", "Ablation"])
     pad_rows = []
+    linear_pad_rows = []
     for facet, facet_df in df.groupby("facet", observed=True):
         lower = float(facet_df["xmin"].min())
         upper = float(facet_df["xmax"].max())
@@ -919,12 +1087,21 @@ def plot_ablation_design_summary(results_dir, output_dir, fmt="pdf"):
             pad_rows.extend(
                 [
                     {"facet": facet, "regret": lower / 1.25, "ypos": 1.0},
-                    {"facet": facet, "regret": upper * 1.25, "ypos": 1.0},
+                    {"facet": facet, "regret": upper * 1.12, "ypos": 1.0},
+                ]
+            )
+            linear_pad_rows.extend(
+                [
+                    {"facet": facet, "regret": -upper * 0.04, "ypos": 1.0},
+                    {"facet": facet, "regret": upper * 1.03, "ypos": 1.0},
                 ]
             )
     pad_df = pd.DataFrame(pad_rows, columns=["facet", "regret", "ypos"])
     if not pad_df.empty:
         pad_df["facet"] = _categorical(pad_df["facet"], facet_order)
+    linear_pad_df = pd.DataFrame(linear_pad_rows, columns=["facet", "regret", "ypos"])
+    if not linear_pad_df.empty:
+        linear_pad_df["facet"] = _categorical(linear_pad_df["facet"], facet_order)
 
     point_colors = {
         "Tuned BayesianSPO": PAPER_COLORS["BayesianSPO"],
@@ -954,7 +1131,8 @@ def plot_ablation_design_summary(results_dir, output_dir, fmt="pdf"):
             color="#9a9a9a",
             size=0.8,
         )
-        + geom_point(aes(color="kind"), size=POINT_SIZE)
+        + geom_point(aes(color="kind"), shape=16, size=POINT_SIZE)
+        + geom_point(color="#111111", shape=1, stroke=1.25, size=POINT_SIZE + 0.2)
         + geom_point(
             aes("regret", "ypos"),
             data=pad_df,
@@ -979,12 +1157,272 @@ def plot_ablation_design_summary(results_dir, output_dir, fmt="pdf"):
         + _paper_theme(legend_position="top")
         + theme(
             axis_text_y=element_text(size=11.2, color="#444444"),
-            strip_text=element_text(size=12.0, face="bold"),
+            strip_text=element_text(family=PAPER_FONT, size=12.0, face="bold"),
             plot_margin=[8, 10, 36, 10],
         )
         + ggsize(980, 700)
     )
     save_plot(plot, output_dir, "ablation_design_summary", fmt, png_width=2200)
+
+
+def plot_ablation_design_summary(results_dir, output_dir, fmt="pdf"):
+    dataset_names = _dataset_label_map()
+    dataset_order = [
+        label
+        for key, label in dataset_names.items()
+        if key != "."
+    ]
+    rows = []
+
+    def append_final_method_rows(data, dataset, check, ablation_agent, baseline_agent):
+        paired_baseline = []
+        paired_ablation = []
+        seeds = sorted(
+            {
+                seed
+                for name, seed in data.keys()
+                if name in {baseline_agent, ablation_agent}
+            }
+        )
+        for seed in seeds:
+            baseline_key = (baseline_agent, seed)
+            ablation_key = (ablation_agent, seed)
+            if baseline_key not in data or ablation_key not in data:
+                continue
+            baseline_regret = float(data[baseline_key]["final_regret"])
+            ablation_regret = float(data[ablation_key]["final_regret"])
+            if not np.isfinite(baseline_regret) or not np.isfinite(ablation_regret):
+                continue
+            if baseline_regret <= 0 or ablation_regret <= 0:
+                continue
+            paired_baseline.append(baseline_regret)
+            paired_ablation.append(ablation_regret)
+        if not paired_baseline:
+            return
+        rows.append(
+            {
+                "dataset": dataset,
+                "check": check,
+                "baseline_regret": float(np.mean(paired_baseline)),
+                "ablation_regret": float(np.mean(paired_ablation)),
+            }
+        )
+
+    architecture_dir = resolve_ablation_dir(results_dir, "architecture")
+    for dataset_name, data_path in list_result_entries(architecture_dir):
+        data = load_pkl(data_path)
+        if data is None:
+            continue
+        dataset = dataset_names.get(dataset_name, dataset_name)
+        append_final_method_rows(
+            data,
+            dataset,
+            "Non-Bayesian head SPO",
+            "DeterministicSPO",
+            "BayesianSPO",
+        )
+
+    decoupling_dir = resolve_ablation_dir(results_dir, "decoupling")
+    for dataset_name, data_path in list_result_entries(decoupling_dir):
+        data = load_pkl(data_path)
+        if data is None:
+            continue
+        dataset = dataset_names.get(dataset_name, dataset_name)
+        append_final_method_rows(
+            data,
+            dataset,
+            "Coupled head SPO (0.5x lr)",
+            "CoupledSPO-Eps-x0.5",
+            "DecoupledSPO-UCB",
+        )
+        append_final_method_rows(
+            data,
+            dataset,
+            "Coupled head SPO (1x lr)",
+            "CoupledSPO-Eps-x1",
+            "DecoupledSPO-UCB",
+        )
+        append_final_method_rows(
+            data,
+            dataset,
+            "Coupled head SPO (2x lr)",
+            "CoupledSPO-Eps-x2",
+            "DecoupledSPO-UCB",
+        )
+
+    df = pd.DataFrame(rows)
+    if df.empty:
+        print("  ablation design summary: no plottable data found, skipping")
+        return
+
+    check_order = [
+        "Non-Bayesian head SPO",
+        "Coupled head SPO (0.5x lr)",
+        "Coupled head SPO (1x lr)",
+        "Coupled head SPO (2x lr)",
+    ]
+    check_positions = {check: len(check_order) - idx for idx, check in enumerate(check_order)}
+    present_datasets = [
+        dataset
+        for dataset in dataset_order
+        if dataset in set(df["dataset"].unique())
+    ]
+    portfolio_label = dataset_names.get("portfolio_32", "Portfolio")
+    df["dataset"] = _categorical(df["dataset"], present_datasets)
+    df["check"] = _categorical(df["check"], check_order)
+    df["ypos"] = df["check"].astype(str).map(check_positions)
+    df["axis_unit"] = np.where(df["dataset"].astype(str) == portfolio_label, "raw", "K")
+    df["facet"] = df["dataset"].astype(str)
+    facet_order = present_datasets
+    df["facet"] = _categorical(df["facet"], facet_order)
+    for col in ["baseline_regret", "ablation_regret"]:
+        df[f"{col}_axis"] = np.where(df["axis_unit"] == "raw", df[col], df[col] / 1000.0)
+    df["xmin"] = np.minimum(df["baseline_regret_axis"], df["ablation_regret_axis"])
+    df["xmax"] = np.maximum(df["baseline_regret_axis"], df["ablation_regret_axis"])
+
+    point_rows = []
+    for row in df.itertuples(index=False):
+        point_rows.append(
+            {
+                "facet": row.facet,
+                "check": row.check,
+                "kind": "Tuned BayesianSPO",
+                "regret": row.baseline_regret_axis,
+                "ypos": row.ypos,
+            }
+        )
+        point_rows.append(
+            {
+                "facet": row.facet,
+                "check": row.check,
+                "kind": "Ablation",
+                "regret": row.ablation_regret_axis,
+                "ypos": row.ypos,
+            }
+        )
+    point_df = pd.DataFrame(point_rows)
+    point_df["facet"] = _categorical(point_df["facet"], facet_order)
+    point_df["kind"] = _categorical(point_df["kind"], ["Tuned BayesianSPO", "Ablation"])
+
+    pad_rows = []
+    linear_pad_rows = []
+    for facet, facet_df in df.groupby("facet", observed=True):
+        lower = float(facet_df["xmin"].min())
+        upper = float(facet_df["xmax"].max())
+        if np.isfinite(lower) and np.isfinite(upper) and lower > 0 and upper > 0:
+            pad_rows.extend(
+                [
+                    {"facet": facet, "regret": lower / 1.25, "ypos": 1.0},
+                    {"facet": facet, "regret": upper * 1.03, "ypos": 1.0},
+                ]
+            )
+            linear_pad_rows.extend(
+                [
+                    {"facet": facet, "regret": -upper * 0.04, "ypos": 1.0},
+                    {"facet": facet, "regret": upper * 1.03, "ypos": 1.0},
+                ]
+            )
+    pad_df = pd.DataFrame(pad_rows, columns=["facet", "regret", "ypos"])
+    if not pad_df.empty:
+        pad_df["facet"] = _categorical(pad_df["facet"], facet_order)
+    linear_pad_df = pd.DataFrame(linear_pad_rows, columns=["facet", "regret", "ypos"])
+    if not linear_pad_df.empty:
+        linear_pad_df["facet"] = _categorical(linear_pad_df["facet"], facet_order)
+
+    point_colors = {
+        "Tuned BayesianSPO": PAPER_COLORS["BayesianSPO"],
+        "Ablation": PAPER_COLORS["BayesianMSE"],
+    }
+    x_values = pd.concat([df["baseline_regret_axis"], df["ablation_regret_axis"]], ignore_index=True)
+    x_values = x_values[np.isfinite(x_values) & (x_values > 0)]
+    x_breaks = []
+    if not x_values.empty:
+        min_exp = int(np.floor(np.log10(x_values.min())))
+        max_exp = int(np.ceil(np.log10(x_values.max())))
+        x_breaks = [
+            float(mult * (10 ** exp))
+            for exp in range(min_exp, max_exp + 1)
+            for mult in [1, 2, 5]
+            if x_values.min() * 0.8 <= mult * (10 ** exp) <= x_values.max() * 1.05
+        ]
+        if x_values.max() < 1250:
+            x_breaks = [break_value for break_value in x_breaks if break_value < 1000]
+
+    def make_design_plot(log_scale=True):
+        scale_pad_df = pad_df if log_scale else linear_pad_df
+        x_scale = (
+            scale_x_log10(breaks=x_breaks, expand=[0.04, 0.0])
+            if log_scale
+            else scale_x_continuous(expand=[0.02, 0.0])
+        )
+        x_label = (
+            "Final cumulative regret (log scale; Portfolio raw, others K)"
+            if log_scale
+            else "Final cumulative regret (Portfolio raw, others K)"
+        )
+        return (
+            ggplot(point_df, aes("regret", "ypos"))
+            + geom_segment(
+                aes(x="xmin", xend="xmax", y="ypos", yend="ypos"),
+                data=df,
+                inherit_aes=False,
+                color="#9a9a9a",
+                size=0.8,
+                lineend="butt",
+            )
+            + geom_point(color="#111111", shape=16, size=5.2)
+            + geom_point(aes(color="kind"), shape=16, size=4.0)
+            + geom_blank(
+                aes("regret", "ypos"),
+                data=scale_pad_df,
+                inherit_aes=False,
+            )
+            + facet_wrap("facet", ncol=3, scales="free_x")
+            + scale_color_manual(values=point_colors)
+            + x_scale
+            + scale_y_continuous(
+                breaks=[check_positions[check] for check in check_order],
+                labels=check_order,
+                limits=[0.5, len(check_order) + 0.5],
+            )
+            + labs(
+                x=x_label,
+                y="",
+                color="",
+            )
+            + _paper_theme(legend_position="top")
+            + theme(
+                legend_background=element_rect(fill="#f7f7f7", color="#d0d0d0", size=0.6),
+                legend_justification="center",
+                legend_box_just="center",
+                legend_text=element_text(family=PAPER_FONT, size=16.0, face="bold"),
+                axis_title_x=element_text(size=15.0),
+                axis_text_x=element_text(family=PAPER_FONT, size=13.0, color="#3d3d3d"),
+                axis_text_spacing_x=2,
+                axis_text_y=element_text(family=PAPER_FONT, size=11.2, color="#444444"),
+                axis_ticks_x=element_line(color="#8f8f8f", size=0.45),
+                axis_minor_ticks_x=element_line(color="#cfcfcf", size=0.30),
+                axis_ticks_length_x=5,
+                axis_minor_ticks_length_x=3,
+                strip_text=element_text(family=PAPER_FONT, size=12.6, face="bold"),
+                panel_grid_major_x=element_line(color="#e5e5e5", size=0.45),
+                panel_grid_major_y=element_blank(),
+                panel_grid_minor_x=element_line(color="#f0f0f0", size=0.30),
+                panel_grid_minor_y=element_blank(),
+                panel_spacing_x=2.15,
+                panel_spacing_y=0.80,
+                plot_title=element_blank(),
+                plot_margin=[4, 10, 28, 10],
+            )
+            + ggsize(980, 500)
+        )
+
+    log_plot = make_design_plot(log_scale=True)
+    linear_plot = make_design_plot(log_scale=False)
+    save_plot(log_plot, output_dir, "ablation_design_summary", fmt, png_width=2200)
+    save_plot(log_plot, output_dir, "architecture_design_summary", fmt, png_width=2200)
+    save_plot(linear_plot, output_dir, "ablation_design_summary_linear", fmt, png_width=2200)
+    save_plot(linear_plot, output_dir, "architecture_design_summary_linear", fmt, png_width=2200)
 
 
 def _dataset_label_map():
@@ -1088,16 +1526,16 @@ def plot_architecture(results_dir, output_dir, fmt="pdf"):
     comparisons = [
         {
             "agent": "DeterministicSPO",
-            "agent_label": "GreedySPO",
+            "agent_label": "Non-Bayesian head SPO",
             "baseline": "BayesianSPO",
-            "panel_title": "GreedySPO vs BayesianSPO",
+            "panel_title": "Non-Bayesian head SPO vs BayesianSPO",
             "axis_label": "Regret increase vs BayesianSPO (%)",
         },
         {
             "agent": "DeterministicMSE",
-            "agent_label": "GreedyMSE",
+            "agent_label": "Non-Bayesian head MSE",
             "baseline": "BayesianMSE",
-            "panel_title": "GreedyMSE vs BayesianMSE",
+            "panel_title": "Non-Bayesian head MSE vs BayesianMSE",
             "axis_label": "Regret increase vs BayesianMSE (%)",
         },
     ]
@@ -1138,12 +1576,12 @@ def plot_architecture(results_dir, output_dir, fmt="pdf"):
         for key, label in dataset_names.items()
         if label in set(df["dataset"].unique())
     ]
-    method_order = ["GreedySPO", "GreedyMSE"]
+    method_order = ["Non-Bayesian head SPO", "Non-Bayesian head MSE"]
     df["dataset"] = _categorical(df["dataset"], dataset_order)
     df["agent_label"] = _categorical(df["agent_label"], method_order)
     architecture_colors = {
-        label: AGENT_COLORS.get(label, "#555555")
-        for label in method_order
+        "Non-Bayesian head SPO": AGENT_COLORS["GreedySPO"],
+        "Non-Bayesian head MSE": AGENT_COLORS["GreedyMSE"],
     }
     architecture_x_limits = {}
     for agent_label in method_order:
@@ -1156,8 +1594,8 @@ def plot_architecture(results_dir, output_dir, fmt="pdf"):
             upper + 0.06 * span,
         ]
     baseline_labels = {
-        "GreedySPO": "BayesianSPO baseline",
-        "GreedyMSE": "BayesianMSE baseline",
+        "Non-Bayesian head SPO": "BayesianSPO baseline",
+        "Non-Bayesian head MSE": "BayesianMSE baseline",
     }
     dataset_positions = {dataset: idx + 1 for idx, dataset in enumerate(dataset_order)}
 
@@ -1234,7 +1672,7 @@ def plot_architecture(results_dir, output_dir, fmt="pdf"):
                 data=label_df,
                 inherit_aes=False,
                 color="#222222",
-                fontface="bold",
+                family=PAPER_FONT,
                 size=4.5,
                 hjust=0.0,
             )
@@ -1258,9 +1696,9 @@ def plot_architecture(results_dir, output_dir, fmt="pdf"):
     bar_plot = (
         gggrid(
             [
-                architecture_panel("GreedySPO"),
+                architecture_panel("Non-Bayesian head SPO"),
                 _separator_plot(),
-                architecture_panel("GreedyMSE"),
+                architecture_panel("Non-Bayesian head MSE"),
             ],
             ncol=1,
             align=True,
@@ -1275,7 +1713,11 @@ def plot_architecture(results_dir, output_dir, fmt="pdf"):
 
 def _decoupling_label(name):
     if name.startswith("CoupledSPO-Eps-x"):
-        return "CoupledSPO\nx" + name.rsplit("x", 1)[-1]
+        return "Coupled x" + name.rsplit("x", 1)[-1]
+    if name == "DecoupledSPO-Eps":
+        return "Decoupled Eps"
+    if name == "DecoupledSPO-UCB":
+        return "Decoupled UCB"
     return display_label(name)
 
 
@@ -1285,14 +1727,174 @@ def plot_decoupling(results_dir, output_dir, fmt="pdf"):
     if not entries:
         print("  decoupling: no data found, skipping")
         return
-    df = _comparison_frame(entries, label_fn=_decoupling_label)
-    _faceted_method_bars(
-        df,
-        "Coupled vs. decoupled SPO training",
-        "decoupling_ablation",
-        output_dir,
-        fmt,
+
+    dataset_names = _dataset_label_map()
+    variant_order = ["Decoupled Eps", "Coupled x0.5", "Coupled x1", "Coupled x2"]
+    rows = []
+    for dataset_name, data_path in entries:
+        data = load_pkl(data_path)
+        if data is None:
+            continue
+        dataset = dataset_names.get(dataset_name, dataset_name)
+        seeds = sorted({seed for _name, seed in data.keys()})
+        for raw_name in [
+            "DecoupledSPO-Eps",
+            "CoupledSPO-Eps-x0.5",
+            "CoupledSPO-Eps-x1",
+            "CoupledSPO-Eps-x2",
+        ]:
+            ratios = []
+            for seed in seeds:
+                base_key = ("DecoupledSPO-UCB", seed)
+                key = (raw_name, seed)
+                if base_key not in data or key not in data:
+                    continue
+                base_regret = float(data[base_key]["final_regret"])
+                if not np.isfinite(base_regret) or base_regret <= 0:
+                    continue
+                ratios.append(float(data[key]["final_regret"]) / base_regret)
+            mean, std = _summary(ratios)
+            if np.isfinite(mean):
+                rows.append(
+                    {
+                        "dataset": dataset,
+                        "variant": _decoupling_label(raw_name),
+                        "mean": mean,
+                        "ymin": max(mean - std, 0.05),
+                        "ymax": mean + std,
+                    }
+                )
+
+    df = pd.DataFrame(rows)
+    if df.empty:
+        print("  decoupling: no plottable data found, skipping")
+        return
+
+    dataset_order = [
+        label
+        for key, label in dataset_names.items()
+        if label in set(df["dataset"].unique())
+    ]
+    df["dataset"] = _categorical(df["dataset"], dataset_order)
+    df["variant"] = _categorical(df["variant"], variant_order)
+    df["log_mean"] = np.log10(df["mean"].clip(lower=0.05))
+    df["log_ymin"] = np.log10(df["ymin"].clip(lower=0.05))
+    df["log_ymax"] = np.log10(df["ymax"].clip(lower=0.05))
+
+    dataset_positions = {dataset: idx + 1 for idx, dataset in enumerate(dataset_order)}
+    variant_offsets = {
+        "Decoupled Eps": -0.27,
+        "Coupled x0.5": -0.09,
+        "Coupled x1": 0.09,
+        "Coupled x2": 0.27,
+    }
+    df["dataset_pos"] = df["dataset"].astype(str).map(dataset_positions)
+    df["variant_offset"] = df["variant"].astype(str).map(variant_offsets)
+    df["ypos"] = df["dataset_pos"] + df["variant_offset"]
+    df["bar_ymin"] = df["ypos"] - 0.075
+    df["bar_ymax"] = df["ypos"] + 0.075
+    df["xmin"] = np.minimum(0.0, df["log_mean"])
+    df["xmax"] = np.maximum(0.0, df["log_mean"])
+
+    cap_rows = []
+    for row in df.itertuples(index=False):
+        cap_rows.extend(
+            [
+                {
+                    "x": row.log_ymin,
+                    "xend": row.log_ymin,
+                    "y": row.ypos - 0.045,
+                    "yend": row.ypos + 0.045,
+                },
+                {
+                    "x": row.log_ymax,
+                    "xend": row.log_ymax,
+                    "y": row.ypos - 0.045,
+                    "yend": row.ypos + 0.045,
+                },
+            ]
+        )
+    cap_df = pd.DataFrame(cap_rows)
+    max_log = max(np.log10(10.0), float(df["log_ymax"].max()) + 0.04)
+    x_limits = [-0.06, max_log]
+    arrow_df, label_df = _baseline_callout_frames(
+        "Decoupled UCB baseline", x_limits, y=0.28, yend=0.58
     )
+    variant_colors = {
+        "Decoupled Eps": OKABE_ITO["sky"],
+        "Coupled x0.5": PAPER_COLORS["BayesianMSE"],
+        "Coupled x1": PAPER_COLORS["GreedyMSE"],
+        "Coupled x2": PAPER_COLORS["GreedySPO"],
+    }
+    plot = (
+        ggplot(df)
+        + geom_rect(
+            aes(
+                xmin="xmin",
+                xmax="xmax",
+                ymin="bar_ymin",
+                ymax="bar_ymax",
+                fill="variant",
+            ),
+            alpha=0.78,
+            color="#ffffff",
+            size=0.25,
+        )
+        + geom_segment(
+            aes(x="log_ymin", xend="log_ymax", y="ypos", yend="ypos"),
+            color="#555555",
+            size=0.52,
+        )
+        + geom_segment(
+            aes(x="x", xend="xend", y="y", yend="yend"),
+            data=cap_df,
+            color="#555555",
+            size=0.52,
+        )
+        + geom_vline(xintercept=0, linetype="solid", color="#222222", size=1.0)
+        + geom_segment(
+            aes("x", "y", xend="xend", yend="yend"),
+            data=arrow_df,
+            inherit_aes=False,
+            arrow=arrow(length=5, type="closed"),
+            color="#222222",
+            size=0.45,
+        )
+        + geom_text(
+            aes("x", "y", label="label"),
+            data=label_df,
+            inherit_aes=False,
+            color="#222222",
+            family=PAPER_FONT,
+            size=4.5,
+            hjust=0.0,
+        )
+        + scale_fill_manual(values=variant_colors)
+        + scale_x_continuous(
+            limits=x_limits,
+            breaks=[0.0, np.log10(2.0), np.log10(5.0), np.log10(10.0)],
+            labels=["1", "2", "5", "10"],
+        )
+        + scale_y_continuous(
+            breaks=[dataset_positions[dataset] for dataset in dataset_order],
+            labels=dataset_order,
+            limits=[0.0, len(dataset_order) + 0.55],
+        )
+        + labs(
+            title="Coupled vs decoupled SPO training",
+            x="Cumulative regret ratio vs decoupled UCB (log scale)",
+            y="",
+            fill="Variant",
+        )
+        + _paper_theme(legend_position="top")
+        + theme(
+            legend_title=element_text(family=PAPER_FONT, size=12.0, face="bold"),
+            panel_border=element_rect(color="#c7c7c7", fill="transparent", size=0.45),
+        )
+        + ggsize(650, 360)
+    )
+    save_plot(plot, output_dir, "decoupling_ablation", fmt)
+    save_plot(plot, output_dir, "decoupling_relative_summary", fmt)
 
 
 def _parse_ts_scale_agent(raw_name):
@@ -1436,7 +2038,7 @@ def plot_imputation(results_dir, output_dir, fmt="pdf"):
     denom = paired["masked_regret"].abs().replace(0.0, np.nan)
     paired["pct_delta"] = 100.0 * paired["delta"] / denom
     # For posterior-mean MSE completion, missing entries have zero residual:
-    # Y_target_i = pred_i for i not in S_t. The missing-arm gradient weight
+    # Y_target_i = pred_i for i not in S_t. The unobserved-arm gradient weight
     # therefore cannot change the MSE update. Separately-run MSE variants can
     # still show tiny regret differences from solver/numerical noise, so the
     # masking plot uses BayesianMSE as the structural zero-control.
@@ -1460,31 +2062,11 @@ def plot_imputation(results_dir, output_dir, fmt="pdf"):
                 "ymax": mean + 1.96 * se,
             }
         )
-    existing_dose = {
-        (row["dataset"], row["method"], row["weight"])
-        for row in dose_rows
-    }
-    for dataset in sorted(raw_df["dataset"].unique()):
-        weights = sorted(raw_df.loc[raw_df["dataset"] == dataset, "weight"].unique())
-        for weight in weights:
-            key = (dataset, "BayesianMSE", float(weight))
-            if key in existing_dose:
-                continue
-            dose_rows.append(
-                {
-                    "dataset": dataset,
-                    "method": "BayesianMSE",
-                    "weight": float(weight),
-                    "mean": 0.0,
-                    "ymin": 0.0,
-                    "ymax": 0.0,
-                }
-            )
-
     if dose_rows:
         dose_df = pd.DataFrame(dose_rows)
+        dose_df = dose_df[dose_df["method"] == "BayesianSPO"].copy()
         dose_df["dataset"] = _categorical(dose_df["dataset"], dataset_order)
-        dose_df["method"] = _categorical(dose_df["method"], method_order)
+        dose_df["method"] = _categorical(dose_df["method"], ["BayesianSPO"])
         weights = sorted(dose_df["weight"].unique())
         weight_labels = [f"{weight:g}" for weight in weights]
         dose_df["weight_label"] = dose_df["weight"].map(lambda weight: f"{weight:g}")
@@ -1506,19 +2088,528 @@ def plot_imputation(results_dir, output_dir, fmt="pdf"):
             + geom_line(size=0.75)
             + geom_point(size=POINT_SIZE)
             + facet_wrap("dataset", ncol=3)
-            + _color_scale(method_order)
-            + _shape_scale(method_order)
-            + _linetype_scale(method_order)
+            + _color_scale(["BayesianSPO"])
+            + _shape_scale(["BayesianSPO"])
+            + _linetype_scale(["BayesianSPO"])
             + labs(
-                title="Masked-imputation dose response",
-                x="Missing-arm gradient weight",
+                title="Unobserved-arm weight response",
+                x="Unobserved arm gradient weight",
                 y="Regret increase vs full mask (%)",
             )
-            + _paper_theme(legend_position="top")
+            + _paper_theme(legend_position="none")
             + theme(axis_text_x=element_text(size=11.0, color="#444444"))
             + ggsize(820, 420)
         )
         save_plot(dose_plot, output_dir, "masked_imputation_dose_response", fmt)
+
+    spo_raw = raw_df[raw_df["method"] == "BayesianSPO"].copy()
+    baseline_regret = spo_raw[spo_raw["weight"] == 0.0][
+        ["dataset", "seed", "regret"]
+    ].rename(columns={"regret": "masked_regret"})
+    dose_pairs = spo_raw[spo_raw["weight"] > 0.0].merge(
+        baseline_regret,
+        on=["dataset", "seed"],
+        how="inner",
+    )
+    matched_rows = []
+    for (dataset, weight), grp in dose_pairs.groupby(["dataset", "weight"]):
+        masked_vals = grp["masked_regret"].to_numpy(dtype=float)
+        dose_vals = grp["regret"].to_numpy(dtype=float)
+        masked_vals = masked_vals[np.isfinite(masked_vals)]
+        dose_vals = dose_vals[np.isfinite(dose_vals)]
+        if masked_vals.size == 0 or dose_vals.size == 0:
+            continue
+        matched_rows.append(
+            {
+                "dataset": dataset,
+                "weight": float(weight),
+                "masked_regret": float(masked_vals.mean()),
+                "dose_regret": float(dose_vals.mean()),
+            }
+        )
+
+    if matched_rows:
+        matched_df = pd.DataFrame(matched_rows)
+        matched_df = matched_df[~np.isclose(matched_df["weight"], 0.1)].copy()
+        portfolio_label = dataset_names.get("portfolio_32", "Portfolio")
+        matched_df["axis_unit"] = np.where(matched_df["dataset"] == portfolio_label, "raw", "K")
+        matched_df["facet"] = matched_df["dataset"]
+        facet_order = dataset_order
+        matched_df["dataset"] = _categorical(matched_df["dataset"], dataset_order)
+        matched_df["facet"] = _categorical(matched_df["facet"], facet_order)
+        for col in ["masked_regret", "dose_regret"]:
+            matched_df[f"{col}_axis"] = np.where(
+                matched_df["axis_unit"] == "raw",
+                matched_df[col],
+                matched_df[col] / 1000.0,
+            )
+        baseline_rows = []
+        for dataset, grp in baseline_regret.groupby("dataset"):
+            vals = grp["masked_regret"].to_numpy(dtype=float)
+            vals = vals[np.isfinite(vals)]
+            if vals.size == 0:
+                continue
+            raw_regret = float(vals.mean())
+            axis_unit = "raw" if dataset == portfolio_label else "K"
+            baseline_rows.append(
+                {
+                    "dataset": dataset,
+                    "weight": 0.0,
+                    "facet": dataset,
+                    "axis_unit": axis_unit,
+                    "regret": raw_regret,
+                    "regret_axis": raw_regret if axis_unit == "raw" else raw_regret / 1000.0,
+                }
+            )
+        baseline_df = pd.DataFrame(
+            baseline_rows,
+            columns=["dataset", "weight", "facet", "axis_unit", "regret", "regret_axis"],
+        )
+        if not baseline_df.empty:
+            baseline_df["dataset"] = _categorical(baseline_df["dataset"], dataset_order)
+            baseline_df["facet"] = _categorical(baseline_df["facet"], facet_order)
+
+        weight_order = sorted(set(matched_df["weight"].unique()).union({0.0}))
+        weight_labels = {weight: f"w={weight:g}" for weight in weight_order}
+        weight_positions = {weight: len(weight_order) - idx for idx, weight in enumerate(weight_order)}
+        matched_df["weight_label"] = matched_df["weight"].map(weight_labels)
+        matched_df["ypos"] = matched_df["weight"].map(weight_positions)
+        if not baseline_df.empty:
+            baseline_df["weight_label"] = baseline_df["weight"].map(weight_labels)
+            baseline_df["ypos"] = baseline_df["weight"].map(weight_positions)
+        matched_df["xmin"] = np.minimum(
+            matched_df["masked_regret_axis"],
+            matched_df["dose_regret_axis"],
+        )
+        matched_df["xmax"] = np.maximum(
+            matched_df["masked_regret_axis"],
+            matched_df["dose_regret_axis"],
+        )
+
+        point_rows = []
+        for row in matched_df.itertuples(index=False):
+            point_rows.append(
+                {
+                    "facet": row.facet,
+                    "kind": "Imputation Weight",
+                    "regret": row.dose_regret_axis,
+                    "ypos": row.ypos,
+                }
+            )
+        for row in baseline_df.itertuples(index=False):
+            point_rows.append(
+                {
+                    "facet": row.facet,
+                    "kind": "BayesianSPO (Full Mask)",
+                    "regret": row.regret_axis,
+                    "ypos": row.ypos,
+                }
+            )
+        point_df = pd.DataFrame(point_rows)
+        point_df["facet"] = _categorical(point_df["facet"], facet_order)
+        legend_order = ["BayesianSPO (Full Mask)", "Imputation Weight"]
+        point_df["kind"] = _categorical(point_df["kind"], legend_order)
+
+        path_rows = [
+            {
+                "facet": row.facet,
+                "kind": "Imputation Weight",
+                "regret": row.dose_regret_axis,
+                "ypos": row.ypos,
+            }
+            for row in matched_df.itertuples(index=False)
+        ]
+        path_rows.extend(
+            {
+                "facet": row.facet,
+                "kind": "Imputation Weight",
+                "regret": row.regret_axis,
+                "ypos": row.ypos,
+            }
+            for row in baseline_df.itertuples(index=False)
+        )
+        path_df = pd.DataFrame(path_rows, columns=["facet", "kind", "regret", "ypos"])
+        if not path_df.empty:
+            path_df["facet"] = _categorical(path_df["facet"], facet_order)
+            path_df["kind"] = _categorical(path_df["kind"], legend_order)
+
+        trajectory_rows = []
+        for facet, facet_df in path_df.groupby("facet", observed=True):
+            ordered = facet_df.sort_values("ypos")
+            for start, end in zip(
+                ordered.iloc[:-1].itertuples(index=False),
+                ordered.iloc[1:].itertuples(index=False),
+            ):
+                trajectory_rows.append(
+                    {
+                        "facet": facet,
+                        "kind": "Imputation Weight",
+                        "x": start.regret,
+                        "xend": end.regret,
+                        "y": start.ypos,
+                        "yend": end.ypos,
+                    }
+                )
+        trajectory_df = pd.DataFrame(
+            trajectory_rows, columns=["facet", "kind", "x", "xend", "y", "yend"]
+        )
+        if not trajectory_df.empty:
+            trajectory_df["facet"] = _categorical(trajectory_df["facet"], facet_order)
+            trajectory_df["kind"] = _categorical(trajectory_df["kind"], legend_order)
+
+        baseline_line_rows = []
+        for row in baseline_df.itertuples(index=False):
+            if np.isfinite(row.regret_axis) and row.regret_axis > 0:
+                baseline_line_rows.append(
+                    {
+                        "facet": row.facet,
+                        "kind": "BayesianSPO (Full Mask)",
+                        "x": row.regret_axis,
+                        "xend": row.regret_axis,
+                        "y": 0.5,
+                        "yend": len(weight_order) + 0.5,
+                    }
+                )
+        baseline_line_df = pd.DataFrame(
+            baseline_line_rows, columns=["facet", "kind", "x", "xend", "y", "yend"]
+        )
+        if not baseline_line_df.empty:
+            baseline_line_df["facet"] = _categorical(baseline_line_df["facet"], facet_order)
+            baseline_line_df["kind"] = _categorical(baseline_line_df["kind"], legend_order)
+
+        pad_rows = []
+        for facet, facet_df in matched_df.groupby("facet", observed=True):
+            lower = float(facet_df["xmin"].min())
+            upper = float(facet_df["xmax"].max())
+            if np.isfinite(lower) and np.isfinite(upper) and lower > 0 and upper > 0:
+                pad_rows.extend(
+                    [
+                        {"facet": facet, "regret": lower / 1.2, "ypos": 1.0},
+                        {"facet": facet, "regret": upper * 1.2, "ypos": 1.0},
+                    ]
+                )
+        pad_df = pd.DataFrame(pad_rows, columns=["facet", "regret", "ypos"])
+        if not pad_df.empty:
+            pad_df["facet"] = _categorical(pad_df["facet"], facet_order)
+
+        x_values = pd.concat(
+            [matched_df["masked_regret_axis"], matched_df["dose_regret_axis"]],
+            ignore_index=True,
+        )
+        x_values = x_values[np.isfinite(x_values) & (x_values > 0)]
+        x_breaks = []
+        if not x_values.empty:
+            min_exp = int(np.floor(np.log10(x_values.min())))
+            max_exp = int(np.ceil(np.log10(x_values.max())))
+            x_breaks = [
+                float(mult * (10 ** exp))
+                for exp in range(min_exp, max_exp + 1)
+                for mult in [1, 2, 5]
+                if x_values.min() * 0.8 <= mult * (10 ** exp) <= x_values.max() * 1.05
+            ]
+
+        matched_colors = {
+            "BayesianSPO (Full Mask)": PAPER_COLORS["BayesianSPO"],
+            "Imputation Weight": PAPER_COLORS["BayesianMSE"],
+        }
+        matched_point_size = 3.6
+        matched_point_border_size = matched_point_size + 0.4
+        legend_bg_df = pd.DataFrame(
+            [{"xmin": 0.14, "xmax": 0.91, "ymin": 0.13, "ymax": 0.87}]
+        )
+        legend_key_df = pd.DataFrame(
+            [
+                {
+                    "kind": "BayesianSPO (Full Mask)",
+                    "x": 0.22,
+                    "xend": 0.28,
+                    "xmid": 0.25,
+                    "y": 0.5,
+                    "label_x": 0.30,
+                    "label": "BayesianSPO (Full Mask)",
+                },
+                {
+                    "kind": "Imputation Weight",
+                    "x": 0.60,
+                    "xend": 0.66,
+                    "xmid": 0.63,
+                    "y": 0.5,
+                    "label_x": 0.68,
+                    "label": "Imputation Weight",
+                },
+            ]
+        )
+        legend_key_df["kind"] = _categorical(legend_key_df["kind"], legend_order)
+        legend_plot = (
+            ggplot()
+            + geom_rect(
+                aes(xmin="xmin", xmax="xmax", ymin="ymin", ymax="ymax"),
+                data=legend_bg_df,
+                inherit_aes=False,
+                fill="#f7f7f7",
+                color="#d0d0d0",
+                size=0.6,
+            )
+            + geom_segment(
+                aes(x="x", xend="xend", y="y", yend="y", color="kind"),
+                data=legend_key_df,
+                inherit_aes=False,
+                size=0.8,
+            )
+            + geom_point(
+                aes("xmid", "y"),
+                data=legend_key_df,
+                inherit_aes=False,
+                color="#222222",
+                size=matched_point_border_size,
+            )
+            + geom_point(
+                aes("xmid", "y", color="kind"),
+                data=legend_key_df,
+                inherit_aes=False,
+                size=matched_point_size,
+            )
+            + geom_text(
+                aes("label_x", "y", label="label"),
+                data=legend_key_df,
+                inherit_aes=False,
+                color="#222222",
+                family=PAPER_FONT,
+                fontface="bold",
+                hjust=0.0,
+                size=7.2,
+            )
+            + scale_color_manual(values=matched_colors)
+            + scale_x_continuous(limits=[0.0, 1.0])
+            + scale_y_continuous(limits=[0.0, 1.0])
+            + theme_void()
+            + theme(legend_position="none", plot_margin=[0, 0, 0, 0])
+        )
+        matched_body = (
+            ggplot(point_df, aes("regret", "ypos"))
+            + geom_segment(
+                aes(x="xmin", xend="xmax", y="ypos", yend="ypos"),
+                data=matched_df,
+                inherit_aes=False,
+                color="#9a9a9a",
+                size=0.8,
+            )
+            + geom_segment(
+                aes(x="x", xend="xend", y="y", yend="yend", color="kind"),
+                data=baseline_line_df,
+                inherit_aes=False,
+                size=0.95,
+                alpha=0.9,
+            )
+            + geom_segment(
+                aes(x="x", xend="xend", y="y", yend="yend", color="kind"),
+                data=trajectory_df,
+                inherit_aes=False,
+                size=0.75,
+                alpha=0.85,
+            )
+            + geom_point(color="#222222", size=matched_point_border_size)
+            + geom_point(aes(color="kind"), size=matched_point_size)
+            + geom_point(
+                aes("regret", "ypos"),
+                data=pad_df,
+                inherit_aes=False,
+                alpha=0.0,
+                size=0.1,
+            )
+            + facet_wrap("facet", ncol=3, scales="free_x")
+            + scale_color_manual(values=matched_colors)
+            + scale_x_continuous()
+            + scale_y_continuous(
+                breaks=[weight_positions[weight] for weight in weight_order],
+                labels=[weight_labels[weight] for weight in weight_order],
+                limits=[0.5, len(weight_order) + 0.5],
+            )
+            + labs(
+                x="Final cumulative regret (Portfolio raw, others K)",
+                y="Unobserved arm gradient weight",
+                color="",
+            )
+            + _paper_theme(legend_position="none")
+            + theme(
+                axis_text_x=element_text(size=15.0, color="#444444"),
+                axis_text_y=element_text(size=15.0, color="#444444"),
+                axis_title_x=element_text(size=18.0),
+                axis_title_y=element_text(size=18.0),
+                strip_text=element_text(family=PAPER_FONT, size=17.0, face="bold"),
+                plot_margin=[-8, 10, 20, 10],
+            )
+        )
+        matched_plot = (
+            gggrid(
+                [legend_plot, matched_body],
+                ncol=1,
+                align=True,
+                heights=[0.055, 0.945],
+                vspace=-0.08,
+            )
+            + ggsize(980, 600)
+        )
+
+        max_weight = float(max(weight_order))
+        swapped_pair_rows = []
+        for row in matched_df.itertuples(index=False):
+            swapped_pair_rows.append(
+                {
+                    "facet": row.facet,
+                    "x": row.weight,
+                    "xend": row.weight,
+                    "y": min(row.masked_regret_axis, row.dose_regret_axis),
+                    "yend": max(row.masked_regret_axis, row.dose_regret_axis),
+                }
+            )
+        swapped_pair_df = pd.DataFrame(swapped_pair_rows, columns=["facet", "x", "xend", "y", "yend"])
+        if not swapped_pair_df.empty:
+            swapped_pair_df["facet"] = _categorical(swapped_pair_df["facet"], facet_order)
+
+        swapped_curve_rows = []
+        for row in matched_df.itertuples(index=False):
+            swapped_curve_rows.append(
+                {
+                    "facet": row.facet,
+                    "kind": "Imputation Weight",
+                    "weight": row.weight,
+                    "regret": row.dose_regret_axis,
+                }
+            )
+        for row in baseline_df.itertuples(index=False):
+            swapped_curve_rows.append(
+                {
+                    "facet": row.facet,
+                    "kind": "Imputation Weight",
+                    "weight": 0.0,
+                    "regret": row.regret_axis,
+                }
+            )
+        swapped_curve_df = pd.DataFrame(
+            swapped_curve_rows, columns=["facet", "kind", "weight", "regret"]
+        )
+        if not swapped_curve_df.empty:
+            swapped_curve_df["facet"] = _categorical(swapped_curve_df["facet"], facet_order)
+            swapped_curve_df["kind"] = _categorical(swapped_curve_df["kind"], legend_order)
+
+        swapped_point_rows = [
+            {
+                "facet": row.facet,
+                "kind": "Imputation Weight",
+                "weight": row.weight,
+                "regret": row.dose_regret_axis,
+            }
+            for row in matched_df.itertuples(index=False)
+        ]
+        swapped_point_rows.extend(
+            {
+                "facet": row.facet,
+                "kind": "BayesianSPO (Full Mask)",
+                "weight": 0.0,
+                "regret": row.regret_axis,
+            }
+            for row in baseline_df.itertuples(index=False)
+        )
+        swapped_point_df = pd.DataFrame(
+            swapped_point_rows, columns=["facet", "kind", "weight", "regret"]
+        )
+        if not swapped_point_df.empty:
+            swapped_point_df["facet"] = _categorical(swapped_point_df["facet"], facet_order)
+            swapped_point_df["kind"] = _categorical(swapped_point_df["kind"], legend_order)
+
+        swapped_baseline_rows = [
+            {
+                "facet": row.facet,
+                "kind": "BayesianSPO (Full Mask)",
+                "x": 0.0,
+                "xend": max_weight,
+                "y": row.regret_axis,
+                "yend": row.regret_axis,
+            }
+            for row in baseline_df.itertuples(index=False)
+            if np.isfinite(row.regret_axis)
+        ]
+        swapped_baseline_df = pd.DataFrame(
+            swapped_baseline_rows, columns=["facet", "kind", "x", "xend", "y", "yend"]
+        )
+        if not swapped_baseline_df.empty:
+            swapped_baseline_df["facet"] = _categorical(swapped_baseline_df["facet"], facet_order)
+            swapped_baseline_df["kind"] = _categorical(swapped_baseline_df["kind"], legend_order)
+
+        matched_swapped_body = (
+            ggplot(swapped_point_df, aes("weight", "regret"))
+            + geom_segment(
+                aes(x="x", xend="xend", y="y", yend="yend"),
+                data=swapped_pair_df,
+                inherit_aes=False,
+                color="#9a9a9a",
+                size=0.8,
+            )
+            + geom_segment(
+                aes(x="x", xend="xend", y="y", yend="yend", color="kind"),
+                data=swapped_baseline_df,
+                inherit_aes=False,
+                size=0.95,
+                alpha=0.9,
+            )
+            + geom_line(
+                aes("weight", "regret", color="kind", group="kind"),
+                data=swapped_curve_df,
+                inherit_aes=False,
+                size=0.75,
+                alpha=0.85,
+            )
+            + geom_point(color="#222222", size=matched_point_border_size)
+            + geom_point(aes(color="kind"), size=matched_point_size)
+            + facet_wrap("facet", ncol=3, scales="free_y")
+            + scale_color_manual(values=matched_colors)
+            + scale_x_continuous(
+                breaks=weight_order,
+                labels=[f"{weight:g}" for weight in weight_order],
+                limits=[-0.03, max_weight + 0.03],
+            )
+            + labs(
+                x="Unobserved arm gradient weight",
+                y="Regret (Portfolio raw, others K)",
+                color="",
+            )
+            + _paper_theme(legend_position="none")
+            + theme(
+                axis_text_x=element_text(size=15.0, color="#444444", angle=0, hjust=0.5),
+                axis_text_y=element_text(size=15.0, color="#444444"),
+                axis_title_x=element_text(size=18.0),
+                axis_title_y=element_text(size=18.0),
+                panel_grid_major=element_line(color="#e4e4e4", size=0.55),
+                panel_grid_minor=element_line(color="#f0f0f0", size=0.35),
+                strip_text=element_text(family=PAPER_FONT, size=17.0, face="bold"),
+                plot_margin=[-8, 10, 20, 10],
+            )
+        )
+        matched_swapped_plot = (
+            gggrid(
+                [legend_plot, matched_swapped_body],
+                ncol=1,
+                align=True,
+                heights=[0.055, 0.945],
+                vspace=-0.08,
+            )
+            + ggsize(980, 600)
+        )
+        save_plot(
+            matched_swapped_plot,
+            output_dir,
+            "masked_imputation_dose_matched",
+            fmt,
+            png_width=2200,
+        )
+        save_plot(
+            matched_swapped_plot,
+            output_dir,
+            "masked_imputation_dose_matched_swapped",
+            fmt,
+            png_width=2200,
+        )
 
     effect_rows = []
     endpoint = paired[paired["weight"] == 1.0]
@@ -1575,8 +2666,8 @@ def plot_imputation(results_dir, output_dir, fmt="pdf"):
         "BayesianSPO-Unmasked": PAPER_COLORS["BayesianSPO"],
         "BayesianMSE-Unmasked": PAPER_COLORS["BayesianMSE"],
     }
-    endpoint_scale_limits = [-5.0, 65.0]
-    endpoint_scale_breaks = [0.0, 20.0, 40.0, 60.0]
+    endpoint_scale_limits = [-5.0, 120.0]
+    endpoint_scale_breaks = [0.0, 30.0, 60.0, 90.0, 120.0]
     dataset_positions = {dataset: idx + 1 for idx, dataset in enumerate(dataset_order)}
 
     def endpoint_panel(method):
@@ -1608,7 +2699,7 @@ def plot_imputation(results_dir, output_dir, fmt="pdf"):
             )
         cap_df = pd.DataFrame(cap_rows)
         arrow_df, label_df = _baseline_callout_frames(
-            "masked baseline", endpoint_scale_limits, y=0.27, yend=0.60
+            f"{method} Baseline - Masked", endpoint_scale_limits, y=0.27, yend=0.60
         )
         panel_theme = _paper_theme(legend_position="none")
         panel_theme += theme(panel_border=element_rect(color="#c7c7c7", fill="transparent", size=0.45))
@@ -1651,7 +2742,7 @@ def plot_imputation(results_dir, output_dir, fmt="pdf"):
                 data=label_df,
                 inherit_aes=False,
                 color="#222222",
-                fontface="bold",
+                family=PAPER_FONT,
                 size=4.5,
                 hjust=0.0,
             )
@@ -1712,12 +2803,17 @@ def plot_feature_sharing(results_dir, output_dir, fmt="pdf"):
         for name, _ in data.keys():
             if name == "LinUCB":
                 continue
+            objective = None
+            hidden_dim = None
             parts = name.split("-")
-            if len(parts) != 3 or not parts[2].startswith("h"):
+            if len(parts) == 2 and parts[1].startswith("h"):
+                objective = parts[0]
+                hidden_dim = int(parts[1][1:])
+            elif len(parts) == 3 and parts[1] == "L" and parts[2].startswith("h"):
+                objective = "BayesianSPO" if parts[0] == "SPO" else "BayesianMSE"
+                hidden_dim = int(parts[2][1:])
+            if objective not in {"BayesianSPO", "BayesianMSE"} or hidden_dim is None:
                 continue
-            objective = "BayesianSPO" if parts[0] == "SPO" else "BayesianMSE"
-            feature_map = "Linear" if parts[1] == "L" else "Nonlinear"
-            hidden_dim = int(parts[2][1:])
             vals = [
                 data[(name, seed)]["final_regret"]
                 for seed in seeds
@@ -1727,7 +2823,6 @@ def plot_feature_sharing(results_dir, output_dir, fmt="pdf"):
             rows.append(
                 {
                     "objective": objective,
-                    "feature_map": feature_map,
                     "hidden_dim": hidden_dim,
                     "mean": mean,
                     "ymin": mean - std,
@@ -1739,7 +2834,6 @@ def plot_feature_sharing(results_dir, output_dir, fmt="pdf"):
             print(f"  feature_sharing ({dataset_name}): no parseable data, skipping")
             continue
         df["objective"] = _categorical(df["objective"], ["BayesianSPO", "BayesianMSE"])
-        df["feature_map"] = _categorical(df["feature_map"], ["Linear", "Nonlinear"])
         labels = ["BayesianSPO", "BayesianMSE"]
         plot = (
             ggplot(df, aes("hidden_dim", "mean", color="objective", linetype="objective"))
@@ -1747,7 +2841,6 @@ def plot_feature_sharing(results_dir, output_dir, fmt="pdf"):
             + geom_point(size=SMALL_POINT_SIZE)
             + geom_errorbar(aes(ymin="ymin", ymax="ymax"), width=0.08, alpha=0.55)
             + geom_hline(yintercept=linucb_mean, linetype="dashed", color="#666666", size=0.65)
-            + facet_wrap("feature_map", ncol=2)
             + _color_scale(labels)
             + _linetype_scale(labels)
             + scale_x_log2(breaks=sorted(df["hidden_dim"].unique()))
@@ -1980,28 +3073,149 @@ def _numeric_sweep_plot(data, dataset_name, prefix, x_label, title, stem, output
     save_plot(plot, output_dir, stem, fmt)
 
 
+def _numeric_sweep_summary_plot(entries, prefix, x_label, y_label, stem, output_dir, fmt,
+                                x_scale="linear", x_pad_left=0.04, x_pad_right=0.04):
+    def format_tick(value):
+        value = float(value)
+        if abs(value) < 1.0:
+            text = f"{value:.2f}"
+        elif abs(value) < 10.0:
+            text = f"{value:.1f}"
+        else:
+            text = f"{value:.0f}"
+        return text.rstrip("0").rstrip(".") if "." in text else text
+
+    dataset_names = _dataset_label_map()
+    dataset_order = [
+        dataset_names[key]
+        for key in ["knapsack_32", "knapsack_100", "shortest_path_8x8", "shortest_path_20x20", "portfolio_32"]
+    ]
+    rows = []
+    x_breaks = set()
+    for dataset_name, data_path in entries:
+        data = load_pkl(data_path)
+        if data is None:
+            continue
+        pairs = []
+        for name, _ in data.keys():
+            if not name.startswith(prefix):
+                continue
+            try:
+                pairs.append((float(name[len(prefix):]), name))
+            except ValueError:
+                continue
+        pairs = sorted(set(pairs))
+        if not pairs:
+            continue
+
+        for value, name in pairs:
+            seeds = sorted({seed for _, seed in data.keys()})
+            regrets = [
+                float(data[(name, seed)]["final_regret"])
+                for seed in seeds
+                if (name, seed) in data and np.isfinite(float(data[(name, seed)]["final_regret"]))
+            ]
+            regrets = np.asarray(regrets, dtype=float)
+            if regrets.size == 0:
+                continue
+            mean = float(regrets.mean())
+            se = float(regrets.std(ddof=1) / np.sqrt(regrets.size)) if regrets.size > 1 else 0.0
+            x_breaks.add(float(value))
+            scale = 1.0 if dataset_name == "portfolio_32" else 1000.0
+            rows.append(
+                {
+                    "dataset": dataset_names.get(dataset_name, dataset_name),
+                    "x_value": float(value),
+                    "mean": mean / scale,
+                    "ymin": max(mean - 1.96 * se, 0.0) / scale,
+                    "ymax": (mean + 1.96 * se) / scale,
+                }
+            )
+
+    df = pd.DataFrame(rows)
+    if df.empty:
+        print(f"  {stem}: no plottable data, skipping")
+        return
+    present_dataset_order = [d for d in dataset_order if d in set(df["dataset"])]
+    df["dataset"] = _categorical(df["dataset"], present_dataset_order)
+    df = df.sort_values(["dataset", "x_value"]).reset_index(drop=True)
+    x_breaks = sorted(x_breaks)
+    x_labels = [format_tick(x) for x in x_breaks]
+    pad_rows = []
+    for dataset, grp in df.groupby("dataset", observed=False):
+        grp = grp.dropna(subset=["x_value", "mean"])
+        if grp.empty:
+            continue
+        x_vals = grp["x_value"].to_numpy(dtype=float)
+        y_anchor = float(grp["mean"].mean())
+        if x_scale in {"log10", "log2"}:
+            log_base = 10.0 if x_scale == "log10" else 2.0
+            log_vals = np.log(x_vals) / np.log(log_base)
+            span = max(float(log_vals.max() - log_vals.min()), 0.5)
+            x_min = log_base ** (float(log_vals.min()) - x_pad_left * span)
+            x_max = log_base ** (float(log_vals.max()) + x_pad_right * span)
+        else:
+            span = max(float(x_vals.max() - x_vals.min()), 1.0)
+            x_min = float(x_vals.min()) - x_pad_left * span
+            x_max = float(x_vals.max()) + x_pad_right * span
+        pad_rows.extend(
+            [
+                {"dataset": dataset, "x_value": x_min, "mean": y_anchor},
+                {"dataset": dataset, "x_value": x_max, "mean": y_anchor},
+            ]
+        )
+    pad_df = pd.DataFrame(pad_rows)
+    if not pad_df.empty:
+        pad_df["dataset"] = _categorical(pad_df["dataset"], present_dataset_order)
+        pad_df = pad_df.sort_values(["dataset", "x_value"]).reset_index(drop=True)
+
+    plot = (
+        ggplot(df, aes("x_value", "mean"))
+        + geom_blank(data=pad_df, mapping=aes("x_value", "mean"), inherit_aes=False)
+        + geom_line(color=PAPER_COLORS["BayesianSPO"], size=0.95)
+        + geom_errorbar(aes(ymin="ymin", ymax="ymax"), width=0.0, color="#666666", alpha=0.62, size=0.42)
+        + geom_point(color="#222222", size=3.6)
+        + geom_point(color=PAPER_COLORS["BayesianSPO"], size=2.8)
+        + facet_wrap("dataset", ncol=5, scales="free", order=0)
+        + labs(x=x_label, y=y_label)
+        + _paper_theme(legend_position="none")
+        + theme(
+            axis_title=element_text(size=15.0),
+            axis_text_x=element_text(size=12.0, color="#444444"),
+            axis_text_y=element_text(size=12.0, color="#444444"),
+            strip_text=element_text(family=PAPER_FONT, size=14.0, face="bold"),
+            panel_grid_minor=element_line(color="#f2f2f2", size=0.25),
+            plot_margin=[6, 12, 10, 34],
+        )
+    )
+    if x_scale == "log10":
+        plot = plot + scale_x_log10(breaks=x_breaks, labels=x_labels, expand=[0.0, 0.0])
+    elif x_scale == "log2":
+        plot = plot + scale_x_log2(breaks=x_breaks, labels=x_labels, expand=[0.0, 0.0])
+    else:
+        plot = plot + scale_x_continuous(breaks=x_breaks, labels=x_labels, expand=[0.0, 0.0])
+    plot = plot + scale_y_continuous(expand=[0.10, 0.0])
+    save_plot(plot + ggsize(1120, 310), output_dir, stem, fmt, png_width=2400)
+
+
 def plot_imputation_samples(results_dir, output_dir, fmt="pdf"):
     ablation_dir = resolve_ablation_dir(results_dir, "imputation_samples")
     entries = list_result_entries(ablation_dir)
     if not entries:
         print("  imputation_samples: no data found, skipping")
         return
-    for dataset_name, data_path in entries:
-        data = load_pkl(data_path)
-        if data is None:
-            continue
-        title = "imputation_samples" if dataset_name == "." else f"imputation_samples_{dataset_name}"
-        _numeric_sweep_plot(
-            data,
-            dataset_name,
-            "M",
-            "Imputation samples M",
-            "BayesianSPO posterior completions",
-            title,
-            output_dir,
-            fmt,
-            x_scale="log2",
-        )
+    _numeric_sweep_summary_plot(
+        entries,
+        prefix="M",
+        x_label="Posterior completions M",
+        y_label="Final regret (Portfolio raw, others K)",
+        stem="imputation_samples_summary",
+        output_dir=output_dir,
+        fmt=fmt,
+        x_scale="linear",
+        x_pad_left=0.05,
+        x_pad_right=0.10,
+    )
 
 def plot_beta_sensitivity(results_dir, output_dir, fmt="pdf"):
     ablation_dir = resolve_ablation_dir(results_dir, "beta_sensitivity")
@@ -2009,22 +3223,18 @@ def plot_beta_sensitivity(results_dir, output_dir, fmt="pdf"):
     if not entries:
         print("  beta_sensitivity: no data found, skipping")
         return
-    for dataset_name, data_path in entries:
-        data = load_pkl(data_path)
-        if data is None:
-            continue
-        title = "beta_sensitivity" if dataset_name == "." else f"beta_sensitivity_{dataset_name}"
-        _numeric_sweep_plot(
-            data,
-            dataset_name,
-            "beta",
-            "UCB scale beta",
-            "Beta sensitivity",
-            title,
-            output_dir,
-            fmt,
-            x_scale="log10",
-        )
+    _numeric_sweep_summary_plot(
+        entries,
+        prefix="beta",
+        x_label="UCB scale beta",
+        y_label="Final cumulative regret",
+        stem="beta_sensitivity_summary",
+        output_dir=output_dir,
+        fmt=fmt,
+        x_scale="log10",
+        x_pad_left=0.035,
+        x_pad_right=0.10,
+    )
 
 
 def plot_lambda_reg_sweep(results_dir, output_dir, fmt="pdf"):
@@ -2033,22 +3243,125 @@ def plot_lambda_reg_sweep(results_dir, output_dir, fmt="pdf"):
     if not entries:
         print("  lambda_reg_sweep: no data found, skipping")
         return
-    for dataset_name, data_path in entries:
-        data = load_pkl(data_path)
-        if data is None:
+    _numeric_sweep_summary_plot(
+        entries,
+        prefix="lambda",
+        x_label="Prior precision lambda_reg",
+        y_label="Final cumulative regret",
+        stem="lambda_reg_sweep_summary",
+        output_dir=output_dir,
+        fmt=fmt,
+        x_scale="log10",
+        x_pad_left=0.12,
+        x_pad_right=0.12,
+    )
+
+
+def plot_pmin_coverage(results_dir, output_dir, fmt="pdf"):
+    ablation_dir = resolve_ablation_dir(results_dir, "pmin_coverage")
+    summary_path = os.path.join(ablation_dir, "pmin_coverage_summary.csv")
+    if not os.path.exists(summary_path):
+        print("  pmin_coverage: no summary CSV found, skipping")
+        return
+
+    df = pd.read_csv(summary_path)
+    if df.empty:
+        print("  pmin_coverage: empty summary CSV, skipping")
+        return
+
+    dataset_names = _dataset_label_map()
+    dataset_order = [
+        dataset_names[key]
+        for key in ["knapsack_32", "knapsack_100", "shortest_path_8x8", "shortest_path_20x20", "portfolio_32"]
+    ]
+    threshold = "q0.5" if "q0.5" in set(df["threshold"]) else sorted(df["threshold"].unique())[0]
+    metric_labels = [
+        ("p_min_mean", "Worst arm"),
+        ("p10_mean", "10th percentile"),
+        ("p50_mean", "Median arm"),
+    ]
+    dataset_order = ["Portfolio", "Knapsack 32", "Knapsack 100", "SP 8x8", "SP 20x20"]
+    dataset_positions = {dataset: len(dataset_order) - idx for idx, dataset in enumerate(dataset_order)}
+
+    rows = []
+    segments = []
+    threshold_df = df[df["threshold"] == threshold]
+    for row in threshold_df.itertuples(index=False):
+        dataset = dataset_names.get(row.dataset, row.dataset)
+        if dataset not in dataset_positions:
             continue
-        title = "lambda_reg_sweep" if dataset_name == "." else f"lambda_reg_sweep_{dataset_name}"
-        _numeric_sweep_plot(
-            data,
-            dataset_name,
-            "lambda",
-            "Prior precision lambda",
-            "Lambda sensitivity",
-            title,
-            output_dir,
-            fmt,
-            x_scale="log10",
+        ypos = dataset_positions[dataset]
+        p_min = float(row.p_min_mean)
+        p50 = float(row.p50_mean)
+        segments.append({"dataset": dataset, "ypos": ypos, "xmin": p_min, "xmax": p50})
+        for field, metric in metric_labels:
+            rows.append(
+                {
+                    "dataset": dataset,
+                    "ypos": ypos,
+                    "metric": metric,
+                    "coverage": float(getattr(row, field)),
+                }
+            )
+    plot_df = pd.DataFrame(rows)
+    seg_df = pd.DataFrame(segments)
+    if plot_df.empty:
+        print("  pmin_coverage: no plottable q0.5 rows, skipping")
+        return
+    metric_order = [label for _, label in metric_labels]
+    plot_df["metric"] = _categorical(plot_df["metric"], metric_order)
+
+    metric_colors = {
+        "Worst arm": "#222222",
+        "10th percentile": PAPER_COLORS["BayesianMSE"],
+        "Median arm": PAPER_COLORS["BayesianSPO"],
+    }
+    metric_shapes = {
+        "Worst arm": 16,
+        "10th percentile": 17,
+        "Median arm": 15,
+    }
+
+    plot = (
+        ggplot(plot_df, aes("coverage", "ypos", color="metric", shape="metric"))
+        + geom_segment(
+            aes(x="xmin", xend="xmax", y="ypos", yend="ypos"),
+            data=seg_df,
+            inherit_aes=False,
+            color="#a6a6a6",
+            size=1.0,
+            alpha=0.75,
         )
+        + geom_point(size=4.7, stroke=0.65)
+        + scale_color_manual(values=metric_colors)
+        + scale_shape_manual(values=metric_shapes)
+        + labs(
+            x="Selected when high-uncertainty",
+            y="",
+            color="Coverage statistic",
+            shape="Coverage statistic",
+        )
+        + _paper_theme(legend_position="top")
+        + theme(
+            legend_title=element_text(family=PAPER_FONT, size=13.0, face="bold"),
+            legend_text=element_text(family=PAPER_FONT, size=13.0, face="bold"),
+            axis_title_x=element_text(size=14.0),
+            axis_text_x=element_text(size=12.0, color="#444444"),
+            axis_text_y=element_text(family=PAPER_FONT, size=12.5, color="#444444"),
+            panel_grid_major_y=element_line(color="#e8e8e8", size=0.35),
+            panel_grid_minor_x=element_line(color="#f2f2f2", size=0.25),
+            panel_grid_minor_y=element_blank(),
+            plot_margin=[4, 10, 8, 8],
+        )
+        + scale_x_continuous(limits=[0.0, 0.125], breaks=[0.0, 0.025, 0.05, 0.075, 0.10, 0.125])
+        + scale_y_continuous(
+            breaks=[dataset_positions[dataset] for dataset in dataset_order],
+            labels=dataset_order,
+            limits=[0.45, len(dataset_order) + 0.55],
+        )
+        + ggsize(760, 330)
+    )
+    save_plot(plot, output_dir, "pmin_coverage", fmt, png_width=1800)
 
 
 def plot_flip_set(results_dir, output_dir, fmt="pdf"):
@@ -2129,6 +3442,8 @@ PLOT_FUNCTIONS = {
     "feature_sharing": plot_feature_sharing,
     "feature_robustness": plot_feature_robustness,
     "context_variation": plot_context_variation,
+    "pmin_coverage": plot_pmin_coverage,
+    "p_min_coverage": plot_pmin_coverage,
     "flip_set": plot_flip_set,
     "flip_set_collapse": plot_flip_set,
 }
@@ -2146,6 +3461,7 @@ DEFAULT_ABLATIONS = [
     "ts_scale",
     "lambda_reg_sweep",
     "imputation_samples",
+    "pmin_coverage",
 ]
 
 

@@ -12,11 +12,15 @@ sys.path.insert(0, '.')
 plt = importlib.import_module('matplotlib.pyplot') if importlib.util.find_spec('matplotlib.pyplot') is not None else None
 
 from experiments.ablations.common import (
+    filter_results_for_run,
     get_quick_params,
     load_config,
+    load_results,
+    make_agent_solver,
     make_dataset_config,
     run_ablation_sweep,
     save_results,
+    select_ablation_seeds,
 )
 from experiments.ablations.imputation_samples import (
     load_tuned_bayesian_spo_params,
@@ -31,7 +35,7 @@ def agent_name(beta):
 
 def make_agents(env, seed, base_hp, beta_values):
     minimize = getattr(env, 'minimize', False)
-    solver = env.solve
+    solver = make_agent_solver(env)
 
     common = dict(
         context_dim=env.context_dim,
@@ -105,26 +109,31 @@ def main():
                         help='Use tuned BayesianSPO hyperparameters from <tuning_dir>.')
     parser.add_argument('--tuning-dir', default=None,
                         help='Override tuning dir (default: ablations.beta_sensitivity.tuning_dir).')
+    parser.add_argument('--no-resume', action='store_true')
     args = parser.parse_args()
 
     config = load_config(args.config)
     abl_cfg = config['ablations']['beta_sensitivity']
+    quick = args.mode == 'quick'
 
-    if args.mode == 'quick':
+    if quick:
         abl_cfg = get_quick_params(abl_cfg)
-        abl_cfg['beta_multipliers'] = [0.5, 1.0, 2.0]
+        abl_cfg['beta_values'] = [0.3, 1.0, 3.0]
 
     datasets = args.datasets or abl_cfg.get('datasets', ['knapsack_32'])
-    multipliers = [float(v) for v in abl_cfg['beta_multipliers']]
+    beta_values = [float(v) for v in abl_cfg.get('beta_values', [])]
+    if not beta_values:
+        raise ValueError('ablations.beta_sensitivity.beta_values must be set to a fixed beta grid')
     n_rounds = abl_cfg['n_rounds']
     n_seeds = abl_cfg['n_seeds']
-    seeds = list(range(n_seeds))
+    seeds = select_ablation_seeds(config, n_seeds, quick=quick)
     output_dir = args.output or abl_cfg['output_dir']
     tuning_dir = args.tuning_dir or abl_cfg.get('tuning_dir', 'results/FINAL/tuning')
     defaults = config['agent_defaults']
 
     print(f'\n=== Beta sensitivity ablation ===')
-    print(f'Beta multipliers: {multipliers}')
+    print(f'Beta values: {beta_values}')
+    print(f'n_rounds={n_rounds}, seeds={seeds}')
     print(f'Use tuned params: {args.use_tuned_params} (tuning_dir={tuning_dir})')
 
     for dataset in datasets:
@@ -134,9 +143,24 @@ def main():
         if args.use_tuned_params and tuned is None:
             print(f'  warning: no tuned BayesianSPO params for {dataset}, falling back to agent_defaults')
         base_hp = resolve_base_hp(None, defaults, tuned)
-        base_beta = max(float(base_hp['beta']), 1e-12)
-        beta_values = [base_beta * multiplier for multiplier in multipliers]
-        print(f'  base beta={base_beta:g}; values={[float(f"{v:.6g}") for v in beta_values]}')
+        variant_labels = [agent_name(beta) for beta in beta_values]
+        print(
+            f'  tuned beta={float(base_hp["beta"]):g}; '
+            f'fixed sweep values={[float(f"{v:.6g}") for v in beta_values]}'
+        )
+
+        ds_dir = os.path.join(output_dir, dataset)
+        result_path = os.path.join(ds_dir, 'results.pkl')
+        existing_results = {}
+        if os.path.exists(result_path) and not args.no_resume:
+            loaded_results = load_results(result_path)
+            existing_results = filter_results_for_run(
+                loaded_results, variant_labels, seeds, n_rounds=n_rounds
+            )
+            print(
+                f'  resuming from {result_path} '
+                f'({len(existing_results)}/{len(loaded_results)} matching entries)'
+            )
 
         results = run_ablation_sweep(
             make_agents_fn=lambda env, seed: make_agents(env, seed, base_hp, beta_values),
@@ -145,14 +169,15 @@ def main():
             seeds=seeds,
             n_rounds=n_rounds,
             lr=base_hp['lr'],
-            diagnostics=True,
+            diagnostics=False,
             output_dir=output_dir,
             compact=True,
             keep_trajectory=False,
+            initial_results=existing_results,
+            save_path=result_path,
         )
 
-        ds_dir = os.path.join(output_dir, dataset)
-        save_results(results, os.path.join(ds_dir, 'results.pkl'))
+        save_results(results, result_path)
         if not args.no_plot:
             plot_results(results, beta_values, seeds, ds_dir, dataset)
 

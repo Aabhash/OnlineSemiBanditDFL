@@ -278,10 +278,19 @@ def main(default_preset=None):
         help="Datasets to run (default: preset config datasets)",
     )
     parser.add_argument("--no-plot", action="store_true", help="Save data only, skip plotting")
-    parser.add_argument(
+    hp_group = parser.add_mutually_exclusive_group()
+    hp_group.add_argument(
         "--use-tuned-params",
+        dest="use_tuned_params",
         action="store_true",
-        help="Use tuned BayesianSPO and BayesianMSE hyperparameters from <tuning_dir>.",
+        default=True,
+        help="Use tuned BayesianSPO and BayesianMSE hyperparameters from <tuning_dir>. This is the default.",
+    )
+    hp_group.add_argument(
+        "--use-default-params",
+        dest="use_tuned_params",
+        action="store_false",
+        help="Use config agent_defaults instead of saved tuned hyperparameters.",
     )
     parser.add_argument(
         "--no-resume",

@@ -3,7 +3,14 @@ import glob as glob_mod
 import json
 import os
 import pickle
+import re
 
+for _cairo_lib in ("/opt/homebrew/opt/cairo/lib", "/usr/local/opt/cairo/lib"):
+    if os.path.exists(os.path.join(_cairo_lib, "libcairo.2.dylib")):
+        os.environ.setdefault("DYLD_LIBRARY_PATH", _cairo_lib)
+        break
+
+import cairosvg
 import numpy as np
 import pandas as pd
 
@@ -18,6 +25,47 @@ from lets_plot import (
 )
 from lets_plot import LetsPlot
 LetsPlot.setup_html()
+
+PAPER_FONT = "Avenir Next"
+PAPER_BOLD_WEIGHT = "600"
+PAPER_EMPHASIS_FONT = "Avenir Next Demi Bold"
+
+
+def force_svg_font(svg_path):
+    with open(svg_path) as f:
+        text = f.read()
+    text = text.replace("font-family: sans-serif", f"font-family: {PAPER_FONT}")
+    text = text.replace("font-family: sans", f"font-family: {PAPER_FONT}")
+    text = re.sub(
+        rf"font-weight:\s*bold;\s*font-style:\s*normal;\s*font-family:\s*{re.escape(PAPER_FONT)};",
+        (
+            "font-weight: normal;\n"
+            "font-style: normal;\n"
+            f"font-family: {PAPER_EMPHASIS_FONT};"
+        ),
+        text,
+    )
+    text = text.replace("font-weight: bold", f"font-weight: {PAPER_BOLD_WEIGHT}")
+    text = text.replace("font-weight:bold", f"font-weight:{PAPER_BOLD_WEIGHT}")
+    text = re.sub(
+        rf"font-weight:\s*{re.escape(PAPER_BOLD_WEIGHT)};([^\"<>]*?)font-family:\s*{re.escape(PAPER_FONT)};",
+        rf"font-weight:normal;\1font-family:{PAPER_EMPHASIS_FONT};",
+        text,
+    )
+    with open(svg_path, "w") as f:
+        f.write(text)
+
+
+def save_lets_plot(plot, outpath, fmt):
+    if fmt == "pdf":
+        svg_path = os.path.splitext(outpath)[0] + ".svg"
+        ggsave(plot, svg_path)
+        force_svg_font(svg_path)
+        cairosvg.svg2pdf(url=svg_path, write_to=outpath)
+    else:
+        ggsave(plot, outpath)
+        if fmt == "svg":
+            force_svg_font(outpath)
 
 
 AGENT_DISPLAY = {
@@ -105,25 +153,29 @@ BAR_AGENTS = [
 ]
 
 LINE_LEGEND_THEME_TL = theme(
+    text=element_text(family=PAPER_FONT),
     legend_position=[0.02, 0.98], legend_justification=[0, 1],
     legend_title=element_blank(),
-    legend_text=element_text(size=14),
+    legend_text=element_text(size=14, face='bold'),
     legend_background=element_rect(fill='white', color='#cccccc', size=0.5),
 )
 
 LINE_LEGEND_THEME_TR = theme(
+    text=element_text(family=PAPER_FONT),
     legend_position=[0.98, 0.98], legend_justification=[1, 1],
     legend_title=element_blank(),
-    legend_text=element_text(size=14),
+    legend_text=element_text(size=14, face='bold'),
     legend_background=element_rect(fill='white', color='#cccccc', size=0.5),
 )
 
 THEME_LINE = (
     theme_minimal()
     + theme(
+        text=element_text(family=PAPER_FONT),
         legend_title=element_blank(),
-        legend_text=element_text(size=10),
+        legend_text=element_text(size=10, face='bold'),
         plot_title=element_text(size=12, face='bold'),
+        plot_subtitle=element_text(size=11, face='bold'),
     )
 )
 
@@ -269,7 +321,7 @@ def make_line_plots(df_cum_agg, df_pr_agg, datasets, feedback='semi_bandit',
 
         fig = gggrid([p_cum, p_pr], ncol=2, align=True, hspace=30) + ggsize(1400, 450)
         outpath = os.path.abspath(os.path.join(output_dir, f'regret_trajectories_{ds}.{fmt}'))
-        ggsave(fig, outpath)
+        save_lets_plot(fig, outpath, fmt)
         print(f'Saved line plots: {outpath}')
 
 
@@ -315,13 +367,14 @@ def make_bar_charts(df_bar, datasets, feedback='semi_bandit',
             + labs(title=DATASET_LABELS.get(ds, ds), x='', y='Cumul. Regret (×1k)')
             + theme_minimal()
             + theme(legend_position='none',
-                    axis_text_y=element_text(size=9),
+                    text=element_text(family=PAPER_FONT),
+                    axis_text_y=element_text(size=9, face='bold'),
                     plot_title=element_text(size=12, face='bold'))
             + ggsize(plot_width, plot_height)
         )
 
         outpath = os.path.abspath(os.path.join(output_dir, f'regret_barplot_{ds}.{fmt}'))
-        ggsave(p, outpath)
+        save_lets_plot(p, outpath, fmt)
         print(f'Saved bar chart: {outpath}')
 
 
@@ -422,7 +475,7 @@ def make_diagnostic_plots(organized, datasets, feedback='semi_bandit',
         ncol = min(2, len(plots))
         fig = gggrid(plots, ncol=ncol, align=True) + ggsize(700 * ncol, 400 * ((len(plots) + ncol - 1) // ncol))
         outpath = os.path.abspath(os.path.join(output_dir, f'diagnostics_{ds}.{fmt}'))
-        ggsave(fig, outpath)
+        save_lets_plot(fig, outpath, fmt)
         print(f'Saved diagnostics: {outpath}')
 
 
@@ -454,8 +507,8 @@ def main():
                         help='Path to final_eval_regrets.json (for bar charts with more datasets)')
     parser.add_argument('--output', type=str, default='results/figures',
                         help='Output directory for plots')
-    parser.add_argument('--format', type=str, default='svg', choices=['svg', 'png', 'pdf'],
-                        help='Output format')
+    parser.add_argument('--format', type=str, default='pdf', choices=['pdf', 'svg', 'png'],
+                        help='Output format for plots (default: vector PDF)')
     parser.add_argument('--feedback', type=str, default='semi_bandit',
                         help='Feedback type to plot')
     parser.add_argument('--line_agents', type=str, nargs='*', default=None,

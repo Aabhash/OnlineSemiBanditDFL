@@ -12,6 +12,7 @@ from experiments.ablations.common import (  # noqa: E402
     filter_results_for_run,
     load_config,
     load_results,
+    make_agent_solver,
     make_dataset_config,
     run_ablation_sweep,
     save_results,
@@ -31,14 +32,13 @@ def agent_name(method, multiplier):
 
 def make_agents(env, seed, spo_hp, mse_hp, multipliers):
     minimize = getattr(env, "minimize", False)
-    solver = env.solve
 
     base_common = dict(
         context_dim=env.context_dim,
         n_arms=env.n_arms,
         weights=env.weights,
         capacity=env.capacity,
-        solver=solver,
+        solver=make_agent_solver(env),
         seed=seed,
         minimize=minimize,
         exploration_strategy="ts",
@@ -92,7 +92,20 @@ def main():
         help="Override TS scale multipliers of each method's tuned beta.",
     )
     parser.add_argument("--no-plot", action="store_true")
-    parser.add_argument("--use-tuned-params", action="store_true")
+    hp_group = parser.add_mutually_exclusive_group()
+    hp_group.add_argument(
+        "--use-tuned-params",
+        dest="use_tuned_params",
+        action="store_true",
+        default=True,
+        help="Use saved tuned hyperparameters. This is the default.",
+    )
+    hp_group.add_argument(
+        "--use-default-params",
+        dest="use_tuned_params",
+        action="store_false",
+        help="Use config agent_defaults instead of saved tuned hyperparameters.",
+    )
     parser.add_argument(
         "--no-resume",
         action="store_true",

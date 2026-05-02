@@ -149,9 +149,10 @@ agent_defaults:
 
 ablations:
   kn_ratio:
-    dataset: knapsack_32
-    n_items: 32
-    capacities: [4, 8, 12, 16, 20, 24, 28]
+    datasets: [knapsack_32, knapsack_100, portfolio_32]
+    agents: [BayesianSPO, BayesianMSE]
+    capacity_multipliers: [0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4]
+    portfolio_max_assets: [2, 3, 4, 5, 6, 8, 10]
     n_rounds: 10000
     n_seeds: 10
     output_dir: "results/ablations/kn_ratio"
@@ -179,13 +180,15 @@ ablations:
     hidden_dims: [1, 4, 8, 16, 32, 64]
     n_rounds: 10000
     n_seeds: 10
+    tuning_dir: "results/FINAL/tuning"
     output_dir: "results/ablations/feature_sharing"
 
   context_variation:
     datasets: [knapsack_32, knapsack_100, shortest_path_8x8, shortest_path_20x20, portfolio_32]
-    noise_widths: [0.0, 0.05, 0.1, 0.25, 0.5, 1.0]
+    noise_widths: [0.0, 0.25, 0.5, 1.0]
     n_rounds: 10000
     n_seeds: 10
+    tuning_dir: "results/FINAL/tuning"
     output_dir: "results/ablations/context_variation"
 
   feature_robustness:
@@ -209,7 +212,7 @@ ablations:
 
   beta_sensitivity:
     datasets: [knapsack_32, knapsack_100, shortest_path_8x8, shortest_path_20x20, portfolio_32]
-    beta_multipliers: [0.316, 0.562, 1.0, 1.778, 3.162]
+    beta_values: [0.1, 0.3, 1.0, 3.0, 5.0]
     n_rounds: 10000
     n_seeds: 10
     tuning_dir: "results/FINAL/tuning"
@@ -230,6 +233,14 @@ ablations:
     n_seeds: 10
     tuning_dir: "results/FINAL/tuning"
     output_dir: "results/ablations/imputation_samples"
+
+  pmin_coverage:
+    datasets: [knapsack_32, knapsack_100, shortest_path_8x8, shortest_path_20x20, portfolio_32]
+    threshold_quantiles: [0.5, 0.75]
+    n_rounds: 10000
+    n_seeds: 10
+    tuning_dir: "results/FINAL/tuning"
+    output_dir: "results/ablations/pmin_coverage"
 
   architecture_ablation:
     datasets: [knapsack_32, knapsack_100, shortest_path_8x8, shortest_path_20x20, portfolio_32]

@@ -10,10 +10,16 @@ from __future__ import annotations
 import argparse
 import os
 import pickle
+import re
 import shutil
-import subprocess
 from pathlib import Path
 
+for _cairo_lib in ("/opt/homebrew/opt/cairo/lib", "/usr/local/opt/cairo/lib"):
+    if (Path(_cairo_lib) / "libcairo.2.dylib").exists():
+        os.environ.setdefault("DYLD_LIBRARY_PATH", _cairo_lib)
+        break
+
+import cairosvg
 import numpy as np
 import pandas as pd
 from lets_plot import (
@@ -51,6 +57,10 @@ os.environ.setdefault("MPLCONFIGDIR", str(MPL_CACHE))
 os.environ.setdefault("XDG_CACHE_HOME", str(XDG_CACHE))
 
 LetsPlot.setup_html()
+
+PAPER_FONT = "Avenir Next"
+PAPER_BOLD_WEIGHT = "600"
+PAPER_EMPHASIS_FONT = "Avenir Next Demi Bold"
 
 AGENT_DISPLAY = {
     "BayesianSPO": "BayesianSPO",
@@ -327,9 +337,10 @@ def _base_plot(data: pd.DataFrame, title: str, y_limit: float | None, show_legen
         )
         + theme_minimal()
         + theme(
+            text=element_text(family=PAPER_FONT),
             legend_position="top" if show_legend else "none",
             legend_title=element_blank(),
-            legend_text=element_text(size=8.5),
+            legend_text=element_text(size=8.5, face="bold"),
             legend_key_width=13,
             legend_key_height=7,
             legend_key_spacing_x=2,
@@ -338,6 +349,7 @@ def _base_plot(data: pd.DataFrame, title: str, y_limit: float | None, show_legen
             axis_title=element_text(size=9.2),
             axis_text=element_text(size=7.8, color="#444444"),
             plot_title=element_text(size=10.5, face="bold"),
+            plot_subtitle=element_text(size=9.5, face="bold"),
             plot_margin=[4, 6, 4, 6],
         )
     )
@@ -445,9 +457,10 @@ def _metric_plot(
         )
         + theme_minimal()
         + theme(
+            text=element_text(family=PAPER_FONT),
             legend_position="top" if show_legend else "none",
             legend_title=element_blank(),
-            legend_text=element_text(size=8.3),
+            legend_text=element_text(size=8.3, face="bold"),
             legend_key_width=13,
             legend_key_height=7,
             legend_key_spacing_x=2,
@@ -456,6 +469,7 @@ def _metric_plot(
             axis_title=element_text(size=9),
             axis_text=element_text(size=7.4, color="#444444"),
             plot_title=element_text(size=10.2, face="bold"),
+            plot_subtitle=element_text(size=9.3, face="bold"),
             plot_margin=[3, 5, 3, 5],
         )
     )
@@ -519,14 +533,27 @@ def save_plot(plot, out_dir: Path, stem: str, keep_svg: bool = False) -> Path:
     pdf_path = out_dir / f"{stem}.pdf"
 
     ggsave(plot, svg_path.name, path=str(out_dir), iframe=False)
-
-    converter = shutil.which("rsvg-convert")
-    if converter is None:
-        raise RuntimeError(
-            "rsvg-convert is required to write PDF figures; "
-            f"left intermediate SVG at {svg_path}"
-        )
-    subprocess.run([converter, "-f", "pdf", "-o", str(pdf_path), str(svg_path)], check=True)
+    text = svg_path.read_text()
+    text = text.replace("font-family: sans-serif", f"font-family: {PAPER_FONT}")
+    text = text.replace("font-family: sans", f"font-family: {PAPER_FONT}")
+    text = re.sub(
+        rf"font-weight:\s*bold;\s*font-style:\s*normal;\s*font-family:\s*{re.escape(PAPER_FONT)};",
+        (
+            "font-weight: normal;\n"
+            "font-style: normal;\n"
+            f"font-family: {PAPER_EMPHASIS_FONT};"
+        ),
+        text,
+    )
+    text = text.replace("font-weight: bold", f"font-weight: {PAPER_BOLD_WEIGHT}")
+    text = text.replace("font-weight:bold", f"font-weight:{PAPER_BOLD_WEIGHT}")
+    text = re.sub(
+        rf"font-weight:\s*{re.escape(PAPER_BOLD_WEIGHT)};([^\"<>]*?)font-family:\s*{re.escape(PAPER_FONT)};",
+        rf"font-weight:normal;\1font-family:{PAPER_EMPHASIS_FONT};",
+        text,
+    )
+    svg_path.write_text(text)
+    cairosvg.svg2pdf(url=str(svg_path), write_to=str(pdf_path))
     if not keep_svg:
         svg_path.unlink(missing_ok=True)
     return pdf_path

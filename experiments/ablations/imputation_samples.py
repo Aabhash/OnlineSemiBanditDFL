@@ -12,7 +12,8 @@ plt = importlib.import_module('matplotlib.pyplot') if importlib.util.find_spec('
 
 from experiments.ablations.common import (
     load_config, make_co_solver, make_dataset_config,
-    save_results, get_quick_params, compact_result,
+    save_results, get_quick_params, compact_result, load_results,
+    make_agent_solver, select_ablation_seeds, result_matches_rounds,
 )
 from src.agents.contextual import BayesianSPOAgent
 from src.agents.base import pregenerate_episode, run_agent_on_episode
@@ -61,7 +62,7 @@ def resolve_base_hp(env, defaults, tuned_params):
 
 def make_agents(env, seed, base_hp, m_values):
     minimize = getattr(env, 'minimize', False)
-    solver = env.solve
+    solver = make_agent_solver(env)
 
     common_base = dict(
         context_dim=env.context_dim, n_arms=env.n_arms,
@@ -117,31 +118,36 @@ def main():
     parser.add_argument('--config', default='experiments/configs/experiment.yaml')
     parser.add_argument('--mode', choices=['quick', 'full'], default='quick')
     parser.add_argument('--output', default=None)
+    parser.add_argument('--datasets', nargs='+', default=None,
+                        help='Datasets to run (default: config datasets)')
     parser.add_argument('--no-plot', action='store_true', help='Save data only, skip plotting')
     parser.add_argument('--use-tuned-params', action='store_true',
                         help='Load per-dataset tuned BayesianSPO HPs from <tuning_dir>/best_hyperparams_*.json '
                              'instead of agent_defaults (M is still swept).')
     parser.add_argument('--tuning-dir', default=None,
                         help='Override tuning dir (default: ablations.imputation_samples.tuning_dir).')
+    parser.add_argument('--no-resume', action='store_true')
     args = parser.parse_args()
 
     config = load_config(args.config)
     abl_cfg = config['ablations']['imputation_samples']
+    quick = args.mode == 'quick'
 
-    if args.mode == 'quick':
+    if quick:
         abl_cfg = get_quick_params(abl_cfg)
 
-    datasets = abl_cfg.get('datasets', ['knapsack_32'])
+    datasets = args.datasets or abl_cfg.get('datasets', ['knapsack_32'])
     m_values = abl_cfg['m_values']
     n_rounds = abl_cfg['n_rounds']
     n_seeds = abl_cfg['n_seeds']
-    seeds = list(range(n_seeds))
+    seeds = select_ablation_seeds(config, n_seeds, quick=quick)
     output_dir = args.output or abl_cfg['output_dir']
     tuning_dir = args.tuning_dir or abl_cfg.get('tuning_dir', 'results/tuning')
     defaults = config['agent_defaults']
 
     print(f'M values: {m_values}')
     print(f'Datasets: {datasets}')
+    print(f'n_rounds={n_rounds}, seeds={seeds}')
     print(f'Use tuned params: {args.use_tuned_params} (tuning_dir={tuning_dir})')
 
     for dataset in datasets:
@@ -152,7 +158,23 @@ def main():
         if args.use_tuned_params and tuned is None:
             print(f'  warning: no tuned BayesianSPO params for {dataset}, falling back to agent_defaults')
 
+        ds_dir = os.path.join(output_dir, dataset)
+        result_path = os.path.join(ds_dir, 'results.pkl')
+        agent_names = [f'M{m}' for m in m_values]
         all_results = {}
+        if os.path.exists(result_path) and not args.no_resume:
+            loaded = load_results(result_path)
+            for key, value in loaded.items():
+                if (
+                    isinstance(key, tuple)
+                    and len(key) == 2
+                    and key[0] in agent_names
+                    and key[1] in seeds
+                    and result_matches_rounds(value, n_rounds)
+                ):
+                    all_results[key] = value
+            print(f'  resuming from {result_path} ({len(all_results)}/{len(loaded)} matching entries)')
+
         for seed_idx, seed in enumerate(seeds):
             print(f'  Seed {seed_idx + 1}/{len(seeds)} (seed={seed}):')
 
@@ -163,17 +185,22 @@ def main():
             base_hp = resolve_base_hp(env, defaults, tuned)
             agents = make_agents(env, seed, base_hp, m_values)
             for agent_name, agent in agents.items():
+                key = (agent_name, seed)
+                if key in all_results:
+                    print(f'    {agent_name}... skipped', flush=True)
+                    continue
+
                 print(f'    {agent_name}...', end=' ', flush=True)
                 result = run_agent_on_episode(
                     agent, episode, n_rounds,
                     lr=base_hp['lr'], full_feedback=False,
-                    diagnostics=True, co_solver=co_solver,
+                    diagnostics=False, co_solver=co_solver,
                 )
-                all_results[(agent_name, seed)] = compact_result(result, keep_trajectory=False)
+                all_results[key] = compact_result(result, keep_trajectory=False)
+                save_results(all_results, result_path)
                 print(f'regret={result["final_regret"]:.0f}', flush=True)
 
-        ds_dir = os.path.join(output_dir, dataset)
-        save_results(all_results, os.path.join(ds_dir, 'results.pkl'))
+        save_results(all_results, result_path)
         if not args.no_plot:
             plot_results(all_results, m_values, seeds, ds_dir, dataset)
 

@@ -11,7 +11,7 @@ dependencies = [
     "numpy>=1.24.0",
     "matplotlib>=3.7.0",
     "pandas>=2.0.0",
-    "pyarrow>=15.0.0,<18.0.0",  # Pin to avoid pandas/datasets conflict
+    "pyarrow>=15.0.0,<18.0.0", # Pin to avoid pandas/datasets conflict
     "scipy>=1.10.0",
     "scikit-learn>=1.2.0",
     "requests>=2.28.0",
@@ -22,4 +22,5 @@ dependencies = [
     "fastparquet>=2024.0.0",
     "xgboost>=2.0.0",
     "datasets>=2.0.0",
+    "cairosvg>=2.9.0",
 ]

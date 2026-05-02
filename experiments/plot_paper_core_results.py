@@ -9,9 +9,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import pickle
 
+for _cairo_lib in ("/opt/homebrew/opt/cairo/lib", "/usr/local/opt/cairo/lib"):
+    if os.path.exists(os.path.join(_cairo_lib, "libcairo.2.dylib")):
+        os.environ.setdefault("DYLD_LIBRARY_PATH", _cairo_lib)
+        break
+
+import cairosvg
 import numpy as np
 import pandas as pd
 
@@ -82,6 +89,8 @@ DATASET_COLORS = {
     "SP 20x20": "#D6A086",
     "Portfolio": "#B8B8B8",
 }
+PAPER_FONT = "Avenir Next"
+PAPER_EMPHASIS_FONT = "Avenir Next Demi Bold"
 
 
 def configure_matplotlib():
@@ -90,15 +99,30 @@ def configure_matplotlib():
 
     import matplotlib.pyplot as plt
 
+    logging.getLogger("matplotlib.font_manager").setLevel(logging.ERROR)
     plt.rcParams.update(
         {
             "font.family": "sans-serif",
-            "font.sans-serif": ["Helvetica", "Arial", "DejaVu Sans"],
+            "font.sans-serif": [
+                PAPER_FONT,
+                PAPER_EMPHASIS_FONT,
+                "Helvetica Neue",
+                "Helvetica",
+                "Arial",
+                "DejaVu Sans",
+            ],
             "pdf.fonttype": 42,
             "ps.fonttype": 42,
+            "svg.fonttype": "none",
         }
     )
     return plt
+
+
+def save_vector_pdf(fig, out: str, **savefig_kwargs) -> None:
+    svg_out = os.path.splitext(out)[0] + ".svg"
+    fig.savefig(svg_out, format="svg", **savefig_kwargs)
+    cairosvg.svg2pdf(url=svg_out, write_to=out)
 
 
 def load_trajectories(path: str, override_paths: list[str] | None = None) -> dict:
@@ -282,7 +306,7 @@ def aggregate_regret(df: pd.DataFrame) -> pd.DataFrame:
 def make_regret_plots(raw: dict, output_dir: str) -> None:
     plt = configure_matplotlib()
     from matplotlib.lines import Line2D
-    from matplotlib.ticker import FuncFormatter
+    from matplotlib.ticker import AutoMinorLocator, FuncFormatter
 
     df_cum, df_pr = build_regret_frames(raw)
     cum = aggregate_regret(df_cum)
@@ -327,12 +351,16 @@ def make_regret_plots(raw: dict, output_dir: str) -> None:
                     linewidth=1.35,
                 )
 
-            ax.set_title(title, fontsize=11, fontweight="bold", pad=5)
+            ax.set_title(title, fontsize=11, fontfamily=PAPER_EMPHASIS_FONT, pad=5)
             ax.set_xlabel("Round", fontsize=9)
             ax.set_ylabel(ylabel, fontsize=9)
             ax.tick_params(axis="both", labelsize=8, length=3, color="#7A7A7A")
+            ax.tick_params(axis="both", which="minor", length=0)
             ax.xaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{int(value):,}"))
-            ax.grid(True, color="#E5E5E5", linewidth=0.7)
+            ax.xaxis.set_minor_locator(AutoMinorLocator(2))
+            ax.yaxis.set_minor_locator(AutoMinorLocator(2))
+            ax.grid(True, which="major", color="#E4E4E4", linewidth=0.7)
+            ax.grid(True, which="minor", color="#F0F0F0", linewidth=0.45)
             ax.set_axisbelow(True)
             ax.margins(x=0.02)
             y_min, y_max = ax.get_ylim()
@@ -359,20 +387,107 @@ def make_regret_plots(raw: dict, output_dir: str) -> None:
             bbox_to_anchor=(0.5, 1.02),
             ncol=len(handles),
             frameon=False,
-            fontsize=9,
+            prop={"family": PAPER_EMPHASIS_FONT, "size": 9},
             handlelength=2.0,
             columnspacing=1.0,
         )
         fig.tight_layout(rect=[0, 0, 1, 0.9], pad=0.35, w_pad=1.0)
         out = os.path.abspath(os.path.join(output_dir, f"regret_trajectories_{dataset}.pdf"))
-        fig.savefig(out, bbox_inches="tight", pad_inches=0.02)
+        save_vector_pdf(fig, out, bbox_inches="tight", pad_inches=0.02)
         plt.close(fig)
         print(f"Saved {out}")
 
 
+def make_regret_scaling_plot(raw: dict, output_dir: str) -> None:
+    plt = configure_matplotlib()
+    from matplotlib.ticker import FuncFormatter, LogLocator
+
+    df_cum, _ = build_regret_frames(raw)
+    cum = aggregate_regret(df_cum)
+    spo = cum[cum["agent"] == "BayesianSPO"].copy()
+    if spo.empty:
+        return
+
+    fig, ax = plt.subplots(figsize=(4.0, 2.75))
+    summary_rows = []
+    for dataset in DATASETS:
+        frame = spo[spo["dataset"] == dataset].sort_values("round")
+        if frame.empty:
+            continue
+        rounds = frame["round"].to_numpy(dtype=float)
+        regret = frame["mean"].to_numpy(dtype=float)
+        positive = regret > 0
+        if not positive.any():
+            continue
+        final = float(regret[positive][-1])
+        if final <= 0:
+            continue
+        normalized = regret / final
+        ax.plot(
+            rounds[positive],
+            normalized[positive],
+            color=DATASET_COLORS[DATASET_LABELS[dataset]],
+            linewidth=1.45,
+            label=DATASET_LABELS[dataset],
+        )
+
+        slope_mask = (rounds >= 1000) & (regret > 0)
+        slope = np.nan
+        if slope_mask.sum() >= 3:
+            slope = float(np.polyfit(np.log(rounds[slope_mask]), np.log(regret[slope_mask]), 1)[0])
+        summary_rows.append(
+            {
+                "dataset": dataset,
+                "dataset_label": DATASET_LABELS[dataset],
+                "final_regret": final,
+                "loglog_slope_1k_to_10k": slope,
+            }
+        )
+
+    ref_x = np.array([10.0, 10_000.0])
+    ax.plot(ref_x, np.sqrt(ref_x / ref_x[-1]), color="#222222", linestyle="--", linewidth=1.1)
+    ax.text(35, 0.075, "sqrt(T) reference", fontsize=8.0, color="#222222", fontweight="normal")
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set_xlim(10, 10_000)
+    ax.set_ylim(0.02, 1.25)
+    ax.set_xlabel("Round", fontsize=9.5, fontweight="normal")
+    ax.set_ylabel("Normalized Reg(t)", fontsize=9.5, fontweight="normal")
+    ax.tick_params(axis="both", labelsize=8.2, length=3, color="#7A7A7A")
+    ax.tick_params(axis="both", which="minor", length=0)
+    ax.xaxis.set_minor_locator(LogLocator(base=10, subs=np.arange(2, 10) * 0.1))
+    ax.yaxis.set_minor_locator(LogLocator(base=10, subs=np.arange(2, 10) * 0.1))
+    ax.xaxis.set_major_formatter(
+        FuncFormatter(lambda value, _: f"{int(value):,}" if value >= 1 else f"{value:g}")
+    )
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{value:g}"))
+    ax.grid(True, which="major", color="#E4E4E4", linewidth=0.7)
+    ax.grid(True, which="minor", color="#F0F0F0", linewidth=0.45)
+    ax.set_axisbelow(True)
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    ax.legend(
+        loc="lower right",
+        frameon=False,
+        prop={"family": PAPER_EMPHASIS_FONT, "size": 7.8},
+        handlelength=1.5,
+        labelspacing=0.35,
+    )
+    fig.tight_layout(pad=0.25)
+
+    out = os.path.abspath(os.path.join(output_dir, "regret_scaling_bayesian_spo.pdf"))
+    save_vector_pdf(fig, out, bbox_inches="tight", pad_inches=0.02)
+    plt.close(fig)
+    pd.DataFrame(summary_rows).to_csv(
+        os.path.join(output_dir, "regret_scaling_bayesian_spo_summary.csv"),
+        index=False,
+    )
+    print(f"Saved {out}")
+
+
 def make_wallclock_stacked_bars(raw: dict, output_dir: str) -> None:
     plt = configure_matplotlib()
-    from matplotlib.ticker import FuncFormatter
+    from matplotlib.ticker import AutoMinorLocator, FuncFormatter
 
     rows = []
     for (agent, dataset, feedback, seed), data in raw.items():
@@ -427,12 +542,17 @@ def make_wallclock_stacked_bars(raw: dict, output_dir: str) -> None:
 
     ax.set_yticks(y)
     ax.set_yticklabels(agent_order, fontsize=7.8)
+    for label in ax.get_yticklabels():
+        label.set_fontfamily(PAPER_EMPHASIS_FONT)
     ax.invert_yaxis()
     ax.set_xlabel("Total wallclock time (s)", fontsize=10)
     ax.tick_params(axis="x", labelsize=7.8, length=3, color="#7A7A7A")
+    ax.tick_params(axis="x", which="minor", length=0)
     ax.tick_params(axis="y", labelsize=7.8, length=0)
     ax.xaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{int(value):,}"))
-    ax.xaxis.grid(True, color="#E5E5E5", linewidth=0.7)
+    ax.xaxis.set_minor_locator(AutoMinorLocator(2))
+    ax.xaxis.grid(True, which="major", color="#E4E4E4", linewidth=0.7)
+    ax.xaxis.grid(True, which="minor", color="#F0F0F0", linewidth=0.45)
     ax.yaxis.grid(False)
     ax.set_axisbelow(True)
     for spine in ax.spines.values():
@@ -442,7 +562,7 @@ def make_wallclock_stacked_bars(raw: dict, output_dir: str) -> None:
         bbox_to_anchor=(0.5, 1.03),
         ncol=2,
         frameon=False,
-        fontsize=8,
+        prop={"family": PAPER_EMPHASIS_FONT, "size": 8},
         handlelength=0.9,
         handletextpad=0.35,
         columnspacing=0.65,
@@ -450,7 +570,7 @@ def make_wallclock_stacked_bars(raw: dict, output_dir: str) -> None:
     fig.tight_layout(pad=0.2)
 
     out = os.path.abspath(os.path.join(output_dir, "wallclock_stacked_by_method.pdf"))
-    fig.savefig(out, bbox_inches="tight")
+    save_vector_pdf(fig, out, bbox_inches="tight")
     plt.close(fig)
     print(f"Saved {out}")
 
@@ -490,6 +610,7 @@ def main() -> None:
     raw = calibrate_to_final_regrets(raw, args.canonical_regrets)
     raw = calibrate_wall_times(raw, args.canonical_times)
     make_regret_plots(raw, args.output)
+    make_regret_scaling_plot(raw, args.output)
     make_wallclock_stacked_bars(raw, args.output)
 
 

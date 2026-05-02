@@ -13,6 +13,7 @@ from experiments.ablations.common import (  # noqa: E402
     load_config,
     make_dataset_config,
     save_results,
+    select_ablation_seeds,
 )
 from experiments.ablations.posterior_strategy_ablation import (  # noqa: E402
     load_tuned_params,
@@ -66,7 +67,7 @@ def make_agents(env, seed, spo_hp, mse_hp, defaults, n_rounds):
             beta=mse_hp["beta"],
             exploration_strategy="ucb",
         ),
-        "GreedySPO": DeterministicSPOAgent(
+        "DeterministicSPO": DeterministicSPOAgent(
             **base_common,
             hidden_dim=spo_hp["hidden_dim"],
             lr=spo_hp["lr"],
@@ -75,7 +76,7 @@ def make_agents(env, seed, spo_hp, mse_hp, defaults, n_rounds):
             decay_rounds=n_rounds,
             mask_grad=True,
         ),
-        "GreedyMSE": DeterministicMSEAgent(
+        "DeterministicMSE": DeterministicMSEAgent(
             **base_common,
             hidden_dim=mse_hp["hidden_dim"],
             lr=mse_hp["lr"],
@@ -93,12 +94,26 @@ def main():
     parser.add_argument("--mode", choices=["quick", "full"], default="quick")
     parser.add_argument("--output", default=None)
     parser.add_argument("--datasets", nargs="+", default=None)
-    parser.add_argument("--use-tuned-params", action="store_true")
+    hp_group = parser.add_mutually_exclusive_group()
+    hp_group.add_argument(
+        "--use-tuned-params",
+        dest="use_tuned_params",
+        action="store_true",
+        default=True,
+        help="Use saved tuned hyperparameters. This is the default.",
+    )
+    hp_group.add_argument(
+        "--use-default-params",
+        dest="use_tuned_params",
+        action="store_false",
+        help="Use config agent_defaults instead of saved tuned hyperparameters.",
+    )
     parser.add_argument("--tuning-dir", default=None)
     parser.add_argument("--keep-trajectory", action="store_true")
     args = parser.parse_args()
 
     config = load_config(args.config)
+    quick = args.mode == "quick"
     abl_cfg = config["ablations"].get(
         "architecture_ablation",
         {
@@ -109,20 +124,20 @@ def main():
             "output_dir": "results/ablations/architecture",
         },
     )
-    if args.mode == "quick":
+    if quick:
         abl_cfg = get_quick_params(abl_cfg)
 
     datasets = args.datasets or abl_cfg["datasets"]
     n_rounds = int(abl_cfg["n_rounds"])
-    seeds = list(range(int(abl_cfg["n_seeds"])))
+    seeds = select_ablation_seeds(config, int(abl_cfg["n_seeds"]), quick=quick)
     output_dir = args.output or abl_cfg["output_dir"]
     tuning_dir = args.tuning_dir or abl_cfg.get("tuning_dir", "results/FINAL/tuning")
     defaults = config["agent_defaults"]
 
     print("\n=== Architecture ablation ===")
     print(f"Datasets: {datasets}")
-    print(f"n_rounds={n_rounds}, n_seeds={len(seeds)}")
-    print("Variants: BayesianSPO, BayesianMSE, GreedySPO, GreedyMSE")
+    print(f"n_rounds={n_rounds}, seeds={seeds}")
+    print("Variants: BayesianSPO, BayesianMSE, DeterministicSPO, DeterministicMSE")
     print(f"Use tuned params: {args.use_tuned_params} (tuning_dir={tuning_dir})")
 
     for dataset in datasets:

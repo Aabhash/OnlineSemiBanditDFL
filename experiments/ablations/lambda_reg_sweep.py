@@ -12,11 +12,15 @@ sys.path.insert(0, '.')
 plt = importlib.import_module('matplotlib.pyplot') if importlib.util.find_spec('matplotlib.pyplot') is not None else None
 
 from experiments.ablations.common import (
+    filter_results_for_run,
     get_quick_params,
     load_config,
+    load_results,
+    make_agent_solver,
     make_dataset_config,
     run_ablation_sweep,
     save_results,
+    select_ablation_seeds,
 )
 from experiments.ablations.imputation_samples import (
     load_tuned_bayesian_spo_params,
@@ -31,7 +35,7 @@ def agent_name(lambda_reg):
 
 def make_agents(env, seed, base_hp, lambda_values):
     minimize = getattr(env, 'minimize', False)
-    solver = env.solve
+    solver = make_agent_solver(env)
 
     common = dict(
         context_dim=env.context_dim,
@@ -105,12 +109,14 @@ def main():
                         help='Use tuned BayesianSPO hyperparameters from <tuning_dir>.')
     parser.add_argument('--tuning-dir', default=None,
                         help='Override tuning dir (default: ablations.lambda_reg_sweep.tuning_dir).')
+    parser.add_argument('--no-resume', action='store_true')
     args = parser.parse_args()
 
     config = load_config(args.config)
     abl_cfg = config['ablations']['lambda_reg_sweep']
+    quick = args.mode == 'quick'
 
-    if args.mode == 'quick':
+    if quick:
         abl_cfg = get_quick_params(abl_cfg)
         abl_cfg['lambda_reg_values'] = [0.1, 1.0, 10.0]
 
@@ -121,13 +127,14 @@ def main():
 
     n_rounds = abl_cfg['n_rounds']
     n_seeds = abl_cfg['n_seeds']
-    seeds = list(range(n_seeds))
+    seeds = select_ablation_seeds(config, n_seeds, quick=quick)
     output_dir = args.output or abl_cfg['output_dir']
     tuning_dir = args.tuning_dir or abl_cfg.get('tuning_dir', 'results/FINAL/tuning')
     defaults = config['agent_defaults']
 
     print(f'\n=== Lambda regularization sensitivity ablation ===')
     print(f'lambda_reg values: {lambda_values}')
+    print(f'n_rounds={n_rounds}, seeds={seeds}')
     print(f'Use tuned params: {args.use_tuned_params} (tuning_dir={tuning_dir})')
 
     for dataset in datasets:
@@ -137,6 +144,20 @@ def main():
         if args.use_tuned_params and tuned is None:
             print(f'  warning: no tuned BayesianSPO params for {dataset}, falling back to agent_defaults')
         base_hp = resolve_base_hp(None, defaults, tuned)
+        variant_labels = [agent_name(value) for value in lambda_values]
+
+        ds_dir = os.path.join(output_dir, dataset)
+        result_path = os.path.join(ds_dir, 'results.pkl')
+        existing_results = {}
+        if os.path.exists(result_path) and not args.no_resume:
+            loaded_results = load_results(result_path)
+            existing_results = filter_results_for_run(
+                loaded_results, variant_labels, seeds, n_rounds=n_rounds
+            )
+            print(
+                f'  resuming from {result_path} '
+                f'({len(existing_results)}/{len(loaded_results)} matching entries)'
+            )
 
         results = run_ablation_sweep(
             make_agents_fn=lambda env, seed: make_agents(env, seed, base_hp, lambda_values),
@@ -145,14 +166,15 @@ def main():
             seeds=seeds,
             n_rounds=n_rounds,
             lr=base_hp['lr'],
-            diagnostics=True,
+            diagnostics=False,
             output_dir=output_dir,
             compact=True,
             keep_trajectory=False,
+            initial_results=existing_results,
+            save_path=result_path,
         )
 
-        ds_dir = os.path.join(output_dir, dataset)
-        save_results(results, os.path.join(ds_dir, 'results.pkl'))
+        save_results(results, result_path)
         if not args.no_plot:
             plot_results(results, lambda_values, seeds, ds_dir, dataset)
 

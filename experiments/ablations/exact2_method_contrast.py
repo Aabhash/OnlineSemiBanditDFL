@@ -9,11 +9,16 @@ capacity for the decision and nuisance coordinates.
 import argparse
 import json
 import os
-import shutil
-import subprocess
+import re
 import sys
 from pathlib import Path
 
+for _cairo_lib in ("/opt/homebrew/opt/cairo/lib", "/usr/local/opt/cairo/lib"):
+    if (Path(_cairo_lib) / "libcairo.2.dylib").exists():
+        os.environ.setdefault("DYLD_LIBRARY_PATH", _cairo_lib)
+        break
+
+import cairosvg
 import numpy as np
 import pandas as pd
 from lets_plot import (
@@ -68,6 +73,10 @@ os.environ.setdefault("MPLCONFIGDIR", str(MPL_CACHE))
 os.environ.setdefault("XDG_CACHE_HOME", str(XDG_CACHE))
 
 LetsPlot.setup_html()
+
+PAPER_FONT = "Avenir Next"
+PAPER_BOLD_WEIGHT = "600"
+PAPER_EMPHASIS_FONT = "Avenir Next Demi Bold"
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "paper_neurips_2026/figures/exact2_m_sweep"
 DEFAULT_CACHE_DIR = REPO_ROOT / "results/ablations/exact2_method_contrast/cache"
@@ -480,9 +489,8 @@ def build_feedback_plot(data, feedback):
                 color="#2b2b2b",
                 fill="#ffffff",
                 size=5.6,
-                fontface="bold",
                 hjust=0,
-                family="sans",
+                family=PAPER_FONT,
             )
             + scale_color_manual(values=ACTION_COLORS, name="Action")
             + scale_shape_manual(values=ACTION_SHAPES, name="Action")
@@ -494,11 +502,13 @@ def build_feedback_plot(data, feedback):
             )
             + theme_minimal()
             + theme(
+                text=element_text(family=PAPER_FONT),
                 legend_position="top" if show_legend else "none",
                 panel_grid=element_blank(),
                 plot_title=element_text(size=13, face="bold"),
-                legend_text=element_text(size=8),
-                legend_title=element_text(size=8),
+                plot_subtitle=element_text(size=11, face="bold"),
+                legend_text=element_text(size=8, face="bold"),
+                legend_title=element_text(size=8, face="bold"),
                 legend_key_width=9,
                 legend_key_height=8,
                 legend_key_spacing_x=2,
@@ -571,12 +581,14 @@ def build_feedback_plot(data, feedback):
                 data=panel_decision,
                 color="white",
                 size=8.0,
+                family=PAPER_FONT,
             )
             + geom_text(
                 mapping=aes("x", "y", label="label"),
                 data=panel_nuisance,
                 color="#333333",
                 size=8.0,
+                family=PAPER_FONT,
             )
             + geom_text(
                 mapping=aes("x", "y", label="label"),
@@ -584,16 +596,15 @@ def build_feedback_plot(data, feedback):
                 color="#5a5a5a",
                 size=5.0,
                 hjust=0.5,
-                family="sans",
+                family=PAPER_FONT,
             )
             + geom_text(
                 mapping=aes("x", "y", label="label"),
                 data=panel_ann_values,
                 color="#2b2b2b",
                 size=6.8,
-                fontface="bold",
                 hjust=0.5,
-                family="sans",
+                family=PAPER_FONT,
             )
             + geom_text(
                 mapping=aes("x", "y", label="label"),
@@ -601,7 +612,7 @@ def build_feedback_plot(data, feedback):
                 color="#777777",
                 size=5.4,
                 hjust=0.5,
-                family="sans",
+                family=PAPER_FONT,
             )
             + scale_fill_manual(values=DIMENSION_COLORS, name="Context dimension")
             + scale_x_continuous(limits=[0.0, 1.0], breaks=[0.0, 0.25, 0.5, 0.75, 1.0])
@@ -614,6 +625,7 @@ def build_feedback_plot(data, feedback):
             )
             + theme_minimal()
             + theme(
+                text=element_text(family=PAPER_FONT),
                 legend_position="none",
                 panel_grid=element_blank(),
                 axis_title=element_text(size=10),
@@ -647,29 +659,33 @@ def save_outputs(plot, out_dir, stem, keep_intermediates=False, save_png=False):
     png_path = out_dir / f"{stem}.png"
 
     ggsave(plot, svg_path.name, path=str(out_dir), iframe=False)
-
-    converter = shutil.which("rsvg-convert")
-    if converter is None:
-        raise RuntimeError(
-            "rsvg-convert is required to write the paper PDFs; "
-            f"left intermediate SVG at {svg_path}"
-        )
-
-    subprocess.run(
-        [converter, "-f", "pdf", "-o", str(pdf_path), str(svg_path)],
-        check=True,
+    text = svg_path.read_text()
+    text = text.replace("font-family: sans-serif", f"font-family: {PAPER_FONT}")
+    text = text.replace("font-family: sans", f"font-family: {PAPER_FONT}")
+    text = re.sub(
+        rf"font-weight:\s*bold;\s*font-style:\s*normal;\s*font-family:\s*{re.escape(PAPER_FONT)};",
+        (
+            "font-weight: normal;\n"
+            "font-style: normal;\n"
+            f"font-family: {PAPER_EMPHASIS_FONT};"
+        ),
+        text,
     )
-    if save_png:
-        subprocess.run(
-            [converter, "-f", "png", "-w", "1800", "-o", str(png_path), str(svg_path)],
-            check=True,
-        )
-        print(f"Saved {png_path}")
-    if not keep_intermediates:
-        svg_path.unlink(missing_ok=True)
-    else:
-        print(f"Saved {svg_path}")
+    text = text.replace("font-weight: bold", f"font-weight: {PAPER_BOLD_WEIGHT}")
+    text = text.replace("font-weight:bold", f"font-weight:{PAPER_BOLD_WEIGHT}")
+    text = re.sub(
+        rf"font-weight:\s*{re.escape(PAPER_BOLD_WEIGHT)};([^\"<>]*?)font-family:\s*{re.escape(PAPER_FONT)};",
+        rf"font-weight:normal;\1font-family:{PAPER_EMPHASIS_FONT};",
+        text,
+    )
+    svg_path.write_text(text)
+    cairosvg.svg2pdf(url=str(svg_path), write_to=str(pdf_path))
     print(f"Saved {pdf_path}")
+    print(f"Saved {svg_path}")
+
+    if save_png:
+        cairosvg.svg2png(url=str(svg_path), write_to=str(png_path), output_width=1800)
+        print(f"Saved {png_path}")
 
 
 def main():
