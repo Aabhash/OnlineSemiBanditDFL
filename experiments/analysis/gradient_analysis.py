@@ -176,28 +176,28 @@ def print_summary(metrics):
 
 
     print("\n--- Gradient Magnitudes (mean ± std) ---")
-    print(f"MSE grad (OI imp):   {np.mean(metrics['mse_grad_ucb_norm']):.4f} ± {np.std(metrics['mse_grad_ucb_norm']):.4f}")
-    print(f"MSE grad (DM imp):   {np.mean(metrics['mse_grad_dm_norm']):.4f} ± {np.std(metrics['mse_grad_dm_norm']):.4f}")
+    print(f"MSE grad (UCB target):   {np.mean(metrics['mse_grad_ucb_norm']):.4f} ± {np.std(metrics['mse_grad_ucb_norm']):.4f}")
+    print(f"MSE grad (model target): {np.mean(metrics['mse_grad_dm_norm']):.4f} ± {np.std(metrics['mse_grad_dm_norm']):.4f}")
     print(f"MSE grad (true):     {np.mean(metrics['mse_grad_true_norm']):.4f} ± {np.std(metrics['mse_grad_true_norm']):.4f}")
-    print(f"SPO+ grad (OI imp):  {np.mean(metrics['spo_grad_ucb_norm']):.4f} ± {np.std(metrics['spo_grad_ucb_norm']):.4f}")
-    print(f"SPO+ grad (DM imp):  {np.mean(metrics['spo_grad_dm_norm']):.4f} ± {np.std(metrics['spo_grad_dm_norm']):.4f}")
+    print(f"SPO+ grad (UCB target):  {np.mean(metrics['spo_grad_ucb_norm']):.4f} ± {np.std(metrics['spo_grad_ucb_norm']):.4f}")
+    print(f"SPO+ grad (model target): {np.mean(metrics['spo_grad_dm_norm']):.4f} ± {np.std(metrics['spo_grad_dm_norm']):.4f}")
     print(f"SPO+ grad (true):    {np.mean(metrics['spo_grad_true_norm']):.4f} ± {np.std(metrics['spo_grad_true_norm']):.4f}")
 
     print("\n--- SPO+ Gradient Sparsity (fraction non-zero) ---")
-    print(f"SPO+ (OI imp):  {np.mean(metrics['spo_grad_ucb_sparsity']):.4f}")
-    print(f"SPO+ (DM imp):  {np.mean(metrics['spo_grad_dm_sparsity']):.4f}")
+    print(f"SPO+ (UCB target):    {np.mean(metrics['spo_grad_ucb_sparsity']):.4f}")
+    print(f"SPO+ (model target):  {np.mean(metrics['spo_grad_dm_sparsity']):.4f}")
     print(f"SPO+ (true):    {np.mean(metrics['spo_grad_true_sparsity']):.4f}")
 
     print("\n--- Gradient Alignment with True Gradient (cosine similarity) ---")
-    print(f"MSE (OI imp) vs true:         {np.mean(metrics['mse_ucb_vs_true_cosine']):.4f}")
-    print(f"MSE (DM imp) vs true:         {np.mean(metrics['mse_dm_vs_true_cosine']):.4f}")
-    print(f"SPO+ (OI imp) vs true:        {np.mean(metrics['spo_ucb_vs_true_cosine']):.4f}")
-    print(f"SPO+ (DM imp) vs true:        {np.mean(metrics['spo_dm_vs_true_cosine']):.4f}")
+    print(f"MSE (UCB target) vs true:     {np.mean(metrics['mse_ucb_vs_true_cosine']):.4f}")
+    print(f"MSE (model target) vs true:   {np.mean(metrics['mse_dm_vs_true_cosine']):.4f}")
+    print(f"SPO+ (UCB target) vs true:    {np.mean(metrics['spo_ucb_vs_true_cosine']):.4f}")
+    print(f"SPO+ (model target) vs true:  {np.mean(metrics['spo_dm_vs_true_cosine']):.4f}")
     smooth_cos = safe_nanmean(metrics['smooth_spo_ucb_vs_true_cosine'])
     if np.isnan(smooth_cos):
-        print("Smooth SPO+ (OI) vs true:     unavailable")
+        print("Smooth SPO+ (UCB target) vs true: unavailable")
     else:
-        print(f"Smooth SPO+ (OI) vs true:     {smooth_cos:.4f}")
+        print(f"Smooth SPO+ (UCB target) vs true: {smooth_cos:.4f}")
 
     print("\n--- Smooth SPO+ Gradient Magnitudes ---")
     smooth_ucb = safe_nanmean(metrics['smooth_spo_grad_ucb_norm'])
@@ -205,12 +205,12 @@ def print_summary(metrics):
     if np.isnan(smooth_ucb) or np.isnan(smooth_true):
         print("Smooth SPO+ metrics: unavailable")
     else:
-        print(f"Smooth SPO+ (OI imp):  {smooth_ucb:.4f}")
+        print(f"Smooth SPO+ (UCB target): {smooth_ucb:.4f}")
         print(f"Smooth SPO+ (true):    {smooth_true:.4f}")
 
     print("\n--- Imputation Error (MSE) ---")
-    print(f"OI imputation:  {np.mean(metrics['ucb_imputation_mse']):.4f}")
-    print(f"DM imputation:  {np.mean(metrics['dm_imputation_mse']):.4f}")
+    print(f"UCB completion:    {np.mean(metrics['ucb_imputation_mse']):.4f}")
+    print(f"Model completion:  {np.mean(metrics['dm_imputation_mse']):.4f}")
 
     print("\n--- Prediction Error ---")
     print(f"Prediction MSE: {np.mean(metrics['pred_mse']):.4f}")

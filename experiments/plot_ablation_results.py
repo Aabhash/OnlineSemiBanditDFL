@@ -65,6 +65,8 @@ LetsPlot.setup_html()
 
 ABLATION_DIR = "results/ablations"
 OUTPUT_DIR = "results/figures/ablations"
+CORE_DESIGN_DATASET_KEYS = ["knapsack_100", "shortest_path_20x20", "portfolio_32"]
+CORE_DESIGN_DATASET_SET = set(CORE_DESIGN_DATASET_KEYS)
 
 OKABE_ITO = {
     "blue": "#0072B2",
@@ -238,6 +240,24 @@ def list_result_entries(ablation_dir):
     return entries
 
 
+def core_design_entries(ablation_dir):
+    return [
+        (name, path)
+        for name, path in list_result_entries(ablation_dir)
+        if name == "." or name in CORE_DESIGN_DATASET_SET
+    ]
+
+
+def core_design_dataset_order(dataset_names, present_labels):
+    ordered = [
+        dataset_names[key]
+        for key in CORE_DESIGN_DATASET_KEYS
+        if dataset_names.get(key) in present_labels
+    ]
+    ordered.extend(sorted(set(present_labels) - set(ordered)))
+    return ordered
+
+
 def display_label(raw_name):
     return AGENT_LABELS.get(raw_name, raw_name)
 
@@ -282,19 +302,19 @@ def _force_svg_font(svg_path: Path) -> None:
 
 
 def _paper_theme(legend_position="top", rotate_x=False):
-    x_text = element_text(family=PAPER_FONT, size=11.5, color="#444444")
+    x_text = element_text(family=PAPER_FONT, size=13.0, color="#444444")
     if rotate_x:
-        x_text = element_text(family=PAPER_FONT, size=10.8, color="#444444", angle=25, hjust=1)
+        x_text = element_text(family=PAPER_FONT, size=12.2, color="#444444", angle=25, hjust=1)
     return theme_minimal() + theme(
         legend_position=legend_position,
         legend_title=element_blank(),
-        legend_text=element_text(family=PAPER_FONT, size=12.0, face="bold"),
-        axis_title=element_text(family=PAPER_FONT, size=13.0),
+        legend_text=element_text(family=PAPER_FONT, size=14.0, face="bold"),
+        axis_title=element_text(family=PAPER_FONT, size=15.0),
         axis_text_x=x_text,
-        axis_text_y=element_text(family=PAPER_FONT, size=11.5, color="#444444"),
-        plot_title=element_text(family=PAPER_FONT, size=14.0, face="bold"),
-        plot_subtitle=element_text(family=PAPER_FONT, size=12.5, face="bold"),
-        strip_text=element_text(family=PAPER_FONT, size=12.5, face="bold"),
+        axis_text_y=element_text(family=PAPER_FONT, size=13.0, color="#444444"),
+        plot_title=element_text(family=PAPER_FONT, size=16.0, face="bold"),
+        plot_subtitle=element_text(family=PAPER_FONT, size=14.0, face="bold"),
+        strip_text=element_text(family=PAPER_FONT, size=14.5, face="bold"),
         panel_grid_minor=element_blank(),
     )
 
@@ -551,10 +571,10 @@ def plot_kn_ratio(results_dir, output_dir, fmt="pdf"):
         + _paper_theme()
         + theme(
             legend_position="top",
-            legend_text=element_text(family=PAPER_FONT, size=13.2, face="bold"),
-            axis_title=element_text(size=14.0),
-            axis_text_x=element_text(size=12.0, color="#444444"),
-            axis_text_y=element_text(size=12.0, color="#444444"),
+            legend_text=element_text(family=PAPER_FONT, size=15.0, face="bold"),
+            axis_title=element_text(size=16.0),
+            axis_text_x=element_text(size=14.0, color="#444444"),
+            axis_text_y=element_text(size=14.0, color="#444444"),
             axis_line_x=element_line(color="#7a7a7a", size=0.35),
             axis_ticks_x=element_line(color="#7a7a7a", size=0.35),
             axis_ticks_length_x=4,
@@ -577,9 +597,9 @@ def plot_kn_ratio(results_dir, output_dir, fmt="pdf"):
             )
             + _paper_theme(legend_position="none")
             + theme(
-                axis_title=element_text(size=14.0),
-                axis_text_x=element_text(size=12.0, color="#444444"),
-                axis_text_y=element_text(size=12.0, color="#444444"),
+                axis_title=element_text(size=16.0),
+                axis_text_x=element_text(size=14.0, color="#444444"),
+                axis_text_y=element_text(size=14.0, color="#444444"),
                 axis_line_x=element_line(color="#7a7a7a", size=0.35),
                 axis_ticks_x=element_line(color="#7a7a7a", size=0.35),
                 axis_ticks_length_x=4,
@@ -614,7 +634,7 @@ def _bar_plot_from_final(data, title, stem, output_dir, fmt):
 
 def plot_exploration(results_dir, output_dir, fmt="pdf"):
     ablation_dir = resolve_ablation_dir(results_dir, "exploration")
-    entries = list_result_entries(ablation_dir)
+    entries = core_design_entries(ablation_dir)
     if not entries:
         print("  exploration: no data found, skipping")
         return
@@ -640,13 +660,13 @@ def _paired_ratio(vals, baseline_vals):
 
 def plot_exploration_relative(results_dir, output_dir, fmt="pdf"):
     exploration_dir = resolve_ablation_dir(results_dir, "exploration")
-    exploration_entries = list_result_entries(exploration_dir)
+    exploration_entries = core_design_entries(exploration_dir)
     if not exploration_entries:
         print("  exploration relative: no exploration data found, skipping")
         return
 
     ts_dir = resolve_ablation_dir(results_dir, "ts_scale")
-    ts_entries = dict(list_result_entries(ts_dir))
+    ts_entries = dict(core_design_entries(ts_dir))
     dataset_names = _dataset_label_map()
     method_order = ["BayesianSPO", "BayesianMSE"]
     strategy_order = ["Greedy", "Raw TS", "TS Sweep - Best"]
@@ -694,11 +714,19 @@ def plot_exploration_relative(results_dir, output_dir, fmt="pdf"):
                         continue
                     candidates.setdefault(multiplier, {})[seed] = float(result["final_regret"])
                 if candidates:
-                    best_multiplier, best_vals = min(
-                        candidates.items(),
-                        key=lambda item: np.mean(list(item[1].values())),
-                    )
-                    strategy_values["TS Sweep - Best"] = best_vals
+                    complete_candidates = {
+                        multiplier: vals
+                        for multiplier, vals in candidates.items()
+                        if set(ucb_vals).issubset(set(vals))
+                    }
+                    if complete_candidates:
+                        best_multiplier, best_vals = min(
+                            complete_candidates.items(),
+                            key=lambda item: np.mean(
+                                [item[1][seed] for seed in ucb_vals]
+                            ),
+                        )
+                        strategy_values["TS Sweep - Best"] = best_vals
 
             for strategy in strategy_order:
                 vals = strategy_values.get(strategy)
@@ -727,11 +755,8 @@ def plot_exploration_relative(results_dir, output_dir, fmt="pdf"):
         print("  exploration relative: no plottable data found, skipping")
         return
 
-    dataset_order = [
-        label
-        for key, label in dataset_names.items()
-        if label in set(df["dataset"].unique())
-    ]
+    dataset_order = core_design_dataset_order(dataset_names, set(df["dataset"].unique()))
+    strategy_order = [strategy for strategy in strategy_order if strategy in set(df["strategy"].unique())]
     df["dataset"] = _categorical(df["dataset"], dataset_order)
     df["method"] = _categorical(df["method"], method_order)
     df["strategy"] = _categorical(df["strategy"], strategy_order)
@@ -743,12 +768,10 @@ def plot_exploration_relative(results_dir, output_dir, fmt="pdf"):
         "Raw TS": "#C47C5A",
         "TS Sweep - Best": "#6F8F76",
     }
+    strategy_colors = {strategy: strategy_colors[strategy] for strategy in strategy_order}
     dataset_positions = {dataset: idx + 1 for idx, dataset in enumerate(dataset_order)}
-    strategy_offsets = {
-        "Greedy": -0.22,
-        "Raw TS": 0.0,
-        "TS Sweep - Best": 0.22,
-    }
+    offset_values = np.linspace(-0.18, 0.18, len(strategy_order)) if len(strategy_order) > 1 else [0.0]
+    strategy_offsets = dict(zip(strategy_order, offset_values))
     df["dataset_pos"] = df["dataset"].astype(str).map(dataset_positions)
     df["strategy_offset"] = df["strategy"].astype(str).map(strategy_offsets)
     df["ypos"] = df["dataset_pos"] + df["strategy_offset"]
@@ -841,7 +864,7 @@ def plot_exploration_relative(results_dir, output_dir, fmt="pdf"):
             + scale_y_continuous(
                 breaks=[dataset_positions[dataset] for dataset in dataset_order],
                 labels=dataset_order,
-                limits=[0.0, 5.35],
+                limits=[0.0, len(dataset_order) + 0.35],
             )
             + labs(
                 title=method,
@@ -864,7 +887,7 @@ def plot_exploration_relative(results_dir, output_dir, fmt="pdf"):
             heights=[1.0, 0.08, 1.0],
             vspace=0.01,
         )
-        + ggsize(620, 470)
+        + ggsize(620, 330)
     )
     save_plot(plot, output_dir, "exploration_relative_summary", fmt)
 
@@ -929,7 +952,7 @@ def _plot_mixed_ablation_design_summary(results_dir, output_dir, fmt="pdf"):
     rows = []
 
     imputation_dir = resolve_ablation_dir(results_dir, "imputation")
-    for dataset_name, data_path in list_result_entries(imputation_dir):
+    for dataset_name, data_path in core_design_entries(imputation_dir):
         data = load_pkl(data_path)
         if data is None:
             continue
@@ -945,7 +968,7 @@ def _plot_mixed_ablation_design_summary(results_dir, output_dir, fmt="pdf"):
         )
 
     architecture_dir = resolve_ablation_dir(results_dir, "architecture")
-    for dataset_name, data_path in list_result_entries(architecture_dir):
+    for dataset_name, data_path in core_design_entries(architecture_dir):
         data = load_pkl(data_path)
         if data is None:
             continue
@@ -962,8 +985,8 @@ def _plot_mixed_ablation_design_summary(results_dir, output_dir, fmt="pdf"):
 
     exploration_dir = resolve_ablation_dir(results_dir, "exploration")
     ts_dir = resolve_ablation_dir(results_dir, "ts_scale")
-    ts_entries = dict(list_result_entries(ts_dir))
-    for dataset_name, data_path in list_result_entries(exploration_dir):
+    ts_entries = dict(core_design_entries(ts_dir))
+    for dataset_name, data_path in core_design_entries(exploration_dir):
         data = load_pkl(data_path)
         if data is None:
             continue
@@ -1000,12 +1023,22 @@ def _plot_mixed_ablation_design_summary(results_dir, output_dir, fmt="pdf"):
                 continue
             candidates.setdefault(multiplier, {})[seed] = float(result["final_regret"])
         tuned_regret = canonical_regrets.get(dataset) or _mean_final_regret(data, "BayesianSPO-UCB")
-        if candidates and tuned_regret is not None:
+        ucb_seed_set = {
+            seed
+            for (name, seed), result in data.items()
+            if name == "BayesianSPO-UCB"
+        }
+        complete_candidates = {
+            multiplier: vals
+            for multiplier, vals in candidates.items()
+            if ucb_seed_set and ucb_seed_set.issubset(set(vals))
+        }
+        if complete_candidates and tuned_regret is not None:
             best_multiplier, best_vals = min(
-                candidates.items(),
-                key=lambda item: np.mean(list(item[1].values())),
+                complete_candidates.items(),
+                key=lambda item: np.mean([item[1][seed] for seed in ucb_seed_set]),
             )
-            regrets = np.asarray(list(best_vals.values()), dtype=float)
+            regrets = np.asarray([best_vals[seed] for seed in ucb_seed_set], dtype=float)
             regrets = regrets[np.isfinite(regrets)]
             if regrets.size:
                 rows.append(
@@ -1022,11 +1055,7 @@ def _plot_mixed_ablation_design_summary(results_dir, output_dir, fmt="pdf"):
         print("  ablation design summary: no plottable data found, skipping")
         return
 
-    dataset_order = [
-        label
-        for key, label in dataset_names.items()
-        if label in set(df["dataset"].unique())
-    ]
+    dataset_order = core_design_dataset_order(dataset_names, set(df["dataset"].unique()))
     check_order = [
         "Exploration: best TS sweep",
         "Exploration: raw TS",
@@ -1150,7 +1179,7 @@ def _plot_mixed_ablation_design_summary(results_dir, output_dir, fmt="pdf"):
         )
         + labs(
             title="Ablation design summary",
-            x="Final cumulative regret (log scale; Portfolio raw, others K)",
+            x="Final cumulative regret (log scale)",
             y="",
             color="",
         )
@@ -1167,11 +1196,7 @@ def _plot_mixed_ablation_design_summary(results_dir, output_dir, fmt="pdf"):
 
 def plot_ablation_design_summary(results_dir, output_dir, fmt="pdf"):
     dataset_names = _dataset_label_map()
-    dataset_order = [
-        label
-        for key, label in dataset_names.items()
-        if key != "."
-    ]
+    dataset_order = core_design_dataset_order(dataset_names, set(dataset_names.values()))
     rows = []
 
     def append_final_method_rows(data, dataset, check, ablation_agent, baseline_agent):
@@ -1209,7 +1234,7 @@ def plot_ablation_design_summary(results_dir, output_dir, fmt="pdf"):
         )
 
     architecture_dir = resolve_ablation_dir(results_dir, "architecture")
-    for dataset_name, data_path in list_result_entries(architecture_dir):
+    for dataset_name, data_path in core_design_entries(architecture_dir):
         data = load_pkl(data_path)
         if data is None:
             continue
@@ -1223,7 +1248,7 @@ def plot_ablation_design_summary(results_dir, output_dir, fmt="pdf"):
         )
 
     decoupling_dir = resolve_ablation_dir(results_dir, "decoupling")
-    for dataset_name, data_path in list_result_entries(decoupling_dir):
+    for dataset_name, data_path in core_design_entries(decoupling_dir):
         data = load_pkl(data_path)
         if data is None:
             continue
@@ -1329,6 +1354,33 @@ def plot_ablation_design_summary(results_dir, output_dir, fmt="pdf"):
     if not linear_pad_df.empty:
         linear_pad_df["facet"] = _categorical(linear_pad_df["facet"], facet_order)
 
+    linear_minor_grid_rows = []
+    for facet, facet_df in df.groupby("facet", observed=True):
+        upper = float(facet_df["xmax"].max())
+        if not np.isfinite(upper) or upper <= 0:
+            continue
+        axis_upper = upper * 1.03
+        facet_name = str(facet)
+        if facet_name == portfolio_label:
+            major_step = 250.0
+            minor_step = 125.0
+        elif facet_name.startswith("SP"):
+            major_step = 50.0
+            minor_step = 25.0
+        else:
+            major_step = 200.0
+            minor_step = 100.0
+        grid_max = np.ceil(axis_upper / minor_step) * minor_step
+        for x in np.arange(0.0, grid_max + 0.5 * minor_step, minor_step):
+            if x <= 0.0:
+                continue
+            if abs((x / major_step) - round(x / major_step)) < 1e-9:
+                continue
+            linear_minor_grid_rows.append({"facet": facet, "xintercept": float(x)})
+    linear_minor_grid_df = pd.DataFrame(linear_minor_grid_rows, columns=["facet", "xintercept"])
+    if not linear_minor_grid_df.empty:
+        linear_minor_grid_df["facet"] = _categorical(linear_minor_grid_df["facet"], facet_order)
+
     point_colors = {
         "Tuned BayesianSPO": PAPER_COLORS["BayesianSPO"],
         "Ablation": PAPER_COLORS["BayesianMSE"],
@@ -1356,12 +1408,21 @@ def plot_ablation_design_summary(results_dir, output_dir, fmt="pdf"):
             else scale_x_continuous(expand=[0.02, 0.0])
         )
         x_label = (
-            "Final cumulative regret (log scale; Portfolio raw, others K)"
+            "Final cumulative regret (log scale)"
             if log_scale
-            else "Final cumulative regret (Portfolio raw, others K)"
+            else "Final cumulative regret"
         )
+        plot = ggplot(point_df, aes("regret", "ypos"))
+        if not log_scale and not linear_minor_grid_df.empty:
+            plot = plot + geom_vline(
+                aes(xintercept="xintercept"),
+                data=linear_minor_grid_df,
+                inherit_aes=False,
+                color="#f0f0f0",
+                size=0.30,
+            )
         return (
-            ggplot(point_df, aes("regret", "ypos"))
+            plot
             + geom_segment(
                 aes(x="xmin", xend="xmax", y="ypos", yend="ypos"),
                 data=df,
@@ -1395,16 +1456,16 @@ def plot_ablation_design_summary(results_dir, output_dir, fmt="pdf"):
                 legend_background=element_rect(fill="#f7f7f7", color="#d0d0d0", size=0.6),
                 legend_justification="center",
                 legend_box_just="center",
-                legend_text=element_text(family=PAPER_FONT, size=16.0, face="bold"),
-                axis_title_x=element_text(size=15.0),
-                axis_text_x=element_text(family=PAPER_FONT, size=13.0, color="#3d3d3d"),
+                legend_text=element_text(family=PAPER_FONT, size=18.5, face="bold"),
+                axis_title_x=element_text(size=17.5),
+                axis_text_x=element_text(family=PAPER_FONT, size=15.0, color="#3d3d3d"),
                 axis_text_spacing_x=2,
-                axis_text_y=element_text(family=PAPER_FONT, size=11.2, color="#444444"),
+                axis_text_y=element_text(family=PAPER_FONT, size=14.2, color="#444444"),
                 axis_ticks_x=element_line(color="#8f8f8f", size=0.45),
                 axis_minor_ticks_x=element_line(color="#cfcfcf", size=0.30),
                 axis_ticks_length_x=5,
                 axis_minor_ticks_length_x=3,
-                strip_text=element_text(family=PAPER_FONT, size=12.6, face="bold"),
+                strip_text=element_text(family=PAPER_FONT, size=15.5, face="bold"),
                 panel_grid_major_x=element_line(color="#e5e5e5", size=0.45),
                 panel_grid_major_y=element_blank(),
                 panel_grid_minor_x=element_line(color="#f0f0f0", size=0.30),
@@ -1414,7 +1475,7 @@ def plot_ablation_design_summary(results_dir, output_dir, fmt="pdf"):
                 plot_title=element_blank(),
                 plot_margin=[4, 10, 28, 10],
             )
-            + ggsize(980, 500)
+            + ggsize(980, 350)
         )
 
     log_plot = make_design_plot(log_scale=True)
@@ -1496,7 +1557,7 @@ def _faceted_method_bars(df, title, stem, output_dir, fmt, height=520):
 
 def plot_architecture(results_dir, output_dir, fmt="pdf"):
     ablation_dir = resolve_ablation_dir(results_dir, "architecture")
-    entries = list_result_entries(ablation_dir)
+    entries = core_design_entries(ablation_dir)
     if not entries:
         print("  architecture: no data found, skipping")
         return
@@ -1571,11 +1632,7 @@ def plot_architecture(results_dir, output_dir, fmt="pdf"):
                 }
             )
     df = pd.DataFrame(rows)
-    dataset_order = [
-        label
-        for key, label in dataset_names.items()
-        if label in set(df["dataset"].unique())
-    ]
+    dataset_order = core_design_dataset_order(dataset_names, set(df["dataset"].unique()))
     method_order = ["Non-Bayesian head SPO", "Non-Bayesian head MSE"]
     df["dataset"] = _categorical(df["dataset"], dataset_order)
     df["agent_label"] = _categorical(df["agent_label"], method_order)
@@ -1705,7 +1762,7 @@ def plot_architecture(results_dir, output_dir, fmt="pdf"):
             heights=[1.0, 0.08, 1.0],
             vspace=0.01,
         )
-        + ggsize(560, 430)
+        + ggsize(560, 280)
     )
     save_plot(bar_plot, output_dir, "architecture_ablation", fmt)
     save_plot(bar_plot, output_dir, "architecture_ablation_bar", fmt)
@@ -1723,7 +1780,7 @@ def _decoupling_label(name):
 
 def plot_decoupling(results_dir, output_dir, fmt="pdf"):
     ablation_dir = resolve_ablation_dir(results_dir, "decoupling")
-    entries = list_result_entries(ablation_dir)
+    entries = core_design_entries(ablation_dir)
     if not entries:
         print("  decoupling: no data found, skipping")
         return
@@ -1770,11 +1827,7 @@ def plot_decoupling(results_dir, output_dir, fmt="pdf"):
         print("  decoupling: no plottable data found, skipping")
         return
 
-    dataset_order = [
-        label
-        for key, label in dataset_names.items()
-        if label in set(df["dataset"].unique())
-    ]
+    dataset_order = core_design_dataset_order(dataset_names, set(df["dataset"].unique()))
     df["dataset"] = _categorical(df["dataset"], dataset_order)
     df["variant"] = _categorical(df["variant"], variant_order)
     df["log_mean"] = np.log10(df["mean"].clip(lower=0.05))
@@ -1891,7 +1944,7 @@ def plot_decoupling(results_dir, output_dir, fmt="pdf"):
             legend_title=element_text(family=PAPER_FONT, size=12.0, face="bold"),
             panel_border=element_rect(color="#c7c7c7", fill="transparent", size=0.45),
         )
-        + ggsize(650, 360)
+        + ggsize(650, 320)
     )
     save_plot(plot, output_dir, "decoupling_ablation", fmt)
     save_plot(plot, output_dir, "decoupling_relative_summary", fmt)
@@ -1910,15 +1963,17 @@ def _parse_ts_scale_agent(raw_name):
 
 def plot_ts_scale_sweep(results_dir, output_dir, fmt="pdf"):
     ablation_dir = resolve_ablation_dir(results_dir, "ts_scale")
-    entries = list_result_entries(ablation_dir)
+    entries = core_design_entries(ablation_dir)
     if not entries:
         print("  ts_scale: no data found, skipping")
         return
 
+    dataset_names = _dataset_label_map()
     for dataset_name, data_path in entries:
         data = load_pkl(data_path)
         if data is None:
             continue
+        dataset_label = dataset_names.get(dataset_name, dataset_name)
         seeds = sorted(set(seed for _, seed in data.keys()))
         rows = []
         for raw_name, _ in sorted(data.keys()):
@@ -1955,7 +2010,7 @@ def plot_ts_scale_sweep(results_dir, output_dir, fmt="pdf"):
             + _linetype_scale(labels)
             + scale_x_log2(breaks=sorted(df["multiplier"].unique()))
             + labs(
-                title=f"TS scale sweep: {dataset_name}",
+                title=f"TS scale sweep: {dataset_label}",
                 x="TS scale multiplier of tuned beta",
                 y="Final cumulative regret",
             )
@@ -1968,7 +2023,7 @@ def plot_ts_scale_sweep(results_dir, output_dir, fmt="pdf"):
 
 def plot_imputation(results_dir, output_dir, fmt="pdf"):
     ablation_dir = resolve_ablation_dir(results_dir, "imputation")
-    entries = list_result_entries(ablation_dir)
+    entries = core_design_entries(ablation_dir)
     if not entries:
         print("  imputation: no data found, skipping")
         return
@@ -2024,11 +2079,7 @@ def plot_imputation(results_dir, output_dir, fmt="pdf"):
         return
 
     raw_df = pd.DataFrame(raw_rows)
-    dataset_order = [
-        label
-        for key, label in dataset_names.items()
-        if label in set(raw_df["dataset"].unique())
-    ]
+    dataset_order = core_design_dataset_order(dataset_names, set(raw_df["dataset"].unique()))
     method_order = ["BayesianSPO", "BayesianMSE"]
     baseline = raw_df[raw_df["weight"] == 0.0][
         ["dataset", "method", "seed", "regret"]
@@ -2098,7 +2149,7 @@ def plot_imputation(results_dir, output_dir, fmt="pdf"):
             )
             + _paper_theme(legend_position="none")
             + theme(axis_text_x=element_text(size=11.0, color="#444444"))
-            + ggsize(820, 420)
+            + ggsize(820, 340)
         )
         save_plot(dose_plot, output_dir, "masked_imputation_dose_response", fmt)
 
@@ -2377,7 +2428,7 @@ def plot_imputation(results_dir, output_dir, fmt="pdf"):
                 family=PAPER_FONT,
                 fontface="bold",
                 hjust=0.0,
-                size=7.2,
+                size=7.8,
             )
             + scale_color_manual(values=matched_colors)
             + scale_x_continuous(limits=[0.0, 1.0])
@@ -2426,18 +2477,18 @@ def plot_imputation(results_dir, output_dir, fmt="pdf"):
                 limits=[0.5, len(weight_order) + 0.5],
             )
             + labs(
-                x="Final cumulative regret (Portfolio raw, others K)",
+                x="Final cumulative regret",
                 y="Unobserved arm gradient weight",
                 color="",
             )
             + _paper_theme(legend_position="none")
             + theme(
-                axis_text_x=element_text(size=15.0, color="#444444"),
-                axis_text_y=element_text(size=15.0, color="#444444"),
-                axis_title_x=element_text(size=18.0),
-                axis_title_y=element_text(size=18.0),
-                strip_text=element_text(family=PAPER_FONT, size=17.0, face="bold"),
-                plot_margin=[-8, 10, 20, 10],
+                axis_text_x=element_text(size=16.5, color="#444444"),
+                axis_text_y=element_text(size=16.5, color="#444444"),
+                axis_title_x=element_text(size=19.0),
+                axis_title_y=element_text(size=19.0),
+                strip_text=element_text(family=PAPER_FONT, size=18.5, face="bold"),
+                plot_margin=[2, 10, 20, 10],
             )
         )
         matched_plot = (
@@ -2445,10 +2496,10 @@ def plot_imputation(results_dir, output_dir, fmt="pdf"):
                 [legend_plot, matched_body],
                 ncol=1,
                 align=True,
-                heights=[0.055, 0.945],
-                vspace=-0.08,
+                heights=[0.075, 0.925],
+                vspace=0.02,
             )
-            + ggsize(980, 600)
+            + ggsize(980, 360)
         )
 
         max_weight = float(max(weight_order))
@@ -2571,19 +2622,19 @@ def plot_imputation(results_dir, output_dir, fmt="pdf"):
             )
             + labs(
                 x="Unobserved arm gradient weight",
-                y="Regret (Portfolio raw, others K)",
+                y="Final cumulative regret",
                 color="",
             )
             + _paper_theme(legend_position="none")
             + theme(
-                axis_text_x=element_text(size=15.0, color="#444444", angle=0, hjust=0.5),
-                axis_text_y=element_text(size=15.0, color="#444444"),
-                axis_title_x=element_text(size=18.0),
-                axis_title_y=element_text(size=18.0),
+                axis_text_x=element_text(size=16.5, color="#444444", angle=0, hjust=0.5),
+                axis_text_y=element_text(size=16.5, color="#444444"),
+                axis_title_x=element_text(size=19.0),
+                axis_title_y=element_text(size=19.0),
                 panel_grid_major=element_line(color="#e4e4e4", size=0.55),
                 panel_grid_minor=element_line(color="#f0f0f0", size=0.35),
-                strip_text=element_text(family=PAPER_FONT, size=17.0, face="bold"),
-                plot_margin=[-8, 10, 20, 10],
+                strip_text=element_text(family=PAPER_FONT, size=18.5, face="bold"),
+                plot_margin=[2, 10, 20, 10],
             )
         )
         matched_swapped_plot = (
@@ -2591,10 +2642,10 @@ def plot_imputation(results_dir, output_dir, fmt="pdf"):
                 [legend_plot, matched_swapped_body],
                 ncol=1,
                 align=True,
-                heights=[0.055, 0.945],
-                vspace=-0.08,
+                heights=[0.075, 0.925],
+                vspace=0.02,
             )
-            + ggsize(980, 600)
+            + ggsize(980, 360)
         )
         save_plot(
             matched_swapped_plot,
@@ -2775,7 +2826,7 @@ def plot_imputation(results_dir, output_dir, fmt="pdf"):
             heights=[1.0, 0.08, 1.0],
             vspace=0.01,
         )
-        + ggsize(560, 430)
+        + ggsize(560, 360)
     )
     save_plot(bar_plot, output_dir, "masked_imputation_effect", fmt)
     save_plot(bar_plot, output_dir, "masked_imputation_effect_bar", fmt)
@@ -2788,19 +2839,19 @@ def plot_feature_sharing(results_dir, output_dir, fmt="pdf"):
         print("  feature_sharing: no data found, skipping")
         return
 
+    dataset_names = _dataset_label_map()
+    all_rows = []
+    all_gap_rows = []
     for dataset_name, data_path in entries:
         data = load_pkl(data_path)
         if data is None:
             continue
+        dataset_label = dataset_names.get(dataset_name, dataset_name)
         seeds = sorted(set(seed for _, seed in data.keys()))
         rows = []
-        linucb_vals = [
-            data[("LinUCB", seed)]["final_regret"]
-            for seed in seeds
-            if ("LinUCB", seed) in data
-        ]
-        linucb_mean = np.mean(linucb_vals) if linucb_vals else np.nan
-        for name, _ in data.keys():
+        values_by_config = {}
+        scale = 1.0 if dataset_name == "portfolio_32" else 1000.0
+        for name in sorted(set(name for name, _ in data.keys())):
             if name == "LinUCB":
                 continue
             objective = None
@@ -2814,21 +2865,44 @@ def plot_feature_sharing(results_dir, output_dir, fmt="pdf"):
                 hidden_dim = int(parts[2][1:])
             if objective not in {"BayesianSPO", "BayesianMSE"} or hidden_dim is None:
                 continue
-            vals = [
-                data[(name, seed)]["final_regret"]
+            vals_by_seed = {
+                seed: data[(name, seed)]["final_regret"] / scale
                 for seed in seeds
                 if (name, seed) in data
-            ]
+            }
+            vals = list(vals_by_seed.values())
             mean, std = _summary(vals)
-            rows.append(
+            row = {
+                "dataset": dataset_label,
+                "objective": objective,
+                "hidden_dim": hidden_dim,
+                "mean": mean,
+                "ymin": mean - std,
+                "ymax": mean + std,
+            }
+            rows.append(row)
+            all_rows.append(row)
+            values_by_config[(objective, hidden_dim)] = vals_by_seed
+
+        hidden_dims = sorted({hidden_dim for _, hidden_dim in values_by_config})
+        for hidden_dim in hidden_dims:
+            spo_vals = values_by_config.get(("BayesianSPO", hidden_dim), {})
+            mse_vals = values_by_config.get(("BayesianMSE", hidden_dim), {})
+            common_seeds = sorted(set(spo_vals).intersection(mse_vals))
+            if not common_seeds:
+                continue
+            gap_vals = [mse_vals[seed] - spo_vals[seed] for seed in common_seeds]
+            gap_mean, _gap_std = _summary(gap_vals)
+            all_gap_rows.append(
                 {
-                    "objective": objective,
+                    "dataset": dataset_label,
                     "hidden_dim": hidden_dim,
-                    "mean": mean,
-                    "ymin": mean - std,
-                    "ymax": mean + std,
+                    "hidden_dim_label": str(hidden_dim),
+                    "gap": gap_mean,
+                    "advantage": "BayesianSPO" if gap_mean >= 0 else "BayesianMSE",
                 }
             )
+
         df = pd.DataFrame(rows)
         if df.empty:
             print(f"  feature_sharing ({dataset_name}): no parseable data, skipping")
@@ -2840,12 +2914,11 @@ def plot_feature_sharing(results_dir, output_dir, fmt="pdf"):
             + geom_line(size=0.85)
             + geom_point(size=SMALL_POINT_SIZE)
             + geom_errorbar(aes(ymin="ymin", ymax="ymax"), width=0.08, alpha=0.55)
-            + geom_hline(yintercept=linucb_mean, linetype="dashed", color="#666666", size=0.65)
             + _color_scale(labels)
             + _linetype_scale(labels)
             + scale_x_log2(breaks=sorted(df["hidden_dim"].unique()))
             + labs(
-                title=f"Feature-capacity sweep: {dataset_name}",
+                title=f"Feature-capacity sweep: {dataset_label}",
                 x="Hidden dimension",
                 y="Final cumulative regret",
             )
@@ -2854,6 +2927,57 @@ def plot_feature_sharing(results_dir, output_dir, fmt="pdf"):
         )
         title = "feature_sharing" if dataset_name == "." else f"feature_sharing_{dataset_name}"
         save_plot(plot, output_dir, title, fmt)
+
+    summary_df = pd.DataFrame(all_rows)
+    gap_df = pd.DataFrame(all_gap_rows)
+    if summary_df.empty or gap_df.empty:
+        return
+
+    dataset_order = [
+        label
+        for key, label in dataset_names.items()
+        if label in set(summary_df["dataset"].unique())
+    ]
+    hidden_dim_order = [str(dim) for dim in sorted(summary_df["hidden_dim"].unique())]
+    labels = ["BayesianSPO", "BayesianMSE"]
+    summary_df["dataset"] = _categorical(summary_df["dataset"], dataset_order)
+    summary_df["objective"] = _categorical(summary_df["objective"], labels)
+    gap_df["dataset"] = _categorical(gap_df["dataset"], dataset_order)
+    gap_df["hidden_dim_label"] = _categorical(gap_df["hidden_dim_label"], hidden_dim_order)
+    gap_df["advantage"] = _categorical(gap_df["advantage"], ["BayesianSPO", "BayesianMSE"])
+
+    regret_plot = (
+        ggplot(summary_df, aes("hidden_dim", "mean", color="objective", linetype="objective"))
+        + geom_line(size=0.85)
+        + geom_point(size=SMALL_POINT_SIZE)
+        + geom_errorbar(aes(ymin="ymin", ymax="ymax"), width=0.08, alpha=0.55)
+        + facet_wrap("dataset", ncol=3, scales="free_y")
+        + _color_scale(labels)
+        + _linetype_scale(labels)
+        + scale_x_log2(breaks=sorted(summary_df["hidden_dim"].unique()))
+        + labs(title="Feature-capacity sweep", x="Hidden dimension", y="Final cumulative regret")
+        + _paper_theme()
+    )
+    gap_plot = (
+        ggplot(gap_df, aes("hidden_dim_label", "gap", fill="advantage"))
+        + geom_bar(stat="identity", alpha=0.72, color="#ffffff", size=0.3)
+        + geom_hline(yintercept=0.0, color="#777777", linetype="dashed", size=0.65)
+        + facet_wrap("dataset", ncol=3, scales="free_y")
+        + scale_fill_manual(
+            values={
+                "BayesianSPO": PAPER_COLORS["BayesianSPO"],
+                "BayesianMSE": PAPER_COLORS["BayesianMSE"],
+            }
+        )
+        + labs(
+            title="BayesianSPO advantage",
+            x="Hidden dimension",
+            y="MSE regret - SPO regret",
+        )
+        + _paper_theme(legend_position="none")
+    )
+    summary_plot = gggrid([regret_plot, gap_plot], ncol=1, align=True) + ggsize(920, 720)
+    save_plot(summary_plot, output_dir, "feature_sharing_summary", fmt)
 
 
 def plot_context_variation(results_dir, output_dir, fmt="pdf"):
@@ -2877,7 +3001,12 @@ def plot_context_variation(results_dir, output_dir, fmt="pdf"):
         if data is None:
             continue
         dataset_label = dataset_names.get(dataset_name, dataset_name)
-        agents = sorted(set(name for name, _, _ in data.keys()))
+        scale = 1.0 if dataset_name == "portfolio_32" else 1000.0
+        agents = [
+            name
+            for name in sorted(set(name for name, _, _ in data.keys()))
+            if display_label(name) in {"BayesianSPO", "BayesianMSE"}
+        ]
         noise_widths = sorted(set(noise for _, noise, _ in data.keys()))
         seeds = sorted(set(seed for _, _, seed in data.keys()))
         for name in agents:
@@ -2894,9 +3023,9 @@ def plot_context_variation(results_dir, output_dir, fmt="pdf"):
                         "dataset": dataset_label,
                         "agent_label": label,
                         "noise_width": noise_width,
-                        "mean": mean,
-                        "ymin": mean - std,
-                        "ymax": mean + std,
+                        "mean": mean / scale,
+                        "ymin": (mean - std) / scale,
+                        "ymax": (mean + std) / scale,
                     }
                 )
     df = pd.DataFrame(rows)
@@ -2924,6 +3053,14 @@ def plot_context_variation(results_dir, output_dir, fmt="pdf"):
         + scale_x_continuous(breaks=noise_widths)
         + labs(title="Regret vs. context noise", x="Noise width", y="Final cumulative regret")
         + _paper_theme()
+        + theme(
+            legend_text=element_text(family=PAPER_FONT, size=15.5, face="bold"),
+            axis_title=element_text(size=16.5),
+            axis_text_x=element_text(size=14.0, color="#444444"),
+            axis_text_y=element_text(size=14.0, color="#444444"),
+            strip_text=element_text(family=PAPER_FONT, size=16.0, face="bold"),
+            plot_title=element_text(family=PAPER_FONT, size=17.0, face="bold"),
+        )
     )
 
     gap_rows = []
@@ -2933,20 +3070,34 @@ def plot_context_variation(results_dir, output_dir, fmt="pdf"):
             spo = ds_df[(ds_df["agent_label"] == "BayesianSPO") & (ds_df["noise_width"] == noise_width)]["mean"]
             mse = ds_df[(ds_df["agent_label"] == "BayesianMSE") & (ds_df["noise_width"] == noise_width)]["mean"]
             if not spo.empty and not mse.empty:
+                gap = float(mse.iloc[0] - spo.iloc[0])
                 gap_rows.append({
                     "dataset": dataset,
                     "noise_width": str(noise_width),
-                    "gap": float(mse.iloc[0] - spo.iloc[0]),
+                    "gap": gap,
+                    "advantage": "BayesianSPO" if gap >= 0 else "BayesianMSE",
                 })
     gap_df = pd.DataFrame(gap_rows)
     gap_df["dataset"] = _categorical(gap_df["dataset"], dataset_order)
+    gap_df["advantage"] = _categorical(gap_df["advantage"], ["BayesianSPO", "BayesianMSE"])
     gap_plot = (
-        ggplot(gap_df, aes("noise_width", "gap"))
-        + geom_bar(stat="identity", fill=OKABE_ITO["purple"], alpha=0.72, color="#ffffff", size=0.3)
+        ggplot(gap_df, aes("noise_width", "gap", fill="advantage"))
+        + geom_bar(stat="identity", alpha=0.72, color="#ffffff", size=0.3)
         + geom_hline(yintercept=0.0, color="#777777", linetype="dashed", size=0.65)
         + facet_wrap("dataset", ncol=3, scales="free_y")
+        + scale_fill_manual(values={
+            "BayesianSPO": PAPER_COLORS["BayesianSPO"],
+            "BayesianMSE": PAPER_COLORS["BayesianMSE"],
+        })
         + labs(title="BayesianSPO advantage", x="Noise width", y="MSE regret - SPO regret")
         + _paper_theme(legend_position="none")
+        + theme(
+            axis_title=element_text(size=16.5),
+            axis_text_x=element_text(size=14.0, color="#444444"),
+            axis_text_y=element_text(size=14.0, color="#444444"),
+            strip_text=element_text(family=PAPER_FONT, size=16.0, face="bold"),
+            plot_title=element_text(family=PAPER_FONT, size=17.0, face="bold"),
+        )
     )
 
     plot = gggrid([regret_plot, gap_plot], ncol=1, align=True) + ggsize(920, 720)
@@ -3180,12 +3331,12 @@ def _numeric_sweep_summary_plot(entries, prefix, x_label, y_label, stem, output_
         + labs(x=x_label, y=y_label)
         + _paper_theme(legend_position="none")
         + theme(
-            axis_title=element_text(size=15.0),
-            axis_text_x=element_text(size=12.0, color="#444444"),
-            axis_text_y=element_text(size=12.0, color="#444444"),
-            strip_text=element_text(family=PAPER_FONT, size=14.0, face="bold"),
+            axis_title=element_text(size=17.0),
+            axis_text_x=element_text(size=14.0, color="#444444"),
+            axis_text_y=element_text(size=14.0, color="#444444"),
+            strip_text=element_text(family=PAPER_FONT, size=16.0, face="bold"),
             panel_grid_minor=element_line(color="#f2f2f2", size=0.25),
-            plot_margin=[6, 12, 10, 34],
+            plot_margin=[8, 14, 12, 44],
         )
     )
     if x_scale == "log10":
@@ -3195,7 +3346,7 @@ def _numeric_sweep_summary_plot(entries, prefix, x_label, y_label, stem, output_
     else:
         plot = plot + scale_x_continuous(breaks=x_breaks, labels=x_labels, expand=[0.0, 0.0])
     plot = plot + scale_y_continuous(expand=[0.10, 0.0])
-    save_plot(plot + ggsize(1120, 310), output_dir, stem, fmt, png_width=2400)
+    save_plot(plot + ggsize(1120, 300), output_dir, stem, fmt, png_width=2400)
 
 
 def plot_imputation_samples(results_dir, output_dir, fmt="pdf"):
@@ -3208,7 +3359,7 @@ def plot_imputation_samples(results_dir, output_dir, fmt="pdf"):
         entries,
         prefix="M",
         x_label="Posterior completions M",
-        y_label="Final regret (Portfolio raw, others K)",
+        y_label="Final cumulative regret",
         stem="imputation_samples_summary",
         output_dir=output_dir,
         fmt=fmt,

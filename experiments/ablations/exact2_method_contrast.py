@@ -488,7 +488,7 @@ def build_feedback_plot(data, feedback):
                 data=panel_ann,
                 color="#2b2b2b",
                 fill="#ffffff",
-                size=5.6,
+                size=7.4,
                 hjust=0,
                 family=PAPER_FONT,
             )
@@ -505,17 +505,17 @@ def build_feedback_plot(data, feedback):
                 text=element_text(family=PAPER_FONT),
                 legend_position="top" if show_legend else "none",
                 panel_grid=element_blank(),
-                plot_title=element_text(size=13, face="bold"),
-                plot_subtitle=element_text(size=11, face="bold"),
-                legend_text=element_text(size=8, face="bold"),
-                legend_title=element_text(size=8, face="bold"),
-                legend_key_width=9,
-                legend_key_height=8,
+                plot_title=element_text(size=17, face="bold"),
+                plot_subtitle=element_text(size=14, face="bold"),
+                legend_text=element_text(size=12, face="bold"),
+                legend_title=element_text(size=12, face="bold"),
+                legend_key_width=12,
+                legend_key_height=11,
                 legend_key_spacing_x=2,
                 legend_margin=[0, 2, 0, 2],
                 legend_box_spacing=0,
-                axis_title=element_text(size=10),
-                axis_text=element_text(size=7.8),
+                axis_title=element_text(size=14),
+                axis_text=element_text(size=11.5),
             )
         )
         if not panel_cross.empty:
@@ -580,21 +580,21 @@ def build_feedback_plot(data, feedback):
                 mapping=aes("x", "y", label="label"),
                 data=panel_decision,
                 color="white",
-                size=8.0,
+                size=10.6,
                 family=PAPER_FONT,
             )
             + geom_text(
                 mapping=aes("x", "y", label="label"),
                 data=panel_nuisance,
                 color="#333333",
-                size=8.0,
+                size=10.6,
                 family=PAPER_FONT,
             )
             + geom_text(
                 mapping=aes("x", "y", label="label"),
                 data=panel_ann_labels,
                 color="#5a5a5a",
-                size=5.0,
+                size=7.0,
                 hjust=0.5,
                 family=PAPER_FONT,
             )
@@ -602,7 +602,7 @@ def build_feedback_plot(data, feedback):
                 mapping=aes("x", "y", label="label"),
                 data=panel_ann_values,
                 color="#2b2b2b",
-                size=6.8,
+                size=9.2,
                 hjust=0.5,
                 family=PAPER_FONT,
             )
@@ -610,7 +610,7 @@ def build_feedback_plot(data, feedback):
                 mapping=aes("x", "y", label="label"),
                 data=panel_ann_separator,
                 color="#777777",
-                size=5.4,
+                size=7.2,
                 hjust=0.5,
                 family=PAPER_FONT,
             )
@@ -628,8 +628,8 @@ def build_feedback_plot(data, feedback):
                 text=element_text(family=PAPER_FONT),
                 legend_position="none",
                 panel_grid=element_blank(),
-                axis_title=element_text(size=10),
-                axis_text_x=element_text(size=7.8),
+                axis_title=element_text(size=14),
+                axis_text_x=element_text(size=11.5),
                 axis_text_y=element_blank(),
                 plot_margin=[0, 0, 10, 0],
             )

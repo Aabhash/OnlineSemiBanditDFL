@@ -158,14 +158,14 @@ ablations:
     output_dir: "results/ablations/kn_ratio"
 
   exploration_strategy:
-    datasets: [knapsack_32, knapsack_100, shortest_path_8x8, shortest_path_20x20, portfolio_32]
+    datasets: [knapsack_100, shortest_path_20x20, portfolio_32]
     n_rounds: 10000
     n_seeds: 10
     tuning_dir: "results/FINAL/tuning"
     output_dir: "results/ablations/exploration"
 
   ts_scale_sweep:
-    datasets: [knapsack_32, knapsack_100, shortest_path_8x8, shortest_path_20x20, portfolio_32]
+    datasets: [knapsack_100, shortest_path_20x20, portfolio_32]
     ts_scale_multipliers: [0.125, 0.25, 0.5, 1.0, 2.0]
     dataset_ts_scale_multipliers:
       portfolio_32: [0.0625, 0.125, 0.25]
@@ -203,7 +203,7 @@ ablations:
     output_dir: "results/ablations/feature_robustness"
 
   imputation_strategy:
-    datasets: [knapsack_32, knapsack_100, shortest_path_8x8, shortest_path_20x20, portfolio_32]
+    datasets: [knapsack_100, shortest_path_20x20, portfolio_32]
     missing_grad_weights: [0.0, 0.05, 0.1, 0.25, 0.5, 0.75, 1.0]
     n_rounds: 10000
     n_seeds: 10
@@ -243,14 +243,14 @@ ablations:
     output_dir: "results/ablations/pmin_coverage"
 
   architecture_ablation:
-    datasets: [knapsack_32, knapsack_100, shortest_path_8x8, shortest_path_20x20, portfolio_32]
+    datasets: [knapsack_100, shortest_path_20x20, portfolio_32]
     n_rounds: 10000
     n_seeds: 10
     tuning_dir: "results/FINAL/tuning"
     output_dir: "results/ablations/architecture"
 
   decoupling_ablation:
-    datasets: [knapsack_32, knapsack_100, shortest_path_8x8, shortest_path_20x20, portfolio_32]
+    datasets: [knapsack_100, shortest_path_20x20, portfolio_32]
     lr_multipliers: [0.5, 1.0, 2.0]
     n_rounds: 10000
     n_seeds: 10

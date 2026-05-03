@@ -89,6 +89,15 @@ DATASET_COLORS = {
     "SP 20x20": "#D6A086",
     "Portfolio": "#B8B8B8",
 }
+
+
+def format_round_tick(value, _pos=None):
+    value = float(value)
+    if not np.isfinite(value):
+        return ""
+    if abs(value) >= 1000 and abs(value % 1000) < 1e-6:
+        return f"{int(value / 1000)}k"
+    return f"{int(value):,}"
 PAPER_FONT = "Avenir Next"
 PAPER_EMPHASIS_FONT = "Avenir Next Demi Bold"
 
@@ -306,7 +315,7 @@ def aggregate_regret(df: pd.DataFrame) -> pd.DataFrame:
 def make_regret_plots(raw: dict, output_dir: str) -> None:
     plt = configure_matplotlib()
     from matplotlib.lines import Line2D
-    from matplotlib.ticker import AutoMinorLocator, FuncFormatter
+    from matplotlib.ticker import AutoMinorLocator, FuncFormatter, MaxNLocator
 
     df_cum, df_pr = build_regret_frames(raw)
     cum = aggregate_regret(df_cum)
@@ -320,7 +329,7 @@ def make_regret_plots(raw: dict, output_dir: str) -> None:
             continue
 
         scale = 1_000.0 if dataset != "portfolio_32" else 1.0
-        y_label = "Cumulative regret (x1k)" if scale > 1 else "Cumulative regret"
+        y_label = "Cumulative\nregret"
         for frame in (c, p):
             frame["mean_plot"] = frame["mean"] / scale
             frame["ymin_plot"] = frame["ymin"] / scale
@@ -329,7 +338,7 @@ def make_regret_plots(raw: dict, output_dir: str) -> None:
         fig, axes = plt.subplots(1, 2, figsize=(7.2, 2.45))
         panels = [
             (axes[0], c, "mean_plot", "ymin_plot", "ymax_plot", "Cumulative Regret", y_label),
-            (axes[1], p, "mean", "ymin", "ymax", "Per Round Regret", "Per-round regret"),
+            (axes[1], p, "mean", "ymin", "ymax", "Per Round Regret", "Per-round\nregret"),
         ]
 
         for ax, frame, y_col, ymin_col, ymax_col, title, ylabel in panels:
@@ -356,7 +365,7 @@ def make_regret_plots(raw: dict, output_dir: str) -> None:
             ax.set_ylabel(ylabel, fontsize=9)
             ax.tick_params(axis="both", labelsize=8, length=3, color="#7A7A7A")
             ax.tick_params(axis="both", which="minor", length=0)
-            ax.xaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{int(value):,}"))
+            ax.xaxis.set_major_formatter(FuncFormatter(format_round_tick))
             ax.xaxis.set_minor_locator(AutoMinorLocator(2))
             ax.yaxis.set_minor_locator(AutoMinorLocator(2))
             ax.grid(True, which="major", color="#E4E4E4", linewidth=0.7)
@@ -396,6 +405,107 @@ def make_regret_plots(raw: dict, output_dir: str) -> None:
         save_vector_pdf(fig, out, bbox_inches="tight", pad_inches=0.02)
         plt.close(fig)
         print(f"Saved {out}")
+
+    fig, axes = plt.subplots(len(DATASETS), 2, figsize=(7.35, 8.55), sharex="col")
+    method_handles = [
+        Line2D(
+            [0],
+            [0],
+            color=COLORS[agent],
+            linestyle=MPL_LINESTYLES[agent],
+            linewidth=1.45,
+            label=agent,
+        )
+        for agent in REGRET_AGENTS
+    ]
+
+    for row_idx, dataset in enumerate(DATASETS):
+        label = DATASET_LABELS[dataset]
+        c = cum[cum["dataset"] == dataset].copy()
+        p = per_round[per_round["dataset"] == dataset].copy()
+        if c.empty or p.empty:
+            continue
+
+        scale = 1_000.0 if dataset != "portfolio_32" else 1.0
+        cumulative_ylabel = "Cumulative\nregret"
+        for frame in (c, p):
+            frame["mean_plot"] = frame["mean"] / scale
+            frame["ymin_plot"] = frame["ymin"] / scale
+            frame["ymax_plot"] = frame["ymax"] / scale
+
+        panels = [
+            (axes[row_idx, 0], c, "mean_plot", "ymin_plot", "ymax_plot", "Cumulative Regret", cumulative_ylabel),
+            (axes[row_idx, 1], p, "mean", "ymin", "ymax", "Per Round Regret", "Per-round\nregret"),
+        ]
+
+        for col_idx, (ax, frame, y_col, ymin_col, ymax_col, title, ylabel) in enumerate(panels):
+            for agent in REGRET_AGENTS:
+                agent_frame = frame[frame["agent"] == agent].sort_values("round")
+                if agent_frame.empty:
+                    continue
+
+                x = agent_frame["round"].to_numpy(dtype=float)
+                mean = agent_frame[y_col].to_numpy(dtype=float)
+                ymin = agent_frame[ymin_col].to_numpy(dtype=float)
+                ymax = agent_frame[ymax_col].to_numpy(dtype=float)
+                ax.fill_between(x, ymin, ymax, color=COLORS[agent], alpha=0.10, linewidth=0)
+                ax.plot(
+                    x,
+                    mean,
+                    color=COLORS[agent],
+                    linestyle=MPL_LINESTYLES[agent],
+                    linewidth=1.05,
+                )
+
+            if row_idx == 0:
+                ax.set_title(title, fontsize=13.5, fontfamily=PAPER_EMPHASIS_FONT, pad=6)
+            if col_idx == 0:
+                ax.text(
+                    0.015,
+                    0.90,
+                    label,
+                    transform=ax.transAxes,
+                    ha="left",
+                    va="top",
+                    fontsize=11.5,
+                    fontfamily=PAPER_EMPHASIS_FONT,
+                    color="#222222",
+                    bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.72, "pad": 0.8},
+                )
+            ax.set_ylabel(ylabel, fontsize=11.0)
+            if row_idx == len(DATASETS) - 1:
+                ax.set_xlabel("Round", fontsize=11.0)
+            ax.tick_params(axis="both", labelsize=10.0, length=3.0, color="#7A7A7A")
+            ax.tick_params(axis="both", which="minor", length=0)
+            ax.xaxis.set_major_formatter(FuncFormatter(format_round_tick))
+            ax.xaxis.set_minor_locator(AutoMinorLocator(2))
+            ax.yaxis.set_major_locator(MaxNLocator(nbins=3))
+            ax.yaxis.set_minor_locator(AutoMinorLocator(2))
+            ax.grid(True, which="major", color="#E4E4E4", linewidth=0.62)
+            ax.grid(True, which="minor", color="#F1F1F1", linewidth=0.38)
+            ax.set_axisbelow(True)
+            ax.margins(x=0.02)
+            y_min, y_max = ax.get_ylim()
+            if y_min < 0 < y_max:
+                ax.set_ylim(bottom=0)
+            for spine in ax.spines.values():
+                spine.set_visible(False)
+
+    fig.legend(
+        handles=method_handles,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 0.995),
+        ncol=len(method_handles),
+        frameon=False,
+        prop={"family": PAPER_EMPHASIS_FONT, "size": 11.5},
+        handlelength=1.8,
+        columnspacing=0.9,
+    )
+    fig.tight_layout(rect=[0, 0, 1, 0.935], pad=0.22, h_pad=0.35, w_pad=0.55)
+    out = os.path.abspath(os.path.join(output_dir, "regret_trajectories_all.pdf"))
+    save_vector_pdf(fig, out, bbox_inches="tight", pad_inches=0.02)
+    plt.close(fig)
+    print(f"Saved {out}")
 
 
 def make_regret_scaling_plot(raw: dict, output_dir: str) -> None:
@@ -446,20 +556,18 @@ def make_regret_scaling_plot(raw: dict, output_dir: str) -> None:
 
     ref_x = np.array([10.0, 10_000.0])
     ax.plot(ref_x, np.sqrt(ref_x / ref_x[-1]), color="#222222", linestyle="--", linewidth=1.1)
-    ax.text(35, 0.075, "sqrt(T) reference", fontsize=8.0, color="#222222", fontweight="normal")
+    ax.text(35, 0.075, "sqrt(T) reference", fontsize=10.8, color="#222222", fontweight="normal")
     ax.set_xscale("log")
     ax.set_yscale("log")
     ax.set_xlim(10, 10_000)
     ax.set_ylim(0.02, 1.25)
-    ax.set_xlabel("Round", fontsize=9.5, fontweight="normal")
-    ax.set_ylabel("Normalized Reg(t)", fontsize=9.5, fontweight="normal")
-    ax.tick_params(axis="both", labelsize=8.2, length=3, color="#7A7A7A")
+    ax.set_xlabel("Round", fontsize=12.5, fontweight="normal")
+    ax.set_ylabel("Normalized Reg(t)", fontsize=12.5, fontweight="normal")
+    ax.tick_params(axis="both", labelsize=11.0, length=3.4, color="#7A7A7A")
     ax.tick_params(axis="both", which="minor", length=0)
     ax.xaxis.set_minor_locator(LogLocator(base=10, subs=np.arange(2, 10) * 0.1))
     ax.yaxis.set_minor_locator(LogLocator(base=10, subs=np.arange(2, 10) * 0.1))
-    ax.xaxis.set_major_formatter(
-        FuncFormatter(lambda value, _: f"{int(value):,}" if value >= 1 else f"{value:g}")
-    )
+    ax.xaxis.set_major_formatter(FuncFormatter(format_round_tick))
     ax.yaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{value:g}"))
     ax.grid(True, which="major", color="#E4E4E4", linewidth=0.7)
     ax.grid(True, which="minor", color="#F0F0F0", linewidth=0.45)
@@ -469,7 +577,7 @@ def make_regret_scaling_plot(raw: dict, output_dir: str) -> None:
     ax.legend(
         loc="lower right",
         frameon=False,
-        prop={"family": PAPER_EMPHASIS_FONT, "size": 7.8},
+        prop={"family": PAPER_EMPHASIS_FONT, "size": 10.6},
         handlelength=1.5,
         labelspacing=0.35,
     )
