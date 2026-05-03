@@ -42,9 +42,12 @@ uv run python experiments/tune_hyperparams.py --all --dataset knapsack_32 --feed
 # Evaluate online agents
 uv run python experiments/evaluate_online.py --datasets knapsack_32 --feedback semi_bandit --full --output_dir results/eval_online
 
-# Generate plots from saved results (no re-running)
-uv run python experiments/plot_eval_results.py --input results/eval_online/metrics --format pdf
-uv run python experiments/compute_analysis.py
+# Generate paper figures from saved final results (no re-running)
+uv run python experiments/plot_paper_core_results.py \
+  --trajectories results/eval_online_10k/metrics/trajectories.pkl \
+  --canonical-regrets results/eval_online_10k/metrics/final_eval_regrets.json \
+  --canonical-times results/eval_online_10k/metrics/final_eval_summary.csv \
+  --output paper_neurips_2026/result_figures
 ```
 
 ## Datasets
@@ -56,11 +59,6 @@ uv run python experiments/compute_analysis.py
 | `shortest_path_8x8` | 112 | ~14 | ~12% | 8×8 grid shortest path |
 | `shortest_path_20x20` | 760 | ~38 | ~5% | 20×20 grid shortest path |
 | `portfolio_32` | 32 | 5 | ~16% | Cardinality-constrained binary portfolio |
-| `topk_2arm` | 2 | 1 | 50% | 2-arm toy (sigmoid costs) |
-| `topk_4arm` | 4 | 1 | 25% | 4-arm toy (sigmoid costs) |
-| `topk_8arm` | 8 | 2 | 25% | 8-arm toy (sigmoid costs) |
-| `topk_2arm_linear` | 2 | 1 | 50% | 2-arm toy (linear costs, well-specified) |
-| `topk_4arm_linear` | 4 | 1 | 25% | 4-arm toy (linear costs, well-specified) |
 
 ## Agents
 
@@ -83,16 +81,19 @@ uv run python experiments/compute_analysis.py
 ```
 tune_online.sh → results/tuning/           (online Optuna DB + best HP JSON)
 run_online.sh  → results/eval_online/      (main online agent data)
-run.sh         → results/compute/          (online wrapper + compute analysis)
-                 results/figures/          (regret + diagnostic plots)
+run.sh         → paper_neurips_2026/result_figures/
+                                            (paper core result figures)
 run_ablations.sh → results/ablations/      (ablation data + per-ablation figures)
 ```
 
 ### Re-plot without re-running
 
 ```bash
-uv run python experiments/plot_eval_results.py --format pdf
-uv run python experiments/compute_analysis.py
+uv run python experiments/plot_paper_core_results.py \
+  --trajectories results/eval_online_10k/metrics/trajectories.pkl \
+  --canonical-regrets results/eval_online_10k/metrics/final_eval_regrets.json \
+  --canonical-times results/eval_online_10k/metrics/final_eval_summary.csv \
+  --output paper_neurips_2026/result_figures
 ```
 
 ## Ablations
@@ -103,7 +104,7 @@ uv run python experiments/compute_analysis.py
 |----------|--------|--------|
 | k/n ratio | capacity: [4,8,12,16,20,24,28] | `ablations/kn_ratio_sweep.py` |
 | Masked-imputation dose response | missing-arm gradient weight: [0,0.05,0.1,0.25,0.5,1] for BayesianSPO and BayesianMSE | `ablations/posterior_strategy_ablation.py --preset imputation` |
-| Feature sharing | hidden_dim: [1,4,8,16,32,64] on all five benchmarks | `ablations/feature_sharing.py` |
+| Decision-Nuisance Top-2 diagnostic | controlled feature-capacity diagnostic for decision vs nuisance coordinates | `ablations/decision_nuisance_top2.py` |
 | Architecture | Bayesian last-layer vs deterministic jointly trained head | `ablations/architecture_ablation.py` |
 | Decoupling | decoupled BayesianSPO vs coupled deterministic SPO head | `ablations/decoupling_ablation.py` |
 
@@ -111,8 +112,7 @@ uv run python experiments/compute_analysis.py
 
 | Ablation | Sweeps | Script |
 |----------|--------|--------|
-| Context variation | noise: [0,0.05,0.1,0.25,0.5,1] on all five benchmarks | `ablations/context_variation.py` |
-| Feature robustness | Perturbation sensitivity on all five benchmarks | `ablations/feature_robustness.py` |
+| Context variation | noise: [0,0.25,0.5,1] on all five benchmarks | `ablations/context_variation.py` |
 | Beta sensitivity | UCB scale around the tuned BayesianSPO value on all five benchmarks | `ablations/beta_sensitivity.py` |
 | Exploration strategy | Greedy, tuned UCB, and TS for tuned BayesianSPO and BayesianMSE on all five benchmarks | `ablations/posterior_strategy_ablation.py --preset exploration` |
 | TS scale sweep | Thompson-sampling scale around each method's tuned UCB beta on all five benchmarks | `ablations/ts_scale_sweep.py` |
@@ -135,15 +135,13 @@ src/
     agent_base.py           # AgentBase ABC (universal interface)
     base.py                 # Episode runners (pregenerate, run_agent_on_episode)
     contextual/             # All agent implementations
-  envs/                     # Environments (knapsack, shortest_path, topk)
+  envs/                     # Environments (knapsack, shortest_path, portfolio)
   losses.py                 # SPO+, PFY, MSE loss gradients
   solver.py                 # Gurobi knapsack + DP shortest path
 experiments/
   evaluate_online.py        # Online agent evaluation
-  compute_analysis.py       # Wallclock + Pareto analysis
-  plot_eval_results.py      # Main evaluation plots
+  plot_paper_core_results.py # Paper core result figures
   plot_ablation_results.py  # Ablation plots
   tune_hyperparams.py       # Optuna HP tuning
   ablations/                # Ablation and analysis scripts
-notebooks/                  # 4 exploratory notebooks
 ```

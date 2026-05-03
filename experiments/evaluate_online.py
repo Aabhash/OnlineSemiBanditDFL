@@ -1080,12 +1080,12 @@ Two-Stage Workflow Example:
   python experiments/tune_hyperparams.py --all --dataset knapsack_32 --n-seeds 3 --n-rounds 1000 --n-trials 30
 
   # Stage 2: Full evaluation with tuned HPs (10 seeds, full rounds)
-  python experiments/evaluate.py --datasets knapsack_32 --use-tuned-params --full --n_seeds 10
+  python experiments/evaluate_online.py --datasets knapsack_32 --use-tuned-params --full --n_seeds 10
 
 Examples:
-  python experiments/evaluate.py --datasets knapsack_32 --quick
-  python experiments/evaluate.py --datasets portfolio_32,knapsack_32,shortest_path_8x8 --full
-  python experiments/evaluate.py --datasets knapsack_32 --use-tuned-params --agents BayesianSPO,BayesianMSE
+  python experiments/evaluate_online.py --datasets knapsack_32 --quick
+  python experiments/evaluate_online.py --datasets portfolio_32,knapsack_32,shortest_path_8x8 --full
+  python experiments/evaluate_online.py --datasets knapsack_32 --use-tuned-params --agents BayesianSPO,BayesianMSE
         """
     )
     parser.add_argument('--config', type=str, default=DEFAULT_CONFIG_PATH)

@@ -10,7 +10,6 @@ from .results_store import TrialResult, ResultsStore
 from src.agents.contextual import (
     BayesianSPOAgent,
     BayesianPFYAgent,
-    BayesianSPO_DFE_Agent,
     LinUCBAgent,
     NeuralUCBAgent,
     ThompsonSamplingAgent,
@@ -20,7 +19,6 @@ from src.agents.contextual import (
     WeberBLLAgent,
 )
 from src.envs import create_env
-from src.solver import ShortestPathSolver, KnapsackSolver
 
 AGENT_ALIASES = {
     'BLL-Online': 'WeberBLL-Online',
@@ -306,31 +304,6 @@ def create_agent_from_params(
         )
     elif agent_name == 'Random':
         return RandomAgent(env.n_arms, env.weights, env.capacity, solver=solver)
-    elif agent_name in ('BayesianSPO-DI', 'BayesianSPO-DFE'):
-        grid_size = getattr(env, 'grid_size', None)
-        if grid_size is not None:
-            co_solver = ShortestPathSolver(grid_size)
-        else:
-            co_solver = KnapsackSolver(env.weights, env.capacity)
-
-        agent_params = {k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
-
-
-        if agent_name == 'BayesianSPO-DI':
-            agent_params['imputation'] = 'disc_impute'
-        elif agent_name == 'BayesianSPO-DFE':
-            agent_params['imputation'] = 'disc_explore'
-            agent_params['decision_focused_explore'] = True
-            agent_params['adaptive_dfe'] = True
-
-        agent_lr = params.get('init_lr', 0.001)
-        return BayesianSPO_DFE_Agent(
-            env.context_dim, env.n_arms, env.weights, env.capacity,
-            init_lr=agent_lr,
-            minimize=minimize, solver=solver, seed=seed,
-            co_solver=co_solver, nonlinear=False,
-            **agent_params,
-        )
     elif agent_name == 'WeberBLL-Online':
         agent_params = {k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
         agent_lr = params.get('init_lr', 0.001)

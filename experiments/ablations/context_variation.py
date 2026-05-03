@@ -2,7 +2,6 @@
 import argparse
 import sys
 import os
-import numpy as np
 
 sys.path.insert(0, '.')
 
@@ -65,61 +64,6 @@ def make_agents(env, seed, spo_hp, mse_hp, linucb_hp):
     return agents
 
 
-def plot_results(all_results, noise_widths, seeds, output_dir):
-    try:
-        import matplotlib.pyplot as plt
-    except ImportError:
-        print('matplotlib not available, skipping plots')
-        return
-
-    agent_names = ['BayesianSPO', 'BayesianMSE', 'LinUCB']
-
-    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-
-
-    ax = axes[0]
-    for name in agent_names:
-        means = []
-        stds = []
-        for nw in noise_widths:
-            regrets = [all_results[(name, nw, s)]['final_regret']
-                       for s in seeds if (name, nw, s) in all_results]
-            means.append(np.mean(regrets) if regrets else np.nan)
-            stds.append(np.std(regrets) if regrets else 0)
-        ax.errorbar(noise_widths, means, yerr=stds, marker='o', label=name, capsize=3)
-
-    ax.set_xlabel('Noise Width')
-    ax.set_ylabel('Final Cumulative Regret')
-    ax.set_title('Context Variation: Regret vs Noise')
-    ax.legend()
-
-
-    ax = axes[1]
-    gaps = []
-    for nw in noise_widths:
-        spo = [all_results[('BayesianSPO', nw, s)]['final_regret']
-               for s in seeds if ('BayesianSPO', nw, s) in all_results]
-        mse = [all_results[('BayesianMSE', nw, s)]['final_regret']
-               for s in seeds if ('BayesianMSE', nw, s) in all_results]
-        if spo and mse:
-            gaps.append(np.mean(mse) - np.mean(spo))
-        else:
-            gaps.append(np.nan)
-
-    ax.bar(range(len(noise_widths)), gaps, tick_label=[str(nw) for nw in noise_widths],
-           color='purple', alpha=0.7)
-    ax.set_xlabel('Noise Width')
-    ax.set_ylabel('MSE Regret - SPO Regret')
-    ax.set_title('SPO+ Advantage (MSE - SPO)')
-    ax.axhline(0, color='gray', linestyle='--')
-
-    plt.tight_layout()
-    os.makedirs(output_dir, exist_ok=True)
-    plt.savefig(os.path.join(output_dir, 'context_variation.pdf'), bbox_inches='tight')
-    print(f'Plots saved to {output_dir}')
-    plt.close()
-
-
 def main():
     parser = argparse.ArgumentParser(description='Context Variation Ablation')
     parser.add_argument('--config', default='experiments/configs/experiment.yaml')
@@ -136,7 +80,6 @@ def main():
                           help='Use agent_defaults instead of tuned HPs.')
     parser.add_argument('--tuning-dir', default=None,
                         help='Override tuning dir (default: ablations.context_variation.tuning_dir).')
-    parser.add_argument('--no-plot', action='store_true', help='Save data only, skip plotting')
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -208,8 +151,6 @@ def main():
 
         ds_dir = os.path.join(output_dir, dataset)
         save_results(all_results, os.path.join(ds_dir, 'results.pkl'))
-        if not args.no_plot:
-            plot_results(all_results, noise_widths, seeds, ds_dir)
 
 
 if __name__ == '__main__':

@@ -133,10 +133,10 @@ dmypy.json
 .pytype/
 
 cython_debug/
-results*/
 experimental/
 wandb/
 
 archive/
 writing_outputs/
 *obsidian
+notebooks/

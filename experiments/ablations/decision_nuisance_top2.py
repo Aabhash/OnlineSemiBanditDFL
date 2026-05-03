@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the Exact-2 feature-mechanism figures used in the paper.
+"""Generate the Decision-Nuisance Top-2 diagnostic figures used in the paper.
 
 This is a mechanistic ablation, not a benchmark curve. Each output figure shows
 learned two-dimensional feature geometry above normalized allocated feature
@@ -51,9 +51,9 @@ from lets_plot.export import ggsave
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from notebooks.feature_representation_analysis_helpers import (  # noqa: E402
+from experiments.ablations.decision_nuisance_top2_helpers import (  # noqa: E402
     ORACLE_W1,
-    DecisionFocusedExact2Env,
+    DecisionNuisanceTop2Env,
     _convex_hull_df,
     _decision_accuracy,
     create_agent_pair,
@@ -65,8 +65,8 @@ from notebooks.feature_representation_analysis_helpers import (  # noqa: E402
 from src.agents.base import pregenerate_episode  # noqa: E402
 
 
-MPL_CACHE = Path("/tmp/constrained_bandits_exact2_mpl_cache")
-XDG_CACHE = Path("/tmp/constrained_bandits_exact2_xdg_cache")
+MPL_CACHE = Path("/tmp/constrained_bandits_decision_nuisance_top2_mpl_cache")
+XDG_CACHE = Path("/tmp/constrained_bandits_decision_nuisance_top2_xdg_cache")
 MPL_CACHE.mkdir(parents=True, exist_ok=True)
 XDG_CACHE.mkdir(parents=True, exist_ok=True)
 os.environ.setdefault("MPLCONFIGDIR", str(MPL_CACHE))
@@ -78,10 +78,11 @@ PAPER_FONT = "Avenir Next"
 PAPER_BOLD_WEIGHT = "600"
 PAPER_EMPHASIS_FONT = "Avenir Next Demi Bold"
 
-DEFAULT_OUTPUT_DIR = REPO_ROOT / "paper_neurips_2026/figures/exact2_m_sweep"
-DEFAULT_CACHE_DIR = REPO_ROOT / "results/ablations/exact2_method_contrast/cache"
+DEFAULT_OUTPUT_DIR = REPO_ROOT / "paper_neurips_2026/figures/decision_nuisance_top2"
+DEFAULT_CACHE_DIR = REPO_ROOT / "results/ablations/decision_nuisance_top2/cache"
 DEFAULT_SUMMARY_PATH = (
-    REPO_ROOT / "results/ablations/exact2_method_contrast/exact2_method_contrast_summary.csv"
+    REPO_ROOT
+    / "results/ablations/decision_nuisance_top2/decision_nuisance_top2_summary.csv"
 )
 
 MODEL_ORDER = ["Oracle", "BayesianSPO", "BayesianMSE"]
@@ -130,7 +131,7 @@ ACTION_SIZES = {
 def run_or_load(args, cache_dir):
     cache_path = (
         cache_dir
-        / f"method_contrast_m{args.imputation_samples}_r{args.n_rounds}_seed{args.seed}.npz"
+        / f"decision_nuisance_top2_m{args.imputation_samples}_r{args.n_rounds}_seed{args.seed}.npz"
     )
     meta_path = cache_path.with_suffix(".json")
 
@@ -152,9 +153,9 @@ def run_or_load(args, cache_dir):
         if required.issubset(data.keys()):
             return data, json.loads(meta_path.read_text())
 
-    env = DecisionFocusedExact2Env(seed=42, noise_width=args.noise_width)
+    env = DecisionNuisanceTop2Env(seed=42, noise_width=args.noise_width)
     episode = pregenerate_episode(env, n_rounds=args.n_rounds)
-    env_test = DecisionFocusedExact2Env(seed=42, noise_width=args.noise_width)
+    env_test = DecisionNuisanceTop2Env(seed=42, noise_width=args.noise_width)
     x_test, decisions_test, values_test = generate_test_contexts(
         env_test, n_samples=args.n_test, seed=args.test_seed
     )
@@ -689,7 +690,9 @@ def save_outputs(plot, out_dir, stem, keep_intermediates=False, save_png=False):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate the Exact-2 method-contrast paper figures.")
+    parser = argparse.ArgumentParser(
+        description="Generate the Decision-Nuisance Top-2 diagnostic paper figures."
+    )
     parser.add_argument("--n-rounds", type=int, default=10000)
     parser.add_argument("--checkpoint-interval", type=int, default=200)
     parser.add_argument("--n-test", type=int, default=500)
@@ -741,14 +744,14 @@ def main():
     save_outputs(
         build_feedback_plot(data, "Full feedback"),
         out_dir,
-        "exact2_method_contrast_full_feedback",
+        "decision_nuisance_top2_full_feedback",
         keep_intermediates=args.keep_intermediates,
         save_png=args.png,
     )
     save_outputs(
         build_feedback_plot(data, "Partial feedback"),
         out_dir,
-        "exact2_method_contrast_partial_feedback",
+        "decision_nuisance_top2_partial_feedback",
         keep_intermediates=args.keep_intermediates,
         save_png=args.png,
     )

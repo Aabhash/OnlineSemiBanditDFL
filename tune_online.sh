@@ -13,12 +13,6 @@ cd "$SCRIPT_DIR"
 # Stage 1: Online HP tuning for all agents on each dataset
 # ====================================================================
 
-# TopK toy datasets — sigmoid (misspecified)
-uv run python experiments/tune_hyperparams.py --all --dataset topk_8arm --feedback semi_bandit --analyze --parallel 4 
-
-# TopK toy datasets — linear (well-specified)
-uv run python experiments/tune_hyperparams.py --all --dataset topk_8arm_linear --feedback semi_bandit --analyze --parallel 4
-
 # Shortest path 8x8
 uv run python experiments/tune_hyperparams.py --all --dataset shortest_path_8x8 --feedback semi_bandit --analyze --parallel 4
 

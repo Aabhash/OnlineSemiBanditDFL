@@ -1,14 +1,9 @@
 import argparse
-import importlib
-import importlib.util
 import json
 import os
 import sys
-import numpy as np
 
 sys.path.insert(0, '.')
-
-plt = importlib.import_module('matplotlib.pyplot') if importlib.util.find_spec('matplotlib.pyplot') is not None else None
 
 from experiments.ablations.common import (
     load_config, make_co_solver, make_dataset_config,
@@ -81,38 +76,6 @@ def make_agents(env, seed, base_hp, m_values):
     }
 
 
-def plot_results(all_results, m_values, seeds, output_dir, dataset):
-    if plt is None:
-        print('matplotlib not available, skipping plots')
-        return
-
-    means, stds = [], []
-    for m in m_values:
-        name = f'M{m}'
-        regrets = [all_results[(name, s)]['final_regret']
-                   for s in seeds if (name, s) in all_results]
-        means.append(np.mean(regrets) if regrets else np.nan)
-        stds.append(np.std(regrets) if regrets else 0)
-
-    fig, ax = plt.subplots(figsize=(7, 4.5))
-    ax.errorbar(m_values, means, yerr=stds, marker='o', capsize=3,
-                color='mediumpurple')
-    ax.set_xlabel('Imputation samples $M$')
-    ax.set_ylabel('Final cumulative regret')
-    ax.set_title(f'BayesianSPO: regret vs.\\ $M$ ({dataset})')
-    ax.set_xscale('log', base=2)
-    ax.set_xticks(m_values)
-    ax.set_xticklabels([str(m) for m in m_values])
-    ax.grid(True, alpha=0.3)
-
-    plt.tight_layout()
-    os.makedirs(output_dir, exist_ok=True)
-    plt.savefig(os.path.join(output_dir, 'imputation_samples.pdf'), bbox_inches='tight')
-    plt.savefig(os.path.join(output_dir, 'imputation_samples.png'), dpi=150, bbox_inches='tight')
-    print(f'Plots saved to {output_dir}')
-    plt.close()
-
-
 def main():
     parser = argparse.ArgumentParser(description='Imputation-samples (M) sweep')
     parser.add_argument('--config', default='experiments/configs/experiment.yaml')
@@ -120,7 +83,6 @@ def main():
     parser.add_argument('--output', default=None)
     parser.add_argument('--datasets', nargs='+', default=None,
                         help='Datasets to run (default: config datasets)')
-    parser.add_argument('--no-plot', action='store_true', help='Save data only, skip plotting')
     parser.add_argument('--use-tuned-params', action='store_true',
                         help='Load per-dataset tuned BayesianSPO HPs from <tuning_dir>/best_hyperparams_*.json '
                              'instead of agent_defaults (M is still swept).')
@@ -201,8 +163,6 @@ def main():
                 print(f'regret={result["final_regret"]:.0f}', flush=True)
 
         save_results(all_results, result_path)
-        if not args.no_plot:
-            plot_results(all_results, m_values, seeds, ds_dir, dataset)
 
 
 if __name__ == '__main__':

@@ -3,7 +3,6 @@ from src.envs import (
     KnapsackEnv,
     PortfolioEnv,
     ShortestPathEdgeEnv,
-    TopKEnv,
     create_env,
 )
 
@@ -22,7 +21,6 @@ from src.models import (
 
 from src.agents import (
     BayesianSPOAgent,
-    BayesianSPO_DFE_Agent,
     BayesianPFYAgent,
     WeberBLLAgent,
     BayesianMSEAgent,
@@ -51,7 +49,6 @@ __all__ = [
     "KnapsackEnv",
     "PortfolioEnv",
     "ShortestPathEdgeEnv",
-    "TopKEnv",
     "create_env",
     "KnapsackData",
     "PortfolioData",
@@ -61,7 +58,6 @@ __all__ = [
     "BayesianLinearModel",
     "create_model",
     "BayesianSPOAgent",
-    "BayesianSPO_DFE_Agent",
     "BayesianPFYAgent",
     "WeberBLLAgent",
     "BayesianMSEAgent",

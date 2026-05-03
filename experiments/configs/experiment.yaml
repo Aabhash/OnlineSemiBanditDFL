@@ -101,26 +101,6 @@ datasets:
     noise_width: 0.25
     env_type: shared_context
 
-  # Top-K toy problems (for toy dissection / Section 5 analysis)
-  topk_8arm:
-    n_arms: 8
-    k: 2
-    context_dim: 5
-    cost_fn: sigmoid
-    w_spread: 0.4
-    env_type: topk
-
-  # Linear cost variants (well-specified: linear features can fit perfectly)
-  topk_8arm_linear:
-    n_arms: 8
-    k: 2
-    context_dim: 5
-    cost_fn: linear
-    w_spread: 0.4
-    env_type: topk
-
-
-
 feedback_types:
   - semi_bandit
   - full
@@ -175,14 +155,6 @@ ablations:
     tuning_dir: "results/FINAL/tuning"
     output_dir: "results/ablations/ts_scale"
 
-  feature_sharing:
-    datasets: [knapsack_32, knapsack_100, shortest_path_8x8, shortest_path_20x20, portfolio_32]
-    hidden_dims: [1, 4, 8, 16, 32, 64]
-    n_rounds: 10000
-    n_seeds: 10
-    tuning_dir: "results/FINAL/tuning"
-    output_dir: "results/ablations/feature_sharing"
-
   context_variation:
     datasets: [knapsack_32, knapsack_100, shortest_path_8x8, shortest_path_20x20, portfolio_32]
     noise_widths: [0.0, 0.25, 0.5, 1.0]
@@ -190,17 +162,6 @@ ablations:
     n_seeds: 10
     tuning_dir: "results/FINAL/tuning"
     output_dir: "results/ablations/context_variation"
-
-  feature_robustness:
-    # Restricted to knapsack envs: the perturbation loop calls
-    # env.data._generate_values(...), which is only defined on KnapsackData.
-    datasets: [knapsack_32, knapsack_100]
-    n_rounds: 10000
-    n_seeds: 10
-    eval_interval: 1000
-    n_test: 200
-    noise_scales: [0.5, 1.0, 2.0]
-    output_dir: "results/ablations/feature_robustness"
 
   imputation_strategy:
     datasets: [knapsack_100, shortest_path_20x20, portfolio_32]
@@ -256,12 +217,6 @@ ablations:
     n_seeds: 10
     tuning_dir: "results/FINAL/tuning"
     output_dir: "results/ablations/decoupling"
-
-  flip_set_collapse:
-    datasets: [knapsack_32, knapsack_100, shortest_path_8x8, shortest_path_20x20, portfolio_32]
-    n_rounds: 10000
-    n_seeds: 10
-    output_dir: "results/ablations/flip_set"
 
 plotting:
   colors:

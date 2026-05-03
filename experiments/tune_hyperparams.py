@@ -20,7 +20,7 @@ from experiments.tuning.optuna_tuner import load_config
 from experiments.tuning.results_store import ResultsStore
 from experiments.analysis.bootstrap import compute_all_confidence_intervals, print_ci_table
 from experiments.analysis.significance import generate_significance_report
-from experiments.analysis.sensitivity import generate_all_sensitivity_plots, generate_sensitivity_report
+from experiments.analysis.sensitivity import generate_sensitivity_report
 
 
 DEFAULT_CONFIG = 'experiments/configs/experiment.yaml'
@@ -90,11 +90,7 @@ def run_analysis(
     )
     print(report)
 
-    print("\n3. Generating sensitivity plots...")
-    generate_all_sensitivity_plots(
-        results_store, search_spaces, dataset,
-        str(analysis_dir / 'sensitivity'), feedback_type
-    )
+    print("\n3. Generating sensitivity report...")
     generate_sensitivity_report(
         results_store, agents, search_spaces, dataset,
         str(analysis_dir / f'sensitivity_report_{dataset}.json'),

@@ -14,11 +14,13 @@ bash "$SCRIPT_DIR/run_online.sh"
 
 echo "=== Step 2: Post-processing ==="
 
-uv run python experiments/compute_analysis.py --results-dir results/eval_online_10k/metrics --output results/compute
-uv run python experiments/plot_eval_results.py --input results/eval_online_10k/metrics --format pdf
+uv run python experiments/plot_paper_core_results.py \
+    --trajectories results/eval_online_10k/metrics/trajectories.pkl \
+    --canonical-regrets results/eval_online_10k/metrics/final_eval_regrets.json \
+    --canonical-times results/eval_online_10k/metrics/final_eval_summary.csv \
+    --output paper_neurips_2026/result_figures
 
 echo ""
 echo "=== Complete ==="
 echo "  Data:         results/eval_online_10k/"
-echo "  Compute:      results/compute/"
-echo "  Figures:      results/figures/"
+echo "  Figures:      paper_neurips_2026/result_figures/"

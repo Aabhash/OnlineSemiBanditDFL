@@ -2,14 +2,12 @@ from src.envs.base import ConstrainedBanditEnv
 from src.envs.knapsack import KnapsackEnv
 from src.envs.portfolio import PortfolioEnv
 from src.envs.shortest_path import ShortestPathEdgeEnv
-from src.envs.topk import TopKEnv
 
 __all__ = [
     'ConstrainedBanditEnv',
     'KnapsackEnv',
     'PortfolioEnv',
     'ShortestPathEdgeEnv',
-    'TopKEnv',
 ]
 
 
@@ -36,10 +34,8 @@ def create_env(env_type: str, seed: int = 42, **kwargs):
             seed=seed,
             **kwargs_copy
         )
-    elif env_type.startswith('topk'):
-        return TopKEnv(seed=seed, **kwargs)
     else:
         raise ValueError(
             f"Unknown environment type: {env_type}. "
-            f"Available: knapsack, portfolio, shortest_path_*, topk"
+            f"Available: knapsack, portfolio, shortest_path_*"
         )

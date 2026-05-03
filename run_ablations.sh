@@ -14,7 +14,6 @@ cd "$SCRIPT_DIR"
 ABLATION_MODE="${ABLATION_MODE:-full}"
 ABLATION_FIG_FORMAT="${ABLATION_FIG_FORMAT:-pdf}"
 ABLATION_TUNING_DIR="${ABLATION_TUNING_DIR:-results/FINAL/tuning}"
-export MPLCONFIGDIR="${MPLCONFIGDIR:-/tmp/matplotlib}"
 
 echo "Ablation mode: ${ABLATION_MODE}"
 echo "Tuning dir: ${ABLATION_TUNING_DIR}"
@@ -26,9 +25,8 @@ echo "Figure format: ${ABLATION_FIG_FORMAT}"
 
 echo "=== Running main-text ablations ==="
 
-uv run python experiments/ablations/kn_ratio_sweep.py --mode "$ABLATION_MODE" --no-plot
+uv run python experiments/ablations/kn_ratio_sweep.py --mode "$ABLATION_MODE"
 uv run python experiments/ablations/posterior_strategy_ablation.py --preset imputation --mode "$ABLATION_MODE" --use-tuned-params --tuning-dir "$ABLATION_TUNING_DIR" --no-plot
-uv run python experiments/ablations/feature_sharing.py --mode "$ABLATION_MODE" --no-plot
 uv run python experiments/ablations/architecture_ablation.py --mode "$ABLATION_MODE" --use-tuned-params --tuning-dir "$ABLATION_TUNING_DIR"
 uv run python experiments/ablations/decoupling_ablation.py --mode "$ABLATION_MODE" --use-tuned-params --tuning-dir "$ABLATION_TUNING_DIR"
 
@@ -38,19 +36,12 @@ uv run python experiments/ablations/decoupling_ablation.py --mode "$ABLATION_MOD
 
 echo "=== Running appendix ablations ==="
 
-uv run python experiments/ablations/context_variation.py --mode "$ABLATION_MODE" --no-plot
-uv run python experiments/ablations/feature_robustness.py --mode "$ABLATION_MODE"
-uv run python experiments/ablations/beta_sensitivity.py --mode "$ABLATION_MODE" --use-tuned-params --tuning-dir "$ABLATION_TUNING_DIR" --no-plot
+uv run python experiments/ablations/context_variation.py --mode "$ABLATION_MODE"
+uv run python experiments/ablations/beta_sensitivity.py --mode "$ABLATION_MODE" --use-tuned-params --tuning-dir "$ABLATION_TUNING_DIR"
 uv run python experiments/ablations/posterior_strategy_ablation.py --preset exploration --mode "$ABLATION_MODE" --use-tuned-params --tuning-dir "$ABLATION_TUNING_DIR" --no-plot
 uv run python experiments/ablations/ts_scale_sweep.py --mode "$ABLATION_MODE" --use-tuned-params --tuning-dir "$ABLATION_TUNING_DIR" --no-plot
-uv run python experiments/ablations/lambda_reg_sweep.py --mode "$ABLATION_MODE" --use-tuned-params --tuning-dir "$ABLATION_TUNING_DIR" --no-plot
-uv run python experiments/ablations/imputation_samples.py --mode "$ABLATION_MODE" --use-tuned-params --tuning-dir "$ABLATION_TUNING_DIR" --no-plot
-
-# ====================================================================
-# Optional deep-dive sweeps (not part of the default consolidated run)
-# ====================================================================
-
-# uv run python experiments/ablations/flip_set_collapse.py --mode "$ABLATION_MODE" --no-plot
+uv run python experiments/ablations/lambda_reg_sweep.py --mode "$ABLATION_MODE" --use-tuned-params --tuning-dir "$ABLATION_TUNING_DIR"
+uv run python experiments/ablations/imputation_samples.py --mode "$ABLATION_MODE" --use-tuned-params --tuning-dir "$ABLATION_TUNING_DIR"
 
 # ====================================================================
 # Render figures from the saved ablation results

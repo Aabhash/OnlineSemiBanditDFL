@@ -1,15 +1,9 @@
 #!/usr/bin/env python
 import argparse
-import importlib
-import importlib.util
 import os
 import sys
 
-import numpy as np
-
 sys.path.insert(0, '.')
-
-plt = importlib.import_module('matplotlib.pyplot') if importlib.util.find_spec('matplotlib.pyplot') is not None else None
 
 from experiments.ablations.common import (
     filter_results_for_run,
@@ -64,39 +58,6 @@ def make_agents(env, seed, base_hp, beta_values):
     }
 
 
-def plot_results(results, beta_values, seeds, output_dir, dataset):
-    if plt is None:
-        print('matplotlib not available, skipping plots')
-        return
-
-    means, stds = [], []
-    for beta in beta_values:
-        name = agent_name(beta)
-        regrets = [
-            results[(name, seed)]['final_regret']
-            for seed in seeds
-            if (name, seed) in results
-        ]
-        means.append(np.mean(regrets) if regrets else np.nan)
-        stds.append(np.std(regrets) if regrets else 0.0)
-
-    fig, ax = plt.subplots(figsize=(7, 4.5))
-    ax.errorbar(beta_values, means, yerr=stds, marker='o', capsize=3)
-    ax.set_xlabel('UCB scale beta')
-    ax.set_ylabel('Final cumulative regret')
-    ax.set_title(f'Beta sensitivity: {dataset}')
-    ax.set_xscale('log')
-    ax.set_xticks(beta_values)
-    ax.set_xticklabels([f'{beta:g}' for beta in beta_values])
-    ax.grid(True, alpha=0.3)
-    os.makedirs(output_dir, exist_ok=True)
-    plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, 'beta_sensitivity.pdf'), bbox_inches='tight')
-    plt.savefig(os.path.join(output_dir, 'beta_sensitivity.png'), dpi=150, bbox_inches='tight')
-    plt.close()
-    print(f'Plots saved to {output_dir}')
-
-
 def main():
     parser = argparse.ArgumentParser(description='Beta sensitivity ablation')
     parser.add_argument('--config', default='experiments/configs/experiment.yaml')
@@ -104,7 +65,6 @@ def main():
     parser.add_argument('--output', default=None)
     parser.add_argument('--datasets', nargs='+', default=None,
                         help='Datasets to run (default: config datasets)')
-    parser.add_argument('--no-plot', action='store_true', help='Save data only, skip plotting')
     parser.add_argument('--use-tuned-params', action='store_true',
                         help='Use tuned BayesianSPO hyperparameters from <tuning_dir>.')
     parser.add_argument('--tuning-dir', default=None,
@@ -178,8 +138,6 @@ def main():
         )
 
         save_results(results, result_path)
-        if not args.no_plot:
-            plot_results(results, beta_values, seeds, ds_dir, dataset)
 
 
 if __name__ == '__main__':

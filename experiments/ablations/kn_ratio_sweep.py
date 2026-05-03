@@ -127,17 +127,12 @@ def summarize_selection(result, env, capacity):
     }
 
 
-def plot_results(*args, **kwargs):
-    print('Skipping inline matplotlib plot. Use experiments/plot_ablation_results.py for paper figures.')
-
-
 def main():
     parser = argparse.ArgumentParser(description='Capacity-constrained feedback-density sweep')
     parser.add_argument('--config', default='experiments/configs/experiment.yaml')
     parser.add_argument('--mode', choices=['quick', 'full'], default='quick')
     parser.add_argument('--datasets', nargs='+', default=None)
     parser.add_argument('--output', default=None)
-    parser.add_argument('--no-plot', action='store_true', help='Save data only, skip plotting')
     parser.add_argument(
         '--use-tuned-params',
         action='store_true',
@@ -277,8 +272,6 @@ def main():
                     )
 
     save_results(all_results, result_path)
-    if not args.no_plot:
-        plot_results()
 
 
 if __name__ == '__main__':
