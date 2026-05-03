@@ -1,0 +1,80 @@
+{
+  "dataset": "topk_8arm_linear",
+  "feedback_type": "semi_bandit",
+  "confidence": 0.95,
+  "n_bootstrap": 10000,
+  "agents": {
+    "LinUCB": {
+      "train_cumulative_regret": {
+        "mean": 25.567350351729104,
+        "ci_lower": 16.043772412898274,
+        "ci_upper": 34.128205287303054,
+        "ci_width": 18.08443287440478
+      }
+    },
+    "TS": {
+      "train_cumulative_regret": {
+        "mean": 28.518418975978516,
+        "ci_lower": 24.854058772982995,
+        "ci_upper": 33.60519801802333,
+        "ci_width": 8.751139245040335
+      }
+    },
+    "EpsilonGreedy": {
+      "train_cumulative_regret": {
+        "mean": 2397.6170600215187,
+        "ci_lower": 1993.7976337969774,
+        "ci_upper": 2917.449949889875,
+        "ci_width": 923.6523160928975
+      }
+    },
+    "NeuralUCB": {
+      "train_cumulative_regret": {
+        "mean": 1382.1409047798531,
+        "ci_lower": 861.1771878084215,
+        "ci_upper": 1693.5127182950384,
+        "ci_width": 832.3355304866169
+      }
+    },
+    "BayesianSPO": {
+      "train_cumulative_regret": {
+        "mean": 25.70345775818478,
+        "ci_lower": 22.035574359032257,
+        "ci_upper": 27.572894775908946,
+        "ci_width": 5.537320416876689
+      }
+    },
+    "BayesianPFY": {
+      "train_cumulative_regret": {
+        "mean": 30.67797910212036,
+        "ci_lower": 22.681112319912774,
+        "ci_upper": 39.293440978395424,
+        "ci_width": 16.61232865848265
+      }
+    },
+    "BayesianMSE": {
+      "train_cumulative_regret": {
+        "mean": 27.369685427265054,
+        "ci_lower": 18.679477682856948,
+        "ci_upper": 34.03857498253491,
+        "ci_width": 15.359097299677963
+      }
+    },
+    "WeberBLL-Online": {
+      "train_cumulative_regret": {
+        "mean": 23.227084546437226,
+        "ci_lower": 17.197419780270117,
+        "ci_upper": 30.295926005275774,
+        "ci_width": 13.098506225005657
+      }
+    },
+    "WeberDecisionSPO": {
+      "train_cumulative_regret": {
+        "mean": 22.90568813097666,
+        "ci_lower": 16.593193141671644,
+        "ci_upper": 30.219330569219583,
+        "ci_width": 13.626137427547938
+      }
+    }
+  }
+}

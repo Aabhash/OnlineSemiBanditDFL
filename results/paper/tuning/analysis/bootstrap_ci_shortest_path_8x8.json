@@ -1,0 +1,80 @@
+{
+  "dataset": "shortest_path_8x8",
+  "feedback_type": "semi_bandit",
+  "confidence": 0.95,
+  "n_bootstrap": 10000,
+  "agents": {
+    "LinUCB": {
+      "train_cumulative_regret": {
+        "mean": 6181.958748199065,
+        "ci_lower": 6157.4304184629,
+        "ci_upper": 6217.22139027997,
+        "ci_width": 59.790971817070385
+      }
+    },
+    "TS": {
+      "train_cumulative_regret": {
+        "mean": 6226.173536753525,
+        "ci_lower": 6173.602151284373,
+        "ci_upper": 6273.076280233538,
+        "ci_width": 99.47412894916488
+      }
+    },
+    "EpsilonGreedy": {
+      "train_cumulative_regret": {
+        "mean": 10891.859251526292,
+        "ci_lower": 10729.900152305752,
+        "ci_upper": 11046.459226044652,
+        "ci_width": 316.5590737388993
+      }
+    },
+    "NeuralUCB": {
+      "train_cumulative_regret": {
+        "mean": 6370.797236389083,
+        "ci_lower": 5840.650952760858,
+        "ci_upper": 6961.961707749986,
+        "ci_width": 1121.3107549891283
+      }
+    },
+    "BayesianSPO": {
+      "train_cumulative_regret": {
+        "mean": 2004.6342059902188,
+        "ci_lower": 1865.3219473257195,
+        "ci_upper": 2216.9382043200894,
+        "ci_width": 351.6162569943699
+      }
+    },
+    "BayesianPFY": {
+      "train_cumulative_regret": {
+        "mean": 2698.093742160214,
+        "ci_lower": 2533.7501406254887,
+        "ci_upper": 2906.583746862394,
+        "ci_width": 372.8336062369053
+      }
+    },
+    "BayesianMSE": {
+      "train_cumulative_regret": {
+        "mean": 2071.6975302930805,
+        "ci_lower": 2053.5636248732626,
+        "ci_upper": 2081.6368519959215,
+        "ci_width": 28.073227122658864
+      }
+    },
+    "WeberBLL-Online": {
+      "train_cumulative_regret": {
+        "mean": 2055.8754178042095,
+        "ci_lower": 1941.7869910806767,
+        "ci_upper": 2142.0216268160148,
+        "ci_width": 200.2346357353381
+      }
+    },
+    "WeberDecisionSPO": {
+      "train_cumulative_regret": {
+        "mean": 2092.7088778543402,
+        "ci_lower": 2084.4365438763343,
+        "ci_upper": 2098.166395248001,
+        "ci_width": 13.729851371666882
+      }
+    }
+  }
+}

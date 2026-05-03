@@ -1,0 +1,24 @@
+======================================================================
+STATISTICAL SIGNIFICANCE ANALYSIS
+======================================================================
+Dataset: knapsack_100
+Feedback: semi_bandit
+Agents: 9
+Selection metric: tuning/train cumulative regret
+
+AGENT RANKING (by cumulative regret)
+----------------------------------------------------------------------
+Rank   Agent                      Mean Regret     Wins
+1     BayesianSPO                    14213.5        0
+2     WeberDecisionSPO               14522.8        0
+3     BayesianPFY                    15269.2        0
+4     BayesianMSE                    15439.2        0
+5     WeberBLL-Online                16390.4        0
+6     LinUCB                         23055.6        0
+7     TS                             26678.0        0
+8     NeuralUCB                      64232.3        0
+9     EpsilonGreedy                  93224.3        0
+
+SIGNIFICANT DIFFERENCES (p < 0.05)
+----------------------------------------------------------------------
+  No significant differences found

@@ -1,0 +1,80 @@
+{
+  "dataset": "knapsack_100",
+  "feedback_type": "semi_bandit",
+  "confidence": 0.95,
+  "n_bootstrap": 10000,
+  "agents": {
+    "LinUCB": {
+      "train_cumulative_regret": {
+        "mean": 23055.5591005872,
+        "ci_lower": 21002.061779348314,
+        "ci_upper": 26505.075406040403,
+        "ci_width": 5503.013626692089
+      }
+    },
+    "TS": {
+      "train_cumulative_regret": {
+        "mean": 26678.021543480445,
+        "ci_lower": 24436.41212890836,
+        "ci_upper": 30915.350115577818,
+        "ci_width": 6478.937986669458
+      }
+    },
+    "EpsilonGreedy": {
+      "train_cumulative_regret": {
+        "mean": 93224.26289760564,
+        "ci_lower": 82321.49957599181,
+        "ci_upper": 113176.8089286122,
+        "ci_width": 30855.30935262039
+      }
+    },
+    "NeuralUCB": {
+      "train_cumulative_regret": {
+        "mean": 64232.29275376483,
+        "ci_lower": 57981.82241936985,
+        "ci_upper": 73170.45971590604,
+        "ci_width": 15188.637296536188
+      }
+    },
+    "BayesianSPO": {
+      "train_cumulative_regret": {
+        "mean": 14213.513166800127,
+        "ci_lower": 13609.32971266495,
+        "ci_upper": 14743.091389837185,
+        "ci_width": 1133.761677172235
+      }
+    },
+    "BayesianPFY": {
+      "train_cumulative_regret": {
+        "mean": 15269.187283781148,
+        "ci_lower": 14299.280363953085,
+        "ci_upper": 16254.609319459983,
+        "ci_width": 1955.3289555068986
+      }
+    },
+    "BayesianMSE": {
+      "train_cumulative_regret": {
+        "mean": 15439.221402263303,
+        "ci_lower": 14887.347645874286,
+        "ci_upper": 15982.401468683543,
+        "ci_width": 1095.0538228092573
+      }
+    },
+    "WeberBLL-Online": {
+      "train_cumulative_regret": {
+        "mean": 16390.439094312456,
+        "ci_lower": 15908.667791203101,
+        "ci_upper": 16677.213603240085,
+        "ci_width": 768.545812036984
+      }
+    },
+    "WeberDecisionSPO": {
+      "train_cumulative_regret": {
+        "mean": 14522.763538717641,
+        "ci_lower": 14265.858242851145,
+        "ci_upper": 14676.954860978536,
+        "ci_width": 411.0966181273907
+      }
+    }
+  }
+}

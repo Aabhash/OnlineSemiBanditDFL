@@ -1,0 +1,93 @@
+{
+  "LinUCB": {
+    "params": {
+      "alpha": 0.12322269734221053,
+      "lambda_reg": 2.4852547745185745
+    },
+    "mean_validation_regret": 6181.958748199065,
+    "std_validation_regret": 25.56246172082882,
+    "n_trials": 145
+  },
+  "TS": {
+    "params": {
+      "prior_var": 0.15774545156048037,
+      "noise_var": 0.0126858762377132
+    },
+    "mean_validation_regret": 6226.173536753525,
+    "std_validation_regret": 40.807480597308306,
+    "n_trials": 144
+  },
+  "EpsilonGreedy": {
+    "params": {
+      "init_lr": 0.003,
+      "epsilon": 0.021394447259335383,
+      "decay_epsilon": false,
+      "hidden_dim": 16
+    },
+    "mean_validation_regret": 10891.859251526292,
+    "std_validation_regret": 129.33942252562733,
+    "n_trials": 142
+  },
+  "NeuralUCB": {
+    "params": {
+      "init_lr": 0.003,
+      "alpha": 0.3302616782322207,
+      "lambda_reg": 0.02226999757142672,
+      "batch_size": 8,
+      "hidden_dim": 32
+    },
+    "mean_validation_regret": 6370.797236389083,
+    "std_validation_regret": 459.8020347491643,
+    "n_trials": 140
+  },
+  "BayesianSPO": {
+    "params": {
+      "init_lr": 0.003,
+      "beta": 0.19049514934909673,
+      "hidden_dim": 16,
+      "lambda_reg": 0.3565295694244629,
+      "imputation_samples": 4
+    },
+    "mean_validation_regret": 2070.390489863872,
+    "std_validation_regret": 179.394837730213,
+    "n_trials": 144
+  },
+  "BayesianPFY": {
+    "params": {
+      "init_lr": 0.003,
+      "beta": 0.16017357428223453,
+      "hidden_dim": 32,
+      "lambda_reg": 0.23301376936687004,
+      "imputation_samples": 2,
+      "pfy_n_samples": 1,
+      "pfy_sigma": 0.25694358039906495,
+      "pfy_noise": "gumbel"
+    },
+    "mean_validation_regret": 2174.709481357849,
+    "std_validation_regret": 94.63247682093807,
+    "n_trials": 149
+  },
+  "BayesianMSE": {
+    "params": {
+      "init_lr": 0.003,
+      "beta": 0.12465902066114415,
+      "hidden_dim": 16,
+      "lambda_reg": 0.07626805451947072
+    },
+    "mean_validation_regret": 2071.6975302930805,
+    "std_validation_regret": 12.842375740518959,
+    "n_trials": 138
+  },
+  "BLL-Online": {
+    "params": {
+      "init_lr": 0.003,
+      "beta": 0.12390125937062653,
+      "hidden_dim": 32,
+      "lambda_reg": 0.023278033114575793,
+      "noise_var": 5.536290245980914
+    },
+    "mean_validation_regret": 3295.788560098202,
+    "std_validation_regret": 175.99541621049767,
+    "n_trials": 37
+  }
+}
