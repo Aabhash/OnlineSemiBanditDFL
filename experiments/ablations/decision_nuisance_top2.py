@@ -654,6 +654,583 @@ def build_feedback_plot(data, feedback):
     )
 
 
+def build_combined_plot(data):
+    point_df, hull_df, ann_df, cross_df = make_feature_frames(data)
+    rect_df, label_df, cap_ann_df = make_capacity_frames(data)
+    label_decision = label_df[label_df["kind"] == "decision"]
+    label_nuisance = label_df[label_df["kind"] == "nuisance"]
+
+    def _panel(df, feedback, model):
+        return df[(df["feedback"] == feedback) & (df["model"] == model)]
+
+    def feature_panel(feedback, model, title="", show_legend=False):
+        panel_points = _panel(point_df, feedback, model)
+        panel_hulls = _panel(hull_df, feedback, model)
+        panel_ann = _panel(ann_df, feedback, model)
+        panel_cross = _panel(cross_df, feedback, model)
+        p = (
+            ggplot()
+            + geom_point(
+                mapping=aes(
+                    "h1", "h2", color="decision", shape="decision", size="decision"
+                ),
+                data=panel_points,
+                alpha=0.45,
+            )
+            + geom_path(
+                mapping=aes("h1", "h2", color="decision", group="decision"),
+                data=panel_hulls,
+                size=0.62,
+                alpha=0.78,
+                show_legend=False,
+            )
+            + geom_label(
+                mapping=aes("h1", "h2", label="text"),
+                data=panel_ann,
+                color="#2b2b2b",
+                fill="#ffffff",
+                size=6.6,
+                hjust=0,
+                family=PAPER_FONT,
+            )
+            + scale_color_manual(values=ACTION_COLORS, name="Action")
+            + scale_shape_manual(values=ACTION_SHAPES, name="Action")
+            + scale_size_manual(values=ACTION_SIZES, name="Action")
+            + labs(
+                title=title,
+                x="Feature dim 1" if model == "Oracle" else "",
+                y="Feature dim 2" if model == "Oracle" else "",
+            )
+            + theme_minimal()
+            + theme(
+                text=element_text(family=PAPER_FONT),
+                legend_position="top" if show_legend else "none",
+                panel_grid=element_blank(),
+                plot_title=element_text(size=14.2, face="bold"),
+                legend_text=element_text(size=12.2, face="bold"),
+                legend_title=element_text(size=12.2, face="bold"),
+                legend_key_width=10,
+                legend_key_height=10,
+                legend_key_spacing_x=1,
+                legend_margin=[0, 0, 0, 0],
+                legend_box_spacing=0,
+                axis_title=element_text(size=12.2),
+                axis_text=element_text(size=10.0),
+            )
+        )
+        if not panel_cross.empty:
+            p = (
+                p
+                + geom_hline(
+                    yintercept=0.0,
+                    data=panel_cross,
+                    color="#666666",
+                    linetype="dashed",
+                    size=0.85,
+                )
+                + geom_vline(
+                    xintercept=0.0,
+                    data=panel_cross,
+                    color="#666666",
+                    linetype="dashed",
+                    size=0.85,
+                )
+            )
+        return p
+
+    def capacity_panel(feedback, model, show_xlabel=False):
+        panel_rect = _panel(rect_df, feedback, model)
+        panel_decision = _panel(label_decision, feedback, model)
+        panel_nuisance = _panel(label_nuisance, feedback, model)
+        panel_ann = _panel(cap_ann_df, feedback, model)
+        if model == "Oracle":
+            panel_ann = panel_ann.iloc[0:0]
+        panel_ann_labels = panel_ann[
+            panel_ann["kind"].isin(["decision_label", "nuisance_label"])
+        ]
+        panel_ann_values = panel_ann[
+            panel_ann["kind"].isin(["decision_value", "nuisance_value"])
+        ]
+        panel_ann_separator = panel_ann[panel_ann["kind"] == "separator"]
+        return (
+            ggplot()
+            + geom_rect(
+                mapping=aes(
+                    xmin="xmin",
+                    xmax="xmax",
+                    ymin="ymin",
+                    ymax="ymax",
+                    fill="dimension",
+                ),
+                data=panel_rect,
+                color="white",
+                size=1.0,
+            )
+            + geom_text(
+                mapping=aes("x", "y", label="label"),
+                data=panel_decision,
+                color="white",
+                size=8.9,
+                family=PAPER_EMPHASIS_FONT,
+            )
+            + geom_text(
+                mapping=aes("x", "y", label="label"),
+                data=panel_nuisance,
+                color="#333333",
+                size=8.9,
+                family=PAPER_EMPHASIS_FONT,
+            )
+            + geom_text(
+                mapping=aes("x", "y", label="label"),
+                data=panel_ann_labels,
+                color="#5a5a5a",
+                size=6.7,
+                hjust=0.5,
+                family=PAPER_FONT,
+            )
+            + geom_text(
+                mapping=aes("x", "y", label="label"),
+                data=panel_ann_values,
+                color="#2b2b2b",
+                size=8.5,
+                hjust=0.5,
+                family=PAPER_FONT,
+            )
+            + geom_text(
+                mapping=aes("x", "y", label="label"),
+                data=panel_ann_separator,
+                color="#777777",
+                size=6.8,
+                hjust=0.5,
+                family=PAPER_FONT,
+            )
+            + scale_fill_manual(values=DIMENSION_COLORS, name="Context dimension")
+            + scale_x_continuous(limits=[0.0, 1.0], breaks=[0.0, 0.5, 1.0])
+            + scale_y_continuous(limits=[0.0, 0.55], breaks=[])
+            + labs(
+                x="Normalized allocated feature capacity" if show_xlabel else "",
+                y="",
+            )
+            + theme_minimal()
+            + theme(
+                text=element_text(family=PAPER_FONT),
+                legend_position="none",
+                panel_grid=element_blank(),
+                axis_title=element_text(size=15.0),
+                axis_text_x=element_text(size=9.8),
+                axis_text_y=element_blank(),
+                plot_margin=[0, 0, 8, 0],
+            )
+        )
+
+    def cell(feedback, model, title, show_legend=False, show_xlabel=False):
+        return (
+            gggrid(
+                [
+                    feature_panel(feedback, model, title, show_legend=show_legend),
+                    capacity_panel(feedback, model, show_xlabel=show_xlabel),
+                ],
+                ncol=1,
+                heights=[1.0, 0.27],
+                align=True,
+                vspace=0,
+            )
+            + ggsize(386, 360)
+        )
+
+    def oracle_cell():
+        return (
+            feature_panel("Full feedback", "Oracle", "", show_legend=True)
+            + ggsize(360, 310)
+        )
+
+    def oracle_decision_panel():
+        return (
+            ggplot()
+            + geom_rect(
+                data=pd.DataFrame(
+                    {
+                        "xmin": [0.025],
+                        "xmax": [0.985],
+                        "ymin": [0.06],
+                        "ymax": [0.95],
+                    }
+                ),
+                mapping=aes(xmin="xmin", xmax="xmax", ymin="ymin", ymax="ymax"),
+                fill="#f6f6f6",
+                color="#d0d0d0",
+                size=0.6,
+            )
+            + geom_text(
+                data=pd.DataFrame(
+                    {
+                        "x": [0.10],
+                        "y": [0.76],
+                        "label": ["Oracle rule"],
+                    }
+                ),
+                mapping=aes("x", "y", label="label"),
+                color="#4b4b4b",
+                size=6.4,
+                hjust=0,
+                family=PAPER_EMPHASIS_FONT,
+            )
+            + geom_text(
+                data=pd.DataFrame(
+                    {
+                        "x": [0.10, 0.10],
+                        "y": [0.49, 0.28],
+                        "label": [
+                            "If x0 > 0: pick 0; else pick 1.",
+                            "If x1 > 0: pick 2; else pick 3.",
+                        ],
+                    }
+                ),
+                mapping=aes("x", "y", label="label"),
+                color="#4a4a4a",
+                size=5.8,
+                hjust=0,
+                family=PAPER_FONT,
+            )
+            + scale_x_continuous(limits=[0.0, 1.0], breaks=[])
+            + scale_y_continuous(limits=[0.0, 1.0], breaks=[])
+            + theme_minimal()
+            + theme(
+                panel_grid=element_blank(),
+                axis_title=element_blank(),
+                axis_text=element_blank(),
+                plot_margin=[0, 0, 0, 0],
+            )
+        )
+
+    def left_title_panel(label):
+        return (
+            ggplot()
+            + geom_text(
+                data=pd.DataFrame({"x": [0.04], "y": [0.5], "label": [label]}),
+                mapping=aes("x", "y", label="label"),
+                color="#3e3e3e",
+                size=7.8,
+                hjust=0,
+                family=PAPER_EMPHASIS_FONT,
+            )
+            + scale_x_continuous(limits=[0.0, 1.0], breaks=[])
+            + scale_y_continuous(limits=[0.0, 1.0], breaks=[])
+            + theme_minimal()
+            + theme(
+                panel_grid=element_blank(),
+                axis_title=element_blank(),
+                axis_text=element_blank(),
+                plot_margin=[0, 0, 0, 0],
+            )
+        )
+
+    def text_panel(label, size=16.5, angle=0):
+        return (
+            ggplot()
+            + geom_rect(
+                data=pd.DataFrame({"xmin": [0.0], "xmax": [1.0], "ymin": [0.0], "ymax": [1.0]}),
+                mapping=aes(xmin="xmin", xmax="xmax", ymin="ymin", ymax="ymax"),
+                fill="#ffffff",
+                color="#ffffff",
+                alpha=0.0,
+            )
+            + geom_text(
+                data=pd.DataFrame({"x": [0.5], "y": [0.5], "label": [label]}),
+                mapping=aes("x", "y", label="label"),
+                color="#444444",
+                size=size,
+                angle=angle,
+                family=PAPER_EMPHASIS_FONT,
+            )
+            + scale_x_continuous(limits=[0.0, 1.0], breaks=[])
+            + scale_y_continuous(limits=[0.0, 1.0], breaks=[])
+            + theme_minimal()
+            + theme(
+                panel_grid=element_blank(),
+                axis_title=element_blank(),
+                axis_text=element_blank(),
+                plot_margin=[0, 0, 0, 0],
+            )
+        )
+
+    def note_panel():
+        role_width = 0.88 / 5.0
+        role_bar = pd.DataFrame(
+            [
+                {
+                    "dimension": dim,
+                    "xmin": 0.06 + idx * role_width,
+                    "xmax": 0.06 + (idx + 1) * role_width,
+                    "ymin": 0.05,
+                    "ymax": 0.19,
+                    "x": 0.06 + (idx + 0.5) * role_width,
+                    "y": 0.12,
+                    "label": dim.split()[0],
+                    "kind": "decision" if "decision" in dim else "nuisance",
+                }
+                for idx, dim in enumerate(DIMENSION_LABELS)
+            ]
+        )
+        role_groups = pd.DataFrame(
+            {
+                "x": [0.06 + role_width, 0.06 + 3.5 * role_width],
+                "y": [0.24, 0.24],
+                "label": ["Decision", "Nuisance"],
+            }
+        )
+        return (
+            ggplot()
+            + geom_text(
+                data=pd.DataFrame(
+                    {
+                        "x": [0.04],
+                        "y": [0.86],
+                        "label": ["Diagnostic"],
+                    }
+                ),
+                mapping=aes("x", "y", label="label"),
+                color="#3e3e3e",
+                size=7.5,
+                hjust=0,
+                family=PAPER_EMPHASIS_FONT,
+            )
+            + geom_text(
+                data=pd.DataFrame(
+                    {
+                        "x": [0.04],
+                        "y": [0.58],
+                        "label": ["Action constraint"],
+                    }
+                ),
+                mapping=aes("x", "y", label="label"),
+                color="#4b4b4b",
+                size=6.4,
+                hjust=0,
+                family=PAPER_EMPHASIS_FONT,
+            )
+            + geom_text(
+                data=pd.DataFrame(
+                    {
+                        "x": [0.04],
+                        "y": [0.47],
+                        "label": ["Pick one from {0,1}. Pick another from {2,3}."],
+                    }
+                ),
+                mapping=aes("x", "y", label="label"),
+                color="#4a4a4a",
+                size=6.3,
+                hjust=0,
+                family=PAPER_FONT,
+            )
+            + geom_text(
+                data=pd.DataFrame(
+                    {"x": [0.04], "y": [0.32], "label": ["Feature roles"]}
+                ),
+                mapping=aes("x", "y", label="label"),
+                color="#4b4b4b",
+                size=6.4,
+                hjust=0,
+                family=PAPER_EMPHASIS_FONT,
+            )
+            + geom_text(
+                data=role_groups,
+                mapping=aes("x", "y", label="label"),
+                color="#5a5a5a",
+                size=6.2,
+                hjust=0.5,
+                family=PAPER_FONT,
+            )
+            + geom_rect(
+                data=role_bar,
+                mapping=aes(
+                    xmin="xmin",
+                    xmax="xmax",
+                    ymin="ymin",
+                    ymax="ymax",
+                    fill="dimension",
+                ),
+                color="white",
+                size=0.9,
+                show_legend=False,
+            )
+            + geom_text(
+                data=role_bar,
+                mapping=aes("x", "y", label="label"),
+                color="#ffffff",
+                size=7.0,
+                family=PAPER_EMPHASIS_FONT,
+            )
+            + geom_text(
+                data=role_bar[role_bar["kind"] == "nuisance"],
+                mapping=aes("x", "y", label="label"),
+                color="#333333",
+                size=7.0,
+                family=PAPER_EMPHASIS_FONT,
+            )
+            + scale_fill_manual(values=DIMENSION_COLORS, name="Context dimension")
+            + scale_x_continuous(limits=[0.0, 1.0], breaks=[])
+            + scale_y_continuous(limits=[0.0, 1.0], breaks=[])
+            + theme_minimal()
+            + theme(
+                legend_position="none",
+                panel_grid=element_blank(),
+                axis_title=element_blank(),
+                axis_text=element_blank(),
+                plot_margin=[0, 0, 0, 0],
+            )
+        )
+
+    def separator(vertical=True):
+        sep_color = "#9f9f9f"
+        if vertical:
+            return (
+                ggplot()
+                + geom_rect(
+                    data=pd.DataFrame({"xmin": [0.44], "xmax": [0.56], "ymin": [0.0], "ymax": [1.0]}),
+                    mapping=aes(xmin="xmin", xmax="xmax", ymin="ymin", ymax="ymax"),
+                    fill=sep_color,
+                    color=sep_color,
+                )
+                + scale_x_continuous(limits=[0.0, 1.0], breaks=[])
+                + scale_y_continuous(limits=[0.0, 1.0], breaks=[])
+                + theme_minimal()
+                + theme(
+                    panel_grid=element_blank(),
+                    axis_title=element_blank(),
+                    axis_text=element_blank(),
+                    plot_margin=[0, 0, 0, 0],
+                )
+            )
+        return (
+            ggplot()
+            + geom_rect(
+                data=pd.DataFrame({"xmin": [0.0], "xmax": [1.0], "ymin": [0.36], "ymax": [0.64]}),
+                mapping=aes(xmin="xmin", xmax="xmax", ymin="ymin", ymax="ymax"),
+                fill=sep_color,
+                color=sep_color,
+            )
+            + scale_x_continuous(limits=[0.0, 1.0], breaks=[])
+            + scale_y_continuous(limits=[0.0, 1.0], breaks=[])
+            + theme_minimal()
+            + theme(
+                panel_grid=element_blank(),
+                axis_title=element_blank(),
+                axis_text=element_blank(),
+                plot_margin=[0, 0, 0, 0],
+            )
+        )
+
+    def blank():
+        return (
+            ggplot()
+            + geom_rect(
+                data=pd.DataFrame({"xmin": [0.0], "xmax": [1.0], "ymin": [0.0], "ymax": [1.0]}),
+                mapping=aes(xmin="xmin", xmax="xmax", ymin="ymin", ymax="ymax"),
+                fill="#ffffff",
+                color="#ffffff",
+                alpha=0.0,
+            )
+            + scale_x_continuous(limits=[0.0, 1.0], breaks=[])
+            + scale_y_continuous(limits=[0.0, 1.0], breaks=[])
+            + theme_minimal()
+            + theme(
+                panel_grid=element_blank(),
+                axis_title=element_blank(),
+                axis_text=element_blank(),
+                plot_margin=[0, 0, 0, 0],
+            )
+        )
+
+    oracle_column = (
+        gggrid(
+            [
+                note_panel(),
+                left_title_panel("Oracle"),
+                oracle_cell(),
+                oracle_decision_panel(),
+                blank(),
+            ],
+            ncol=1,
+            heights=[0.40, 0.08, 0.78, 0.20, 0.08],
+            align=True,
+            vspace=0,
+        )
+        + ggsize(372, 760)
+    )
+    header_row = (
+        gggrid(
+            [
+                blank(),
+                text_panel("BayesianSPO", size=10.1),
+                text_panel("BayesianMSE", size=10.1),
+            ],
+            ncol=3,
+            widths=[0.075, 1.0, 1.0],
+            align=True,
+            hspace=8,
+        )
+        + ggsize(835, 36)
+    )
+    full_row = (
+        gggrid(
+            [
+                text_panel("Full feedback", size=9.2, angle=90),
+                cell("Full feedback", "BayesianSPO", ""),
+                cell("Full feedback", "BayesianMSE", ""),
+            ],
+            ncol=3,
+            widths=[0.075, 1.0, 1.0],
+            align=True,
+            hspace=8,
+        )
+        + ggsize(835, 340)
+    )
+    partial_row = (
+        gggrid(
+            [
+                text_panel("Partial feedback", size=9.2, angle=90),
+                cell("Partial feedback", "BayesianSPO", "", show_xlabel=True),
+                cell("Partial feedback", "BayesianMSE", "", show_xlabel=True),
+            ],
+            ncol=3,
+            widths=[0.075, 1.0, 1.0],
+            align=True,
+            hspace=8,
+        )
+        + ggsize(835, 340)
+    )
+    method_grid = (
+        gggrid(
+            [
+                header_row,
+                full_row,
+                separator(vertical=False),
+                partial_row,
+            ],
+            ncol=1,
+            heights=[0.14, 1.0, 0.055, 1.0],
+            align=True,
+            vspace=4,
+        )
+        + ggsize(835, 760)
+    )
+    return (
+        gggrid(
+            [
+                oracle_column,
+                separator(vertical=True),
+                method_grid,
+            ],
+            ncol=3,
+            widths=[0.75, 0.04, 1.70],
+            align=True,
+            hspace=10,
+        )
+        + ggsize(1215, 760)
+    )
+
+
 def save_outputs(plot, out_dir, stem, keep_intermediates=False, save_png=False):
     svg_path = out_dir / f"{stem}.svg"
     pdf_path = out_dir / f"{stem}.pdf"
@@ -752,6 +1329,13 @@ def main():
         build_feedback_plot(data, "Partial feedback"),
         out_dir,
         "decision_nuisance_top2_partial_feedback",
+        keep_intermediates=args.keep_intermediates,
+        save_png=args.png,
+    )
+    save_outputs(
+        build_combined_plot(data),
+        out_dir,
+        "decision_nuisance_top2_combined",
         keep_intermediates=args.keep_intermediates,
         save_png=args.png,
     )

@@ -145,3 +145,9 @@ experiments/
   tune_hyperparams.py       # Optuna HP tuning
   ablations/                # Ablation and analysis scripts
 ```
+
+## License
+
+This repository is released under the GNU General Public License v3.0 or later
+(GPL-3.0-or-later). Redistributed copies and derivative works must preserve the
+copyright notice and license terms; see `LICENSE`.

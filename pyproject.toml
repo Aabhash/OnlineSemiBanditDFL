@@ -3,6 +3,7 @@ name = "constrained-bandits"
 version = "0.1.0"
 description = "Decision-Focused Learning for Combinatorial Semi-Bandits"
 readme = "README.md"
+license = { file = "LICENSE" }
 requires-python = ">=3.10"
 dependencies = [
     "jax>=0.4.20",
