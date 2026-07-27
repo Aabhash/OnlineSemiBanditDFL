@@ -2,12 +2,14 @@ from src.envs.base import ConstrainedBanditEnv
 from src.envs.knapsack import KnapsackEnv
 from src.envs.portfolio import PortfolioEnv
 from src.envs.shortest_path import ShortestPathEdgeEnv
+from src.envs.energy_scheduling import EnergySchedulingEnv
 
 __all__ = [
     'ConstrainedBanditEnv',
     'KnapsackEnv',
     'PortfolioEnv',
     'ShortestPathEdgeEnv',
+    'EnergySchedulingEnv',
 ]
 
 
@@ -34,8 +36,11 @@ def create_env(env_type: str, seed: int = 42, **kwargs):
             seed=seed,
             **kwargs_copy
         )
+    elif env_type.startswith('energy_scheduling'):
+        return EnergySchedulingEnv(seed=seed, **kwargs)
     else:
         raise ValueError(
             f"Unknown environment type: {env_type}. "
-            f"Available: knapsack, portfolio, shortest_path_*"
+            "Available: knapsack, portfolio, shortest_path_*, "
+            "energy_scheduling"
         )

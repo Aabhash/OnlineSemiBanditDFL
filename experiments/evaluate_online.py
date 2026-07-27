@@ -301,6 +301,10 @@ def run_evaluation(
                 trajectories[(agent_name, dataset, feedback_mode, seed)] = {
                     'cumulative_regret': result['cumulative_regret'],
                     'regrets': result['regrets'],
+                    'cumulative_pseudo_regret': result.get('cumulative_pseudo_regret', []),
+                    'pseudo_regrets': result.get('pseudo_regrets', []),
+                    'mean_agent_values': result.get('mean_agent_values', []),
+                    'mean_optimal_values': result.get('mean_optimal_values', []),
                     'rewards': result['rewards'],
                     'optimal_rewards': result['optimal_rewards'],
                     'holdout_evals': result.get('holdout_evals', []),
@@ -346,9 +350,13 @@ def run_evaluation(
                     if holdout_evals:
                         final_holdout = holdout_evals[-1][1]
                         holdout_regret = final_holdout['regret']
-                        print(f'regret={result["final_regret"]:.0f}, holdout={holdout_regret:.0f}, time={time_str}', flush=True)
+                        pseudo = result.get('final_pseudo_regret')
+                        pseudo_str = f', pseudo={pseudo:.0f}' if pseudo is not None else ''
+                        print(f'regret={result["final_regret"]:.0f}{pseudo_str}, holdout={holdout_regret:.0f}, time={time_str}', flush=True)
                     else:
-                        print(f'regret={result["final_regret"]:.0f}, time={time_str}', flush=True)
+                        pseudo = result.get('final_pseudo_regret')
+                        pseudo_str = f', pseudo={pseudo:.0f}' if pseudo is not None else ''
+                        print(f'regret={result["final_regret"]:.0f}{pseudo_str}, time={time_str}', flush=True)
 
     return results, trajectories
 
@@ -466,6 +474,7 @@ def save_results(results, trajectories, output_dir):
                 'dataset': dataset,
                 'feedback_type': feedback_mode,
                 'final_regrets': [],
+                'final_pseudo_regrets': [],
                 'wall_times': [],
             }
             holdout_summary[run_key] = []
@@ -475,6 +484,11 @@ def save_results(results, trajectories, output_dir):
         if cumulative_regret:
             results_summary[run_key]['final_regrets'].append(cumulative_regret[-1])
 
+        cumulative_pseudo_regret = data.get('cumulative_pseudo_regret', [])
+        if cumulative_pseudo_regret:
+            results_summary[run_key]['final_pseudo_regrets'].append(
+                cumulative_pseudo_regret[-1]
+            )
 
         results_summary[run_key]['wall_times'].append(data.get('wall_time_seconds', 0.0))
 
@@ -487,6 +501,7 @@ def save_results(results, trajectories, output_dir):
 
     for run_key, summary in results_summary.items():
         regrets = summary['final_regrets']
+        pseudo_regrets = summary['final_pseudo_regrets']
         times = summary['wall_times']
 
 
@@ -498,6 +513,21 @@ def save_results(results, trajectories, output_dir):
         summary['min_cumulative_regret'] = float(np.min(regrets)) if regrets else 0.0
         summary['max_cumulative_regret'] = float(np.max(regrets)) if regrets else 0.0
         summary['n_seeds'] = len(regrets)
+
+        summary['cumulative_pseudo_regrets'] = pseudo_regrets
+        del summary['final_pseudo_regrets']
+        summary['mean_cumulative_pseudo_regret'] = (
+            float(np.mean(pseudo_regrets)) if pseudo_regrets else None
+        )
+        summary['std_cumulative_pseudo_regret'] = (
+            float(np.std(pseudo_regrets)) if pseudo_regrets else None
+        )
+        summary['min_cumulative_pseudo_regret'] = (
+            float(np.min(pseudo_regrets)) if pseudo_regrets else None
+        )
+        summary['max_cumulative_pseudo_regret'] = (
+            float(np.max(pseudo_regrets)) if pseudo_regrets else None
+        )
 
         summary['wall_times_seconds'] = [float(t) for t in times]
         del summary['wall_times']
@@ -537,9 +567,25 @@ def save_results(results, trajectories, output_dir):
     with open(f'{output_dir}/metrics/final_eval_regrets.json', 'w') as f:
         json.dump(eval_regrets, f, indent=2)
 
+    eval_pseudo_regrets = {}
+    for run_key, summary in results_summary.items():
+        ds = summary['dataset']
+        agent = summary['agent']
+        pseudo_regrets = summary.get('cumulative_pseudo_regrets', [])
+        if pseudo_regrets:
+            eval_pseudo_regrets.setdefault(ds, {})[agent] = [
+                float(r) for r in pseudo_regrets
+            ]
+
+    with open(f'{output_dir}/metrics/final_eval_pseudo_regrets.json', 'w') as f:
+        json.dump(eval_pseudo_regrets, f, indent=2)
 
     for ds, agent_regrets in eval_regrets.items():
         with open(f'{output_dir}/metrics/final_eval_regrets_{ds}.json', 'w') as f:
+            json.dump({ds: agent_regrets}, f, indent=2)
+
+    for ds, agent_regrets in eval_pseudo_regrets.items():
+        with open(f'{output_dir}/metrics/final_eval_pseudo_regrets_{ds}.json', 'w') as f:
             json.dump({ds: agent_regrets}, f, indent=2)
 
     csv_rows = []
@@ -550,11 +596,22 @@ def save_results(results, trajectories, output_dir):
             'Agent': summary['agent'],
             'Mean Regret': summary['mean_cumulative_regret'],
             'Std Regret': summary['std_cumulative_regret'],
+            'Mean Pseudo-Regret': summary['mean_cumulative_pseudo_regret'],
+            'Std Pseudo-Regret': summary['std_cumulative_pseudo_regret'],
             'Mean Time (s)': summary['mean_wall_time_seconds'],
         })
     csv_rows.sort(key=lambda r: (r['Dataset'], r['Feedback Type'], r['Mean Regret']))
 
-    fieldnames = ['Dataset', 'Feedback Type', 'Agent', 'Mean Regret', 'Std Regret', 'Mean Time (s)']
+    fieldnames = [
+        'Dataset',
+        'Feedback Type',
+        'Agent',
+        'Mean Regret',
+        'Std Regret',
+        'Mean Pseudo-Regret',
+        'Std Pseudo-Regret',
+        'Mean Time (s)',
+    ]
 
     with open(f'{output_dir}/metrics/final_eval_summary.csv', 'w', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -574,6 +631,7 @@ def save_results(results, trajectories, output_dir):
     total_time = sum(data.get('wall_time_seconds', 0.0) for data in trajectories.values())
     print(f'\nSaved results to {output_dir}/metrics/')
     print(f'  final_eval_regrets.json (+ per-dataset)')
+    print(f'  final_eval_pseudo_regrets.json (+ per-dataset)')
     print(f'  final_eval_summary.csv (+ per-dataset)')
     print(f'  trajectories.pkl (+ per-dataset)')
     print(f'Total evaluation time: {total_time/60:.1f} minutes ({total_time/3600:.2f} hours)')
@@ -1093,6 +1151,12 @@ Examples:
     parser.add_argument('--full', action='store_true', help='Full evaluation (more rounds/seeds)')
     parser.add_argument('--n_rounds', type=int, default=None, help='Number of rounds')
     parser.add_argument('--n_seeds', type=int, default=None, help='Number of seeds')
+    parser.add_argument(
+        '--seeds',
+        type=str,
+        default=None,
+        help='Comma-separated evaluation seeds; overrides --n_seeds and config seeds',
+    )
     parser.add_argument('--output_dir', type=str, default=None, help='Output directory')
     parser.add_argument('--no_save', action='store_true', help='Do not save results')
     parser.add_argument('--datasets', type=str, default='knapsack_32', help='Comma-separated dataset names')
@@ -1109,6 +1173,15 @@ Examples:
                         help='Use tuned hyperparameters from HP search instead of defaults')
     parser.add_argument('--tuning-dir', type=str, default=DEFAULT_TUNING_DIR,
                         help='Directory containing tuning results (default: results/tuning)')
+    parser.add_argument(
+        '--tuning-feedback',
+        choices=['semi_bandit', 'full'],
+        default=None,
+        help=(
+            'Feedback protocol whose tuned hyperparameters should be loaded. '
+            'Defaults to the evaluated feedback protocol.'
+        ),
+    )
 
 
     parser.add_argument('--analyze', action='store_true',
@@ -1144,9 +1217,14 @@ Examples:
         default_n_rounds = args.n_rounds or eval_config['quick']['n_rounds']
         n_seeds = args.n_seeds or eval_config['quick']['n_seeds']
 
-
-    default_eval_seeds = list(range(100, 100 + n_seeds))
-    evaluation_seeds = config.get('evaluation_seeds', default_eval_seeds)
+    if args.seeds:
+        evaluation_seeds = [int(seed.strip()) for seed in args.seeds.split(',') if seed.strip()]
+        if not evaluation_seeds:
+            raise ValueError('--seeds must contain at least one integer seed')
+        n_seeds = len(evaluation_seeds)
+    else:
+        default_eval_seeds = list(range(100, 100 + n_seeds))
+        evaluation_seeds = config.get('evaluation_seeds', default_eval_seeds)
 
     output_dir = args.output_dir or eval_config['output_dir']
 
@@ -1171,6 +1249,8 @@ Examples:
     print(f'Seeds: {n_seeds}')
     print(f'Noise: {args.noise}')
     print(f'Tuned params: {args.use_tuned_params} (from {args.tuning_dir})' if args.use_tuned_params else 'Tuned params: No (using defaults)')
+    if args.use_tuned_params and args.tuning_feedback:
+        print(f'Tuning feedback source: {args.tuning_feedback}')
     print(f'Diagnostics: {not args.no_diagnostics}')
     if not args.no_diagnostics:
         print(f'Diagnostics interval: every {args.diagnostics_interval} rounds')
@@ -1213,7 +1293,12 @@ Examples:
 
         tuned_params = None
         if args.use_tuned_params:
-            for ft in feedback_types:
+            tuning_feedback_types = (
+                [args.tuning_feedback]
+                if args.tuning_feedback
+                else feedback_types
+            )
+            for ft in tuning_feedback_types:
                 try:
                     tuned_params = load_tuned_params(
                         args.tuning_dir, dataset, ft, config

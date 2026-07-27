@@ -12,6 +12,12 @@ def mlp_forward(X, W1, b1, W2, b2):
 
 
 @jax.jit
+def residual_mlp_forward(X, W1, b1, W2, b2):
+    linear = X @ W1 + b1
+    return linear + jnp.maximum(0, linear) @ W2 + b2
+
+
+@jax.jit
 def linear_forward(X, W1, b1):
     return X @ W1 + b1
 

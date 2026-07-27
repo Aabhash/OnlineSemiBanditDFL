@@ -43,9 +43,7 @@ class SyntheticEdgeData:
     def sample(self) -> Tuple[np.ndarray, np.ndarray]:
         x = self.sample_rng.standard_normal(self.context_dim).astype(np.float32)
 
-        linear = self.B @ x / np.sqrt(self.context_dim)
-        mean_costs = (linear + 3) ** self.deg + 1
-        mean_costs = mean_costs / (3.5 ** self.deg)
+        mean_costs = self.conditional_mean(x)
 
         noise = self.sample_rng.uniform(
             1 - self.noise_width,
@@ -55,6 +53,12 @@ class SyntheticEdgeData:
         costs = (mean_costs * noise).astype(np.float32)
 
         return x, costs
+
+    def conditional_mean(self, context: np.ndarray) -> np.ndarray:
+        x = np.asarray(context)
+        linear = self.B @ x / np.sqrt(self.context_dim)
+        mean_costs = (linear + 3) ** self.deg + 1
+        return mean_costs / (3.5 ** self.deg)
 
 
 class ShortestPathEdgeEnv:
@@ -109,6 +113,9 @@ class ShortestPathEdgeEnv:
         return self.sp_solver.solve(
             np.asarray(predicted_costs, dtype=np.float64)
         )
+
+    def conditional_mean(self, context: np.ndarray) -> np.ndarray:
+        return np.asarray(self.data.conditional_mean(context))
 
     def _advance(self):
         self.t += 1

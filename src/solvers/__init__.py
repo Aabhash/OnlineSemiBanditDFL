@@ -20,6 +20,7 @@ from src.solvers.portfolio import (
     solve_portfolio_gurobi,
     PortfolioSolver,
 )
+from src.solvers.energy_scheduling import EnergySchedulingSolver
 
 __all__ = [
     'solve_knapsack',
@@ -37,4 +38,5 @@ __all__ = [
     'solve_portfolio',
     'solve_portfolio_gurobi',
     'PortfolioSolver',
+    'EnergySchedulingSolver',
 ]

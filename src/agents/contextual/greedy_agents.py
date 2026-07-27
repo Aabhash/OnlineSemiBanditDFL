@@ -2,7 +2,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import optax
-from typing import Union
+from typing import Callable, Optional, Union
 from src.models import LinearModel, MLPModel
 from src.losses import spo_plus_grad
 from src.agents.agent_base import AgentBase
@@ -77,6 +77,7 @@ class EpsilonGreedyAgent(AgentBase):
         max_grad_norm: float = 5.0,
         solver=None,
         seed: int = None,
+        random_action_fn: Optional[Callable[[np.ndarray], np.ndarray]] = None,
     ):
         self.context_dim = context_dim
         self.n_arms = n_arms
@@ -93,6 +94,7 @@ class EpsilonGreedyAgent(AgentBase):
         self.decay_epsilon = decay_epsilon
         self.decay_rounds = decay_rounds
         self.t = 0
+        self.random_action_fn = random_action_fn
 
         self.rng = np.random.default_rng(seed if seed else 0)
 
@@ -120,6 +122,10 @@ class EpsilonGreedyAgent(AgentBase):
         return h @ self.W2 + self.b2, z1, h
 
     def _random_knapsack(self):
+        if self.random_action_fn is not None:
+            priorities = self.rng.standard_normal(self.n_arms)
+            return np.asarray(self.random_action_fn(priorities), dtype=float)
+
         order = self.rng.permutation(self.n_arms)
         selection = np.zeros(self.n_arms)
         remaining = self.capacity

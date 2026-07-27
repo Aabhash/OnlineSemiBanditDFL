@@ -215,6 +215,33 @@ def sample_hyperparameters(
     return params
 
 
+def pop_feature_extractor_params(params):
+    configured_depth = params.pop('nonlinear_depth', None)
+    configured_nonlinear = params.pop('nonlinear', None)
+    gate_scale = float(params.pop('residual_gate_scale', 1.0))
+    if gate_scale <= 0:
+        raise ValueError('residual_gate_scale must be positive')
+
+    if configured_depth is None:
+        nonlinear = bool(configured_nonlinear)
+        depth = 1
+    else:
+        configured_depth = int(configured_depth)
+        if configured_depth < 0:
+            raise ValueError('nonlinear_depth must be non-negative')
+        nonlinear = configured_depth > 0
+        if (
+            configured_nonlinear is not None
+            and bool(configured_nonlinear) != nonlinear
+        ):
+            raise ValueError(
+                'nonlinear and nonlinear_depth specify different architectures'
+            )
+        depth = max(configured_depth, 1)
+
+    return nonlinear, depth, gate_scale
+
+
 def create_agent_from_params(
     agent_name: str,
     env,
@@ -232,13 +259,19 @@ def create_agent_from_params(
         agent_params = {k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
         agent_params.setdefault('imputation_samples', 1)
         agent_params.setdefault('imputation_scale', 1.0)
+        nonlinear, nonlinear_depth, gate_scale = (
+            pop_feature_extractor_params(agent_params)
+        )
 
         agent_lr = params.get('init_lr', 0.001)
         return BayesianSPOAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             lr=agent_lr,
             decay_rounds=n_rounds, minimize=minimize, solver=solver, seed=seed,
-            mask_grad=True, nonlinear=False,
+            mask_grad=True,
+            nonlinear=nonlinear,
+            nonlinear_depth=nonlinear_depth,
+            residual_gate_scale=gate_scale,
             **agent_params
         )
     elif agent_name == 'BayesianPFY':
@@ -284,12 +317,18 @@ def create_agent_from_params(
     elif agent_name == 'BayesianMSE':
 
         agent_params = {k: v for k, v in params.items() if k not in ('lr', 'init_lr')}
+        nonlinear, nonlinear_depth, gate_scale = (
+            pop_feature_extractor_params(agent_params)
+        )
         agent_lr = params.get('init_lr', 0.001)
         return BayesianMSEAgent(
             env.context_dim, env.n_arms, env.weights, env.capacity,
             lr=agent_lr,
             decay_rounds=n_rounds, solver=solver, seed=seed,
-            nonlinear=False, minimize=minimize,
+            nonlinear=nonlinear,
+            nonlinear_depth=nonlinear_depth,
+            residual_gate_scale=gate_scale,
+            minimize=minimize,
             **agent_params
         )
     elif agent_name == 'Greedy':

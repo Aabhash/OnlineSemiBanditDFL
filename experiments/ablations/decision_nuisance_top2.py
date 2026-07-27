@@ -59,6 +59,7 @@ from experiments.ablations.decision_nuisance_top2_helpers import (  # noqa: E402
     create_agent_pair,
     decision_label,
     extract_features,
+    feature_capacity_shares,
     generate_test_contexts,
     train_with_checkpoints,
 )
@@ -251,14 +252,6 @@ def run_or_load(args, cache_dir):
     )
     meta_path.write_text(json.dumps(meta, indent=2))
     return dict(np.load(cache_path, allow_pickle=True)), meta
-
-
-def feature_capacity_shares(W1):
-    row_norms = np.linalg.norm(np.asarray(W1, dtype=float), axis=1)
-    total = float(np.sum(row_norms))
-    if total <= 1e-12:
-        return np.zeros_like(row_norms)
-    return row_norms / total
 
 
 def resolve_path(path):

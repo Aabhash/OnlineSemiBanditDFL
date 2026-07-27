@@ -40,20 +40,23 @@ class KnapsackData:
         values = self._generate_values(context)
         return context, values
 
+    def conditional_mean(self, context: np.ndarray) -> np.ndarray:
+        linear = self.B @ context / np.sqrt(self.n_features)
+        mean_values = (linear + 3) ** self.deg + 1
+        return mean_values * 5 / (3.5 ** self.deg)
+
     def step(self):
         pass
 
     def _generate_values(self, x: np.ndarray) -> np.ndarray:
-        linear = self.B @ x / np.sqrt(self.n_features)
-        poly = (linear + 3) ** self.deg + 1
-        poly = poly * 5 / (3.5 ** self.deg)
+        mean_values = self.conditional_mean(x)
 
         noise = self.rng.uniform(
             1 - self.noise_width,
             1 + self.noise_width,
             self.n_items
         )
-        values = poly * noise
+        values = mean_values * noise
 
         return values
 

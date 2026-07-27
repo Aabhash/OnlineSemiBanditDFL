@@ -201,6 +201,16 @@ def pregenerate_episode(
             'optimal_value': optimal_val,
         }
 
+        conditional_mean = getattr(env, 'conditional_mean', None)
+        if callable(conditional_mean):
+            mean_vals = np.asarray(conditional_mean(X)).copy()
+            mean_optimal = np.asarray(solver(mean_vals)).copy()
+            rd.update({
+                'mean_values': mean_vals,
+                'mean_optimal_action': mean_optimal,
+                'mean_optimal_value': float(np.sum(mean_vals * mean_optimal)),
+            })
+
         rounds_data.append(rd)
 
         env._advance()
@@ -234,7 +244,12 @@ def run_agent_on_episode(
     cumulative_regret = []
     actions = []
     optimal_actions = []
+    pseudo_regrets = []
+    cumulative_pseudo_regret = []
+    mean_agent_values = []
+    mean_optimal_values = []
     total_regret = 0.0
+    total_pseudo_regret = 0.0
     total_reward = 0.0
     total_optimal = 0.0
     n_arms = len(rounds_data[0]['true_values'])
@@ -298,6 +313,20 @@ def run_agent_on_episode(
         optimal_actions.append(optimal_action.flatten().copy())
         obs_counts += (selection > 0.5).astype(float)
 
+        mean_vals = rd.get('mean_values')
+        if mean_vals is not None:
+            mean_agent_val = float(np.sum(mean_vals * selection))
+            mean_optimal_val = float(rd['mean_optimal_value'])
+            if minimize:
+                instant_pseudo_regret = mean_agent_val - mean_optimal_val
+            else:
+                instant_pseudo_regret = mean_optimal_val - mean_agent_val
+
+            total_pseudo_regret += instant_pseudo_regret
+            pseudo_regrets.append(instant_pseudo_regret)
+            cumulative_pseudo_regret.append(total_pseudo_regret)
+            mean_agent_values.append(mean_agent_val)
+            mean_optimal_values.append(mean_optimal_val)
 
         if full_feedback:
             observed = true_vals.copy()
@@ -320,6 +349,11 @@ def run_agent_on_episode(
         'actions': actions,
         'optimal_actions': optimal_actions,
         'obs_counts': obs_counts,
+        'pseudo_regrets': pseudo_regrets,
+        'cumulative_pseudo_regret': cumulative_pseudo_regret,
+        'final_pseudo_regret': total_pseudo_regret if pseudo_regrets else None,
+        'mean_agent_values': mean_agent_values,
+        'mean_optimal_values': mean_optimal_values,
     }
     if diagnostics and diag_accum is not None:
         result.update(diag_accum)

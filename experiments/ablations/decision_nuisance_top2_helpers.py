@@ -32,21 +32,31 @@ ORACLE_W1 = np.array(
 class DecisionNuisanceTop2DGP:
     """Top-2 DGP with known decision and nuisance coordinates."""
 
-    def __init__(self, seed: int = 42, noise_width: float = 0.1):
+    def __init__(
+        self,
+        seed: int = 42,
+        noise_width: float = 0.1,
+        nuisance_strength: float = 2.0,
+    ):
+        if nuisance_strength < 0:
+            raise ValueError("nuisance_strength must be non-negative")
+
         self.n_items = 4
         self.n_features = 5
         self.context_dim = 5
         self.capacity = 2.0
         self.noise_width = noise_width
+        self.nuisance_strength = float(nuisance_strength)
         self.rng = np.random.default_rng(seed)
         self.weights = np.ones(4)
+        nuisance = self.nuisance_strength
 
         self.B = np.array(
             [
-                [1.0, 0.0, 2.0, 2.0, 2.0],
-                [-1.0, 0.0, 2.0, 2.0, 2.0],
-                [0.0, 1.0, 2.0, 2.0, 2.0],
-                [0.0, -1.0, 2.0, 2.0, 2.0],
+                [1.0, 0.0, nuisance, nuisance, nuisance],
+                [-1.0, 0.0, nuisance, nuisance, nuisance],
+                [0.0, 1.0, nuisance, nuisance, nuisance],
+                [0.0, -1.0, nuisance, nuisance, nuisance],
             ]
         )
 
@@ -84,8 +94,17 @@ class Top2Solver:
 class DecisionNuisanceTop2Env:
     """Decision-Nuisance Top-2 diagnostic environment."""
 
-    def __init__(self, seed: int = 42, noise_width: float = 0.0):
-        self.data = DecisionNuisanceTop2DGP(seed=seed, noise_width=noise_width)
+    def __init__(
+        self,
+        seed: int = 42,
+        noise_width: float = 0.0,
+        nuisance_strength: float = 2.0,
+    ):
+        self.data = DecisionNuisanceTop2DGP(
+            seed=seed,
+            noise_width=noise_width,
+            nuisance_strength=nuisance_strength,
+        )
         self.n_arms = 4
         self.context_dim = 5
         self.weights = np.ones(4, dtype=float)
@@ -119,6 +138,14 @@ class DecisionNuisanceTop2Env:
 def decision_label(selection: np.ndarray) -> str:
     indices = np.where(np.asarray(selection) > 0.5)[0]
     return ",".join(str(i) for i in indices)
+
+
+def feature_capacity_shares(W1: np.ndarray) -> np.ndarray:
+    row_norms = np.linalg.norm(np.asarray(W1, dtype=float), axis=1)
+    total = float(np.sum(row_norms))
+    if total <= 1e-12:
+        return np.zeros_like(row_norms)
+    return row_norms / total
 
 
 def create_agent_pair(

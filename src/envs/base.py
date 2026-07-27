@@ -80,6 +80,9 @@ class ConstrainedBanditEnv(ABC):
     def solve(self, values: np.ndarray) -> np.ndarray:
         return self._solve_optimal(values)
 
+    def conditional_mean(self, context: np.ndarray) -> np.ndarray:
+        return np.asarray(self.data.conditional_mean(context))
+
     def get_context(self) -> np.ndarray:
         return self.current_context
 

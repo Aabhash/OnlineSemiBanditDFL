@@ -75,7 +75,7 @@ agents:
     tune_lr: true
     init_lr:
       type: categorical
-      choices: [0.0003, 0.001, 0.003]
+      choices: [0.0003, 0.001, 0.003, 0.006, 0.012]
     beta:
       type: float
       low: 0.1
@@ -84,6 +84,12 @@ agents:
     hidden_dim:
       type: categorical
       choices: [8, 16, 32]
+    nonlinear_depth:
+      type: categorical
+      choices: [0, 1, 3, 5]
+    residual_gate_scale:
+      type: categorical
+      choices: [0.1, 0.25, 0.5, 1.0, 2.0]
     lambda_reg:
       type: float
       low: 0.01
@@ -130,7 +136,7 @@ agents:
     tune_lr: true
     init_lr:
       type: categorical
-      choices: [0.0003, 0.001, 0.003]
+      choices: [0.0003, 0.001, 0.003, 0.006, 0.012]
     beta:
       type: float
       low: 0.1
@@ -139,6 +145,12 @@ agents:
     hidden_dim:
       type: categorical
       choices: [8, 16, 32]
+    nonlinear_depth:
+      type: categorical
+      choices: [0, 1, 3, 5]
+    residual_gate_scale:
+      type: categorical
+      choices: [0.1, 0.25, 0.5, 1.0, 2.0]
     lambda_reg:
       type: float
       low: 0.01

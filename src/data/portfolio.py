@@ -90,13 +90,14 @@ class PortfolioData:
         returns = self._generate_returns(context)
         return context, returns
 
-    def _generate_returns(self, context: np.ndarray) -> np.ndarray:
-        p = self.n_features
-
-        mean_returns = (
-            self.signal_scale * (self.B @ context) / np.sqrt(p)
+    def conditional_mean(self, context: np.ndarray) -> np.ndarray:
+        return (
+            self.signal_scale * (self.B @ context) / np.sqrt(self.n_features)
             + self.baseline_return ** (1.0 / self.deg)
         ) ** self.deg
+
+    def _generate_returns(self, context: np.ndarray) -> np.ndarray:
+        mean_returns = self.conditional_mean(context)
         f = self.rng.normal(0.0, 1.0, size=self.n_features)
         eps = self.rng.normal(0.0, 1.0, size=self.num_assets)
         returns = mean_returns + self.L @ f + 0.01 * self.noise_width * eps

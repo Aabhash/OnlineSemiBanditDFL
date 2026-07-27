@@ -1,0 +1,52 @@
+{
+  "rounds": 10000,
+  "environment_config": "experiments/configs/experiment.yaml",
+  "tuning_dir": "results/paper/tuning",
+  "datasets": {
+    "knapsack_32": {
+      "evaluation_seeds": [118, 119, 120, 121, 122, 123, 124, 125, 126, 127],
+      "learning_rate_multiplier": 4.0,
+      "beta_multiplier": 1.0,
+      "nonlinear_depth": 5,
+      "residual_gate_scale": 2.0,
+      "residual_activation": "relu",
+      "residual_weight_init": "random"
+    },
+    "knapsack_100": {
+      "evaluation_seeds": [106, 107, 108, 109, 110, 111, 112, 113, 114, 115],
+      "learning_rate_multiplier": 4.0,
+      "beta_multiplier": 1.0,
+      "nonlinear_depth": 5,
+      "residual_gate_scale": 2.0,
+      "residual_activation": "relu",
+      "residual_weight_init": "random"
+    },
+    "shortest_path_8x8": {
+      "evaluation_seeds": [106, 107, 108, 109, 110, 111, 112, 113, 114, 115],
+      "learning_rate_multiplier": 1.0,
+      "beta_multiplier": 1.0,
+      "nonlinear_depth": 3,
+      "residual_gate_scale": 1.0,
+      "residual_activation": "relu",
+      "residual_weight_init": "random"
+    },
+    "shortest_path_20x20": {
+      "evaluation_seeds": [118, 119, 120, 121, 122, 123, 124, 125, 126, 127],
+      "learning_rate_multiplier": 1.0,
+      "beta_multiplier": 1.0,
+      "nonlinear_depth": 3,
+      "residual_gate_scale": 1.0,
+      "residual_activation": "relu",
+      "residual_weight_init": "random"
+    },
+    "portfolio_32": {
+      "evaluation_seeds": [106, 107, 108, 109, 110, 111, 112, 113, 114, 115],
+      "learning_rate_multiplier": 4.0,
+      "beta_multiplier": 0.5,
+      "nonlinear_depth": 2,
+      "residual_gate_scale": 0.1,
+      "residual_activation": "square",
+      "residual_weight_init": "identity"
+    }
+  }
+}

@@ -1,4 +1,3 @@
-import jax
 import jax.numpy as jnp
 import numpy as np
 import optax
@@ -8,9 +7,15 @@ from src.agents.bayesian_utils import (
     compute_ucb_values,
     compute_bayesian_predictions,
     compute_uncertainties,
-    linear_forward,
-    mlp_forward,
     update_bayesian_stats,
+)
+from src.agents.feature_extractors import (
+    clip_gated_residual_params,
+    gated_residual_backward,
+    gated_residual_forward,
+    init_gated_residual_params,
+    validate_residual_activation,
+    validate_residual_weight_init,
 )
 from src.agents.agent_base import AgentBase
 from src.solver import solve_knapsack
@@ -35,6 +40,10 @@ class BayesianSPOAgent(AgentBase):
         max_grad_norm: float = 5.0,
         mask_grad: bool = False,
         nonlinear: bool = False,
+        nonlinear_depth: int = 1,
+        residual_gate_scale: float = 1.0,
+        residual_activation: str = 'relu',
+        residual_weight_init: str = 'random',
         minimize: bool = False,
         solver=None,
         seed: int = None,
@@ -53,6 +62,22 @@ class BayesianSPOAgent(AgentBase):
         self.capacity = capacity
         self.mask_grad = mask_grad
         self.nonlinear = nonlinear
+        self.nonlinear_depth = int(nonlinear_depth) if nonlinear else 0
+        if self.nonlinear_depth < 0:
+            raise ValueError('nonlinear_depth must be non-negative')
+        if nonlinear and self.nonlinear_depth == 0:
+            raise ValueError(
+                'nonlinear_depth must be positive when nonlinear=True'
+            )
+        self.residual_gate_scale = float(residual_gate_scale)
+        if self.residual_gate_scale <= 0:
+            raise ValueError('residual_gate_scale must be positive')
+        self.residual_activation = validate_residual_activation(
+            residual_activation
+        )
+        self.residual_weight_init = validate_residual_weight_init(
+            residual_weight_init
+        )
         self.minimize = minimize
 
         if solver is None:
@@ -100,18 +125,15 @@ class BayesianSPOAgent(AgentBase):
             self.beta_end = beta
             self.beta = beta
 
-        key = jax.random.PRNGKey(seed_value)
-        if nonlinear:
-            k1, k2 = jax.random.split(key)
-            self.W1 = jax.random.normal(k1, (context_dim, hidden_dim)) * 0.1
-            self.b1 = jnp.zeros(hidden_dim)
-            self.W2 = jax.random.normal(k2, (hidden_dim, hidden_dim)) * 0.1
-            self.b2 = jnp.zeros(hidden_dim)
-            init_params = {'W1': self.W1, 'b1': self.b1, 'W2': self.W2, 'b2': self.b2}
-        else:
-            self.W1 = jax.random.normal(key, (context_dim, hidden_dim)) * 0.1
-            self.b1 = jnp.zeros(hidden_dim)
-            init_params = {'W1': self.W1, 'b1': self.b1}
+        self.feature_params = init_gated_residual_params(
+            context_dim,
+            hidden_dim,
+            self.nonlinear_depth,
+            seed_value,
+            self.residual_weight_init,
+        )
+        self._sync_feature_aliases()
+        init_params = self.feature_params
 
 
         schedule = lambda count: lr / jnp.sqrt(count + 1)
@@ -125,23 +147,28 @@ class BayesianSPOAgent(AgentBase):
 
 
     def _get_params(self):
-        if self.nonlinear:
-            return {'W1': self.W1, 'b1': self.b1, 'W2': self.W2, 'b2': self.b2}
-        return {'W1': self.W1, 'b1': self.b1}
+        return self.feature_params
 
     def _set_params(self, params):
-        self.W1 = jnp.clip(params['W1'], -10, 10)
-        self.b1 = params['b1']
-        if self.nonlinear:
-            self.W2 = jnp.clip(params['W2'], -10, 10)
-            self.b2 = params['b2']
+        self.feature_params = clip_gated_residual_params(params)
+        self._sync_feature_aliases()
+
+    def _sync_feature_aliases(self):
+        self.W1 = self.feature_params['W1']
+        self.b1 = self.feature_params['b1']
+        if self.feature_params['blocks']:
+            first = self.feature_params['blocks'][0]
+            self.W2 = first['weight']
+            self.b2 = first['bias']
+            self.residual_gate = first['gate']
 
     def _features(self, X):
-        X = jnp.asarray(X)
-        if self.nonlinear:
-            h, _, _ = mlp_forward(X, self.W1, self.b1, self.W2, self.b2)
-            return h
-        return linear_forward(X, self.W1, self.b1)
+        return gated_residual_forward(
+            self.feature_params,
+            jnp.asarray(X),
+            self.residual_gate_scale,
+            self.residual_activation,
+        )
 
     def predict_mean(self, X):
         h = self._features(X)
@@ -186,6 +213,19 @@ class BayesianSPOAgent(AgentBase):
 
     def _compute_spo_grad_h(self, X, h, Y_target, selection_mask, full_feedback):
         pred = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
+        theta = jnp.einsum("nij,nj->ni", self.A_inv, self.b_bayes)
+
+        if self.imputation_samples == 1:
+            spo_grad_val = self.loss_grad_fn(pred, Y_target)
+            if self.mask_grad and not full_feedback:
+                missing_weight = jnp.asarray(
+                    self.missing_grad_weight,
+                    dtype=spo_grad_val.dtype,
+                )
+                grad_weight = jnp.where(selection_mask, 1.0, missing_weight)
+                spo_grad_val = spo_grad_val * grad_weight
+            return jnp.einsum("n,ni->i", spo_grad_val, theta)
+
         pred_np = np.asarray(pred, dtype=float).reshape(-1)
         stds_np = np.asarray(compute_uncertainties(h, self.A_inv), dtype=float).reshape(-1)
         target_np = np.asarray(Y_target, dtype=float).reshape(-1)
@@ -210,7 +250,6 @@ class BayesianSPOAgent(AgentBase):
                 )
                 targets.append(sampled)
 
-        theta = jnp.einsum("nij,nj->ni", self.A_inv, self.b_bayes)
         grad_h_total = jnp.zeros_like(h)
         for target_vec in targets:
             spo_grad_val = self.loss_grad_fn(pred, jnp.asarray(target_vec))
@@ -225,16 +264,19 @@ class BayesianSPOAgent(AgentBase):
     def _backprop_and_step(self, X, grad_h):
         X = jnp.asarray(X)
         if self.nonlinear:
-            z = X @ self.W1 + self.b1
-            a = jnp.maximum(0, z)
-            grad_a = grad_h @ self.W2.T
-            grad_z = grad_a * (z > 0)
-            grads = {
-                'W1': jnp.outer(X, grad_z), 'b1': grad_z,
-                'W2': jnp.outer(a, grad_h), 'b2': grad_h,
-            }
+            grads = gated_residual_backward(
+                self.feature_params,
+                X,
+                grad_h,
+                self.residual_gate_scale,
+                self.residual_activation,
+            )
         else:
-            grads = {'W1': jnp.outer(X, grad_h), 'b1': grad_h}
+            grads = {
+                'W1': jnp.outer(X, grad_h),
+                'b1': grad_h,
+                'blocks': (),
+            }
 
         params = self._get_params()
         updates, self.opt_state = self.optimizer.update(grads, self.opt_state, params)
