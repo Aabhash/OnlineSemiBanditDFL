@@ -109,6 +109,22 @@ def run_pass(output, config, dataset, seed, variant, episode):
     identity = dict(seed=seed, dataset=dataset, variant=variant, rounds=config['rounds'],
                     training_rounds=config['training_rounds'])
     for method, agent in agents.items():
+        if method == 'BLL-Online' and variant == 'linear' and settings.get('bll_nonlinear_prefix', False):
+            # Archived linear BLL followed nonlinear SPO/MSE on a separate shared solver.
+            env = create_env(dataset, seed=seed, **settings['environment_config'])
+            monitor = SolverMonitor(env)
+            prefix_agents, _ = make_agents(env, settings, config, seed, 'nonlinear')
+            co_solver = make_co_solver(env)
+            for prefix_method, prefix_agent in prefix_agents.items():
+                if prefix_method == method:
+                    break
+                write_json(output / 'progress.json', {**identity, 'method': prefix_method, 'phase': 'bll_prefix'})
+                print(f'replaying {seed} {dataset} {prefix_method} before linear BLL', flush=True)
+                run_agent_on_episode(prefix_agent, episode, config['rounds'],
+                    lr=settings['tuned_params'][prefix_method].get('lr', config['agent_defaults']['lr']),
+                    full_feedback=False, diagnostics=config['diagnostics'],
+                    diagnostics_interval=config['diagnostics_interval'], co_solver=co_solver)
+            agent.solver = env.solve
         monitor.reset()
         cell = root / 'methods' / method
         cell.mkdir(parents=True)

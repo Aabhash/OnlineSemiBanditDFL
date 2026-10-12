@@ -110,6 +110,7 @@
       ]
     },
     "knapsack_32": {
+      "bll_nonlinear_prefix": true,
       "architecture": {
         "nonlinear_depth": 5,
         "residual_activation": "relu",
@@ -203,6 +204,7 @@
       ]
     },
     "portfolio_32": {
+      "bll_nonlinear_prefix": true,
       "architecture": {
         "nonlinear_depth": 2,
         "residual_activation": "square",
