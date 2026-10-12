@@ -140,3 +140,8 @@ archive/
 writing_outputs/
 *obsidian
 notebooks/
+/data/
+.aris/
+results/rebuttal/*
+/results/exploratory/
+/experiments/exploratory/

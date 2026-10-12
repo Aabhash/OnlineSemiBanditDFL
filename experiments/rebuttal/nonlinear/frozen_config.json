@@ -1,52 +1,516 @@
 {
-  "rounds": 10000,
-  "environment_config": "experiments/configs/experiment.yaml",
-  "tuning_dir": "results/paper/tuning",
+  "target_methods": [
+    "BayesianSPO",
+    "BayesianMSE",
+    "BLL-Online"
+  ],
+  "dataset_order": [
+    "knapsack_32",
+    "knapsack_100",
+    "shortest_path_8x8",
+    "shortest_path_20x20",
+    "portfolio_32"
+  ],
+  "passes": [
+    "linear",
+    "nonlinear"
+  ],
   "datasets": {
-    "knapsack_32": {
-      "evaluation_seeds": [118, 119, 120, 121, 122, 123, 124, 125, 126, 127],
-      "learning_rate_multiplier": 4.0,
-      "beta_multiplier": 1.0,
-      "nonlinear_depth": 5,
-      "residual_gate_scale": 2.0,
-      "residual_activation": "relu",
-      "residual_weight_init": "random"
-    },
     "knapsack_100": {
-      "evaluation_seeds": [106, 107, 108, 109, 110, 111, 112, 113, 114, 115],
-      "learning_rate_multiplier": 4.0,
-      "beta_multiplier": 1.0,
-      "nonlinear_depth": 5,
-      "residual_gate_scale": 2.0,
-      "residual_activation": "relu",
-      "residual_weight_init": "random"
+      "architecture": {
+        "nonlinear_depth": 5,
+        "residual_activation": "relu",
+        "residual_gate_scale": 2,
+        "residual_weight_init": "random"
+      },
+      "environment_config": {
+        "capacity": 50,
+        "context_dim": 5,
+        "n_items": 100,
+        "noise_width": 0.25
+      },
+      "tuned_params": {
+        "LinUCB": {
+          "alpha": 1.3338692549801814,
+          "lambda_reg": 0.6520565566806362
+        },
+        "TS": {
+          "prior_var": 7.555773073058879,
+          "noise_var": 0.06521923525022096
+        },
+        "EpsilonGreedy": {
+          "init_lr": 0.003,
+          "epsilon": 0.014171119909932868,
+          "decay_epsilon": true,
+          "hidden_dim": 32
+        },
+        "NeuralUCB": {
+          "init_lr": 0.003,
+          "alpha": 4.712104534669149,
+          "lambda_reg": 0.6640156175877266,
+          "batch_size": 4,
+          "hidden_dim": 32
+        },
+        "BayesianSPO": {
+          "beta": 3.881003914520923,
+          "hidden_dim": 32,
+          "imputation_samples": 1,
+          "init_lr": 0.003,
+          "lambda_reg": 0.031893288849720064,
+          "max_grad_norm": 5
+        },
+        "BayesianSPO-PI": {
+          "init_lr": 0.003,
+          "beta": 0.5843672682220014,
+          "hidden_dim": 32,
+          "lambda_reg": 0.010358625181381266,
+          "imputation_samples": 4,
+          "imputation_scale": 1,
+          "use_posterior_predictive": false,
+          "noise_var": 1,
+          "max_grad_norm": 5
+        },
+        "BayesianPFY": {
+          "init_lr": 0.003,
+          "beta": 3.762191228874224,
+          "hidden_dim": 32,
+          "lambda_reg": 0.02211167610530123,
+          "imputation_samples": 1,
+          "imputation_scale": 1,
+          "pfy_n_samples": 1,
+          "pfy_sigma": 1,
+          "pfy_noise": "normal",
+          "max_grad_norm": 5
+        },
+        "BayesianMSE": {
+          "beta": 4.7951612555128325,
+          "hidden_dim": 32,
+          "init_lr": 0.003,
+          "lambda_reg": 0.024646641065040917,
+          "max_grad_norm": 5
+        },
+        "BLL-Online": {
+          "init_lr": 0.003,
+          "beta": 0.18417570931749552,
+          "hidden_dim": 32,
+          "lambda_reg": 0.07396716349653189,
+          "noise_var": 5.461133006019103
+        }
+      },
+      "method_order": [
+        "LinUCB",
+        "TS",
+        "EpsilonGreedy",
+        "NeuralUCB",
+        "BayesianSPO",
+        "BayesianSPO-PI",
+        "BayesianPFY",
+        "BayesianMSE",
+        "BLL-Online"
+      ]
     },
-    "shortest_path_8x8": {
-      "evaluation_seeds": [106, 107, 108, 109, 110, 111, 112, 113, 114, 115],
-      "learning_rate_multiplier": 1.0,
-      "beta_multiplier": 1.0,
-      "nonlinear_depth": 3,
-      "residual_gate_scale": 1.0,
-      "residual_activation": "relu",
-      "residual_weight_init": "random"
-    },
-    "shortest_path_20x20": {
-      "evaluation_seeds": [118, 119, 120, 121, 122, 123, 124, 125, 126, 127],
-      "learning_rate_multiplier": 1.0,
-      "beta_multiplier": 1.0,
-      "nonlinear_depth": 3,
-      "residual_gate_scale": 1.0,
-      "residual_activation": "relu",
-      "residual_weight_init": "random"
+    "knapsack_32": {
+      "architecture": {
+        "nonlinear_depth": 5,
+        "residual_activation": "relu",
+        "residual_gate_scale": 2,
+        "residual_weight_init": "random"
+      },
+      "environment_config": {
+        "capacity": 20,
+        "context_dim": 5,
+        "n_items": 32,
+        "noise_width": 0.25
+      },
+      "tuned_params": {
+        "LinUCB": {
+          "alpha": 4.416800671448996,
+          "lambda_reg": 0.8559947979278695
+        },
+        "TS": {
+          "prior_var": 1.1215297150634527,
+          "noise_var": 0.06910216027932206
+        },
+        "EpsilonGreedy": {
+          "init_lr": 0.003,
+          "epsilon": 0.010166865629480517,
+          "decay_epsilon": true,
+          "hidden_dim": 32
+        },
+        "NeuralUCB": {
+          "init_lr": 0.003,
+          "alpha": 3.0382169876081506,
+          "lambda_reg": 0.5752115916987601,
+          "batch_size": 4,
+          "hidden_dim": 32
+        },
+        "BayesianSPO": {
+          "beta": 3.8425242024399022,
+          "hidden_dim": 32,
+          "imputation_samples": 1,
+          "init_lr": 0.003,
+          "lambda_reg": 0.0520438435074663,
+          "max_grad_norm": 5
+        },
+        "BayesianSPO-PI": {
+          "init_lr": 0.003,
+          "beta": 3.8428206294779437,
+          "hidden_dim": 32,
+          "lambda_reg": 0.07024286691749468,
+          "imputation_samples": 4,
+          "imputation_scale": 1,
+          "use_posterior_predictive": false,
+          "noise_var": 1,
+          "max_grad_norm": 5
+        },
+        "BayesianPFY": {
+          "init_lr": 0.003,
+          "beta": 1.3742603830903857,
+          "hidden_dim": 32,
+          "lambda_reg": 0.026196539157011065,
+          "imputation_samples": 1,
+          "imputation_scale": 1,
+          "pfy_n_samples": 1,
+          "pfy_sigma": 1,
+          "pfy_noise": "normal",
+          "max_grad_norm": 5
+        },
+        "BayesianMSE": {
+          "beta": 4.8964596162696035,
+          "hidden_dim": 32,
+          "init_lr": 0.003,
+          "lambda_reg": 0.01245253476597573,
+          "max_grad_norm": 5
+        },
+        "BLL-Online": {
+          "init_lr": 0.003,
+          "beta": 3.50195991766915,
+          "hidden_dim": 32,
+          "lambda_reg": 0.019596070902189625,
+          "noise_var": 0.32711063137915725
+        }
+      },
+      "method_order": [
+        "LinUCB",
+        "TS",
+        "EpsilonGreedy",
+        "NeuralUCB",
+        "BayesianSPO",
+        "BayesianSPO-PI",
+        "BayesianPFY",
+        "BayesianMSE",
+        "BLL-Online"
+      ]
     },
     "portfolio_32": {
-      "evaluation_seeds": [106, 107, 108, 109, 110, 111, 112, 113, 114, 115],
-      "learning_rate_multiplier": 4.0,
-      "beta_multiplier": 0.5,
-      "nonlinear_depth": 2,
-      "residual_gate_scale": 0.1,
-      "residual_activation": "square",
-      "residual_weight_init": "identity"
+      "architecture": {
+        "nonlinear_depth": 2,
+        "residual_activation": "square",
+        "residual_gate_scale": 0.1,
+        "residual_weight_init": "identity"
+      },
+      "environment_config": {
+        "baseline_return": 0.1,
+        "context_dim": 5,
+        "gamma": 1,
+        "max_assets": 5,
+        "noise_width": 0.25,
+        "num_assets": 32,
+        "signal_scale": 0.05,
+        "solver_time_limit": 0.1
+      },
+      "tuned_params": {
+        "LinUCB": {
+          "alpha": 0.3080726086961381,
+          "lambda_reg": 3.1856440204594327
+        },
+        "TS": {
+          "prior_var": 0.4207063763887157,
+          "noise_var": 0.010384580675142084
+        },
+        "EpsilonGreedy": {
+          "init_lr": 0.003,
+          "epsilon": 0.03594886967226188,
+          "decay_epsilon": false,
+          "hidden_dim": 32
+        },
+        "NeuralUCB": {
+          "init_lr": 0.003,
+          "alpha": 0.11887405573583341,
+          "lambda_reg": 0.031102095431641705,
+          "batch_size": 16,
+          "hidden_dim": 32
+        },
+        "BayesianSPO": {
+          "beta": 0.16550975250188352,
+          "hidden_dim": 32,
+          "imputation_samples": 1,
+          "init_lr": 0.003,
+          "lambda_reg": 0.010930987468173704,
+          "max_grad_norm": 5
+        },
+        "BayesianSPO-PI": {
+          "init_lr": 0.003,
+          "beta": 0.21965263990517586,
+          "hidden_dim": 32,
+          "lambda_reg": 0.010998048070790942,
+          "imputation_samples": 4,
+          "imputation_scale": 1,
+          "use_posterior_predictive": false,
+          "noise_var": 1,
+          "max_grad_norm": 5
+        },
+        "BayesianPFY": {
+          "init_lr": 0.003,
+          "beta": 0.12318781547476579,
+          "hidden_dim": 8,
+          "lambda_reg": 0.09036110047762623,
+          "imputation_samples": 1,
+          "imputation_scale": 1,
+          "pfy_n_samples": 1,
+          "pfy_sigma": 1,
+          "pfy_noise": "normal",
+          "max_grad_norm": 5
+        },
+        "BayesianMSE": {
+          "beta": 0.3336713957503156,
+          "hidden_dim": 32,
+          "init_lr": 0.001,
+          "lambda_reg": 0.010440390170161152,
+          "max_grad_norm": 5
+        },
+        "BLL-Online": {
+          "init_lr": 0.0003,
+          "beta": 0.46660923477836536,
+          "hidden_dim": 32,
+          "lambda_reg": 0.8099124467492368,
+          "noise_var": 1.0473742542904947
+        }
+      },
+      "method_order": [
+        "LinUCB",
+        "TS",
+        "EpsilonGreedy",
+        "NeuralUCB",
+        "BayesianSPO",
+        "BayesianSPO-PI",
+        "BayesianPFY",
+        "BayesianMSE",
+        "BLL-Online"
+      ]
+    },
+    "shortest_path_20x20": {
+      "architecture": {
+        "nonlinear_depth": 3,
+        "residual_activation": "relu",
+        "residual_gate_scale": 1,
+        "residual_weight_init": "random"
+      },
+      "environment_config": {
+        "context_dim": 5,
+        "grid_size": 20,
+        "noise_width": 0.25
+      },
+      "tuned_params": {
+        "LinUCB": {
+          "alpha": 0.14298368753744536,
+          "lambda_reg": 0.03157210670508282
+        },
+        "TS": {
+          "prior_var": 0.5287865506085261,
+          "noise_var": 0.010180595089311241
+        },
+        "EpsilonGreedy": {
+          "init_lr": 0.0003,
+          "epsilon": 0.13101254454724556,
+          "decay_epsilon": false,
+          "hidden_dim": 16
+        },
+        "NeuralUCB": {
+          "init_lr": 0.003,
+          "alpha": 0.9812637617570169,
+          "lambda_reg": 3.4683073028761315,
+          "batch_size": 4,
+          "hidden_dim": 32
+        },
+        "BayesianSPO": {
+          "beta": 0.12724288303620818,
+          "hidden_dim": 16,
+          "imputation_samples": 2,
+          "init_lr": 0.003,
+          "lambda_reg": 0.09004682388013154,
+          "max_grad_norm": 5
+        },
+        "BayesianSPO-PI": {
+          "init_lr": 0.003,
+          "beta": 0.4961613939965699,
+          "hidden_dim": 8,
+          "lambda_reg": 0.1649793094513837,
+          "imputation_samples": 4,
+          "imputation_scale": 1,
+          "use_posterior_predictive": false,
+          "noise_var": 1,
+          "max_grad_norm": 5
+        },
+        "BayesianPFY": {
+          "init_lr": 0.003,
+          "beta": 0.10012848026028515,
+          "hidden_dim": 16,
+          "lambda_reg": 0.09553803565425803,
+          "imputation_samples": 1,
+          "imputation_scale": 1,
+          "pfy_n_samples": 1,
+          "pfy_sigma": 1,
+          "pfy_noise": "normal",
+          "max_grad_norm": 5
+        },
+        "BayesianMSE": {
+          "beta": 0.20877326415674752,
+          "hidden_dim": 16,
+          "init_lr": 0.003,
+          "lambda_reg": 0.36726344091509683,
+          "max_grad_norm": 5
+        },
+        "BLL-Online": {
+          "init_lr": 0.003,
+          "beta": 0.11576673559163893,
+          "hidden_dim": 32,
+          "lambda_reg": 2.1045199165571904,
+          "noise_var": 1.1877161776423895
+        }
+      },
+      "method_order": [
+        "LinUCB",
+        "TS",
+        "EpsilonGreedy",
+        "NeuralUCB",
+        "BayesianSPO",
+        "BayesianSPO-PI",
+        "BayesianPFY",
+        "BayesianMSE",
+        "BLL-Online"
+      ]
+    },
+    "shortest_path_8x8": {
+      "architecture": {
+        "nonlinear_depth": 3,
+        "residual_activation": "relu",
+        "residual_gate_scale": 1,
+        "residual_weight_init": "random"
+      },
+      "environment_config": {
+        "context_dim": 5,
+        "grid_size": 8,
+        "noise_width": 0.25
+      },
+      "tuned_params": {
+        "LinUCB": {
+          "alpha": 0.12322269734221053,
+          "lambda_reg": 2.4852547745185745
+        },
+        "TS": {
+          "prior_var": 0.15774545156048037,
+          "noise_var": 0.0126858762377132
+        },
+        "EpsilonGreedy": {
+          "init_lr": 0.003,
+          "epsilon": 0.021394447259335383,
+          "decay_epsilon": false,
+          "hidden_dim": 16
+        },
+        "NeuralUCB": {
+          "init_lr": 0.003,
+          "alpha": 0.3302616782322207,
+          "lambda_reg": 0.02226999757142672,
+          "batch_size": 8,
+          "hidden_dim": 32
+        },
+        "BayesianSPO": {
+          "beta": 0.19049514934909673,
+          "hidden_dim": 16,
+          "imputation_samples": 4,
+          "init_lr": 0.003,
+          "lambda_reg": 0.3565295694244629,
+          "max_grad_norm": 5
+        },
+        "BayesianSPO-PI": {
+          "init_lr": 0.003,
+          "beta": 0.10480993452869766,
+          "hidden_dim": 8,
+          "lambda_reg": 0.13851303815677513,
+          "imputation_samples": 4,
+          "imputation_scale": 1,
+          "use_posterior_predictive": false,
+          "noise_var": 1,
+          "max_grad_norm": 5
+        },
+        "BayesianPFY": {
+          "init_lr": 0.003,
+          "beta": 0.13922762035639308,
+          "hidden_dim": 16,
+          "lambda_reg": 0.09781996008367758,
+          "imputation_samples": 1,
+          "imputation_scale": 1,
+          "pfy_n_samples": 1,
+          "pfy_sigma": 1,
+          "pfy_noise": "normal",
+          "max_grad_norm": 5
+        },
+        "BayesianMSE": {
+          "beta": 0.12465902066114415,
+          "hidden_dim": 16,
+          "init_lr": 0.003,
+          "lambda_reg": 0.07626805451947072,
+          "max_grad_norm": 5
+        },
+        "BLL-Online": {
+          "init_lr": 0.003,
+          "beta": 0.12390125937062653,
+          "hidden_dim": 32,
+          "lambda_reg": 0.023278033114575793,
+          "noise_var": 5.536290245980914
+        }
+      },
+      "method_order": [
+        "LinUCB",
+        "TS",
+        "EpsilonGreedy",
+        "NeuralUCB",
+        "BayesianSPO",
+        "BayesianSPO-PI",
+        "BayesianPFY",
+        "BayesianMSE",
+        "BLL-Online"
+      ]
     }
+  },
+  "seeds": [
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109
+  ],
+  "rounds": 10000,
+  "feedback": "semi_bandit",
+  "gradient_mode": "current",
+  "learning_rate_multiplier": 1,
+  "beta_multiplier": 1,
+  "agent_defaults": {
+    "lr": 0.001
+  },
+  "diagnostics": true,
+  "diagnostics_interval": 25,
+  "episode_sources": {
+    "knapsack_32": "results/rebuttal/camera_ready_nonlinear/ordered_nonlinear/sources/8368303e6ed9",
+    "knapsack_100": "results/rebuttal/camera_ready_nonlinear/ordered_nonlinear/sources/8368303e6ed9",
+    "shortest_path_8x8": "results/rebuttal/camera_ready_nonlinear/ordered_nonlinear/sources/8368303e6ed9",
+    "portfolio_32": "results/rebuttal/camera_ready_nonlinear/ordered_nonlinear/sources/8368303e6ed9",
+    "shortest_path_20x20": "results/rebuttal/camera_ready_nonlinear/ordered_nonlinear/sources/4190fdb7e4a7"
   }
 }

@@ -509,6 +509,21 @@ def ranking_relevant_coefficient_scale(
     return float(np.linalg.norm(ranking_part) / np.sqrt(len(mean)))
 
 
+def flip_collapse_constant(env: Any, kind: str) -> tuple[int, int]:
+    if kind == "knapsack":
+        weights = np.sort(np.asarray(env.weights, dtype=float))
+        max_support = int(
+            np.sum(np.cumsum(weights) <= float(env.capacity) + 1e-12)
+        )
+    elif kind == "shortest_path":
+        max_support = 2 * (int(env.grid_size) - 1)
+    elif kind == "portfolio":
+        max_support = int(env.max_assets)
+    else:
+        raise ValueError(f"Unsupported benchmark kind: {kind}")
+    return max_support, 4 * max_support
+
+
 def conditional_direction_noise_variance(
     env: Any,
     kind: str,
@@ -743,6 +758,7 @@ def analyze_seed(
         n_arms=n_arms,
         grid_size=getattr(env, "grid_size", None),
     )
+    max_support, stability_constant = flip_collapse_constant(env, oracle.kind)
     means: list[np.ndarray] = []
     strict_action_differences: list[np.ndarray] = []
     context_rows: list[dict[str, Any]] = []
@@ -779,6 +795,7 @@ def analyze_seed(
         if strict_alternative is None:
             strict_difference = np.zeros(n_arms, dtype=float)
             normalized_per_change_margin = float("nan")
+            normalized_stability_radius = float("nan")
             noise_variance = float("nan")
             noise_snr = float("nan")
             new_arm_burden = 0
@@ -789,6 +806,17 @@ def analyze_seed(
             normalized_per_change_margin = float(
                 geometry["second_best_per_change_margin"]
                 / max(ranking_scale, np.finfo(float).tiny)
+            )
+            normalized_stability_radius = (
+                0.0
+                if geometry["has_equivalent_optimal_action"]
+                else float(
+                    geometry["first_strictly_positive_objective_gap"]
+                    / (
+                        stability_constant
+                        * max(ranking_scale, np.finfo(float).tiny)
+                    )
+                )
             )
             noise_variance = conditional_direction_noise_variance(
                 env=env,
@@ -840,11 +868,14 @@ def analyze_seed(
                 "near_alternative_hamming_size": geometry[
                     "near_alternative_hamming_size"
                 ],
+                "maximum_feasible_support": max_support,
+                "flip_collapse_constant": stability_constant,
                 "second_best_per_change_margin": geometry[
                     "second_best_per_change_margin"
                 ],
                 "ranking_relevant_coefficient_rms": ranking_scale,
                 "normalized_per_change_margin": (normalized_per_change_margin),
+                "normalized_stability_radius": normalized_stability_radius,
                 "strict_gap_direction_noise_variance": noise_variance,
                 "strict_gap_noise_snr": noise_snr,
                 "strict_alternative_new_arm_burden": new_arm_burden,
@@ -930,6 +961,9 @@ def analyze_seed(
         "environment_seed": environment_seed,
         "normalized_per_change_margin_median": _finite_median(
             [row["normalized_per_change_margin"] for row in context_rows]
+        ),
+        "normalized_stability_radius_median": _finite_median(
+            [row["normalized_stability_radius"] for row in context_rows]
         ),
         "strict_gap_noise_snr_median": _finite_median(
             [row["strict_gap_noise_snr"] for row in context_rows]

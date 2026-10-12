@@ -7,6 +7,7 @@ from src.agents.bayesian_utils import (
     compute_bayesian_predictions,
     compute_uncertainties,
     update_bayesian_stats,
+    posterior_gradient,
 )
 from src.agents.feature_extractors import (
     clip_gated_residual_params,
@@ -49,7 +50,11 @@ class BayesianMSEAgent(AgentBase):
         seed: int = None,
         exploration_strategy: str = "ucb",
         ts_scale: float = 1.0,
+        gradient_mode: str = 'current',
     ):
+        if gradient_mode not in ('current', 'posterior'):
+            raise ValueError("gradient_mode must be 'current' or 'posterior'")
+        self.gradient_mode = gradient_mode
         self.context_dim = context_dim
         self.n_arms = n_arms
         self.weights = jnp.asarray(weights)
@@ -209,6 +214,8 @@ class BayesianMSEAgent(AgentBase):
             missing_weight = jnp.asarray(self.missing_grad_weight, dtype=mse_grad.dtype)
             grad_weight = jnp.where(selection_mask, 1.0, missing_weight)
             mse_grad = mse_grad * grad_weight
+        if self.gradient_mode == 'posterior':
+            return posterior_gradient(h, *self._posterior_update, mse_grad)
         theta = jnp.einsum('nij,nj->ni', self.A_inv, self.b_bayes)
         return jnp.einsum('n,ni->i', mse_grad, theta)
 
@@ -242,6 +249,8 @@ class BayesianMSEAgent(AgentBase):
 
         selection_mask = selection > 0.5
         obs_mask = jnp.ones(self.n_arms, dtype=jnp.bool_) if full_feedback else selection_mask
+        if self.gradient_mode == 'posterior':
+            self._posterior_update = self.A, self.b_bayes, self.A_inv, rewards, obs_mask
         self.A, self.b_bayes, self.A_inv = update_bayesian_stats(
             self.A, self.b_bayes, self.A_inv, h, rewards, obs_mask
         )

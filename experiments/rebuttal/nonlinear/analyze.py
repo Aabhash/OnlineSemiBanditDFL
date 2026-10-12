@@ -1,235 +1,95 @@
-import argparse
-import csv
-import hashlib
-import math
+import argparse, json, sys
 from pathlib import Path
 
 import numpy as np
 
+REPO = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(REPO))
 
-METHODS = ("BayesianSPO", "BayesianMSE")
-EXTRACTORS = ("affine", "nonlinear")
-METRICS = ("realized", "pseudo")
-DATASET_LABELS = {
-    "knapsack_32": "Knapsack 32",
-    "knapsack_100": "Knapsack 100",
-    "shortest_path_8x8": "SP 8x8",
-    "shortest_path_20x20": "SP 20x20",
-    "portfolio_32": "Portfolio",
-}
-ENDPOINT_COLUMNS = (
-    "dataset",
-    "seed",
-    "method",
-    "extractor",
-    "metric",
-    "endpoint",
-)
-DEFAULT_ENDPOINTS = Path(__file__).with_name("artifacts") / "endpoints.csv"
+from experiments.rebuttal.nonlinear.adapters import write_json
+
+ACCEPTED = REPO / 'results/rebuttal/camera_ready_nonlinear/ordered_nonlinear/results.json'
+COMPARISONS = {'nonlinear_spo_vs_linear_spo': (('BayesianSPO', 'linear'), ('BayesianSPO', 'nonlinear')),
+               'nonlinear_mse_vs_linear_mse': (('BayesianMSE', 'linear'), ('BayesianMSE', 'nonlinear')),
+               'linear_spo_vs_mse': (('BayesianMSE', 'linear'), ('BayesianSPO', 'linear')),
+               'nonlinear_spo_vs_mse': (('BayesianMSE', 'nonlinear'), ('BayesianSPO', 'nonlinear')),
+               'nonlinear_bll_vs_linear_bll': (('BLL-Online', 'linear'), ('BLL-Online', 'nonlinear'))}
 
 
-def require(condition, message):
-    if not condition:
-        raise ValueError(message)
+def mean_sd(values):
+    values = np.asarray(values, dtype=float)
+    return {'n': len(values), 'mean': float(values.mean()) if len(values) else None,
+            'sample_sd': float(values.std(ddof=1)) if len(values) > 1 else None}
 
 
-def load_rows(paths):
+def paired_summary(pairs):
+    before = np.asarray([row['before_gap'] for row in pairs], dtype=float)
+    after = np.asarray([row['after_gap'] for row in pairs], dtype=float)
+    reductions = before - after
+    result = {'n': len(pairs), 'seeds': [row['seed'] for row in pairs],
+              'wins': int(np.sum(reductions > 0)), 'ties': int(np.sum(reductions == 0)), 'losses': int(np.sum(reductions < 0)),
+              'before': mean_sd(before), 'after': mean_sd(after), 'gap_reduction': mean_sd(reductions), 'paired_rows': pairs,
+              'gap_reduction_ci95': None, 'ratio_of_means_reduction_percent': None, 'ratio_of_means_reduction_percent_ci95': None}
+    if len(pairs) and before.mean() > 0:
+        result['ratio_of_means_reduction_percent'] = float(100 * reductions.mean() / before.mean())
+    if len(pairs) < 2: return result
+    indices = np.random.default_rng(20261009).integers(0, len(pairs), size=(20000, len(pairs)))
+    boot_reductions, boot_before = reductions[indices].mean(axis=1), before[indices].mean(axis=1)
+    result['gap_reduction_ci95'] = np.quantile(boot_reductions, [.025, .975]).tolist()
+    if np.all(boot_before > 0):
+        result['ratio_of_means_reduction_percent_ci95'] = np.quantile(100 * boot_reductions / boot_before, [.025, .975]).tolist()
+    return result
+
+
+def summarize(output, config):
+    output = Path(output).resolve()
+    if output == ACCEPTED.parent or output.is_relative_to(ACCEPTED.parent / 'sources'):
+        raise ValueError('Accepted results and source archives are read-only')
     rows = []
-    seen = set()
-    for path in map(Path, paths):
-        require(path.is_file(), f"Missing endpoint file: {path}")
-        with path.open(newline="") as handle:
-            reader = csv.DictReader(handle)
-            require(
-                tuple(reader.fieldnames or ()) == ENDPOINT_COLUMNS,
-                f"Unexpected columns in {path}",
-            )
-            for raw in reader:
-                row = {
-                    "dataset": raw["dataset"],
-                    "seed": int(raw["seed"]),
-                    "method": raw["method"],
-                    "extractor": raw["extractor"],
-                    "metric": raw["metric"],
-                    "endpoint": float(raw["endpoint"]),
-                }
-                require(
-                    row["dataset"] in DATASET_LABELS,
-                    f"Unknown dataset in {path}",
-                )
-                require(row["method"] in METHODS, f"Unknown method in {path}")
-                require(
-                    row["extractor"] in EXTRACTORS,
-                    f"Unknown extractor in {path}",
-                )
-                require(row["metric"] in METRICS, f"Unknown metric in {path}")
-                require(
-                    math.isfinite(row["endpoint"]),
-                    f"Non-finite endpoint in {path}",
-                )
-                identity = tuple(row[column] for column in ENDPOINT_COLUMNS[:-1])
-                require(identity not in seen, f"Duplicate endpoint {identity}")
-                seen.add(identity)
-                rows.append(row)
-    require(rows, "No endpoints found")
-
-    expected_cells = {
-        (method, extractor, metric)
-        for method in METHODS
-        for extractor in EXTRACTORS
-        for metric in METRICS
-    }
-    for dataset in {row["dataset"] for row in rows}:
-        seeds = {row["seed"] for row in rows if row["dataset"] == dataset}
-        for seed in seeds:
-            cells = {
-                (row["method"], row["extractor"], row["metric"])
-                for row in rows
-                if row["dataset"] == dataset and row["seed"] == seed
-            }
-            require(
-                cells == expected_cells, f"Incomplete endpoints for {dataset}/{seed}"
-            )
-    return rows
-
-
-def exact_sign_test(wins, losses):
-    n = wins + losses
-    if not n:
-        return 1.0
-    tail = sum(math.comb(n, i) for i in range(min(wins, losses) + 1)) / 2**n
-    return min(1.0, 2.0 * tail)
-
-
-def cell_rng(seed, dataset, method, metric):
-    key = f"{seed}:{dataset}:{method}:{metric}".encode()
-    cell_seed = int.from_bytes(hashlib.sha256(key).digest()[:8], "little")
-    return np.random.default_rng(cell_seed)
-
-
-def sample_std(values):
-    return float(values.std(ddof=1)) if len(values) > 1 else 0.0
-
-
-def summarize(rows, bootstrap_samples=10_000, bootstrap_seed=20_260_727):
-    require(bootstrap_samples > 0, "bootstrap_samples must be positive")
-    summary = []
-    for dataset, label in DATASET_LABELS.items():
-        dataset_rows = [row for row in rows if row["dataset"] == dataset]
-        if not dataset_rows:
-            continue
-        seeds = sorted({row["seed"] for row in dataset_rows})
-        for method in METHODS:
-            for metric in METRICS:
-                endpoints = {
-                    (row["seed"], row["extractor"]): row["endpoint"]
-                    for row in dataset_rows
-                    if row["method"] == method and row["metric"] == metric
-                }
-                affine = np.asarray(
-                    [endpoints[(seed, "affine")] for seed in seeds],
-                    dtype=float,
-                )
-                nonlinear = np.asarray(
-                    [endpoints[(seed, "nonlinear")] for seed in seeds],
-                    dtype=float,
-                )
-                require(
-                    abs(float(affine.mean())) > 1e-12,
-                    f"Zero affine mean for {dataset}/{method}/{metric}",
-                )
-
-                indices = cell_rng(
-                    bootstrap_seed,
-                    dataset,
-                    method,
-                    metric,
-                ).integers(0, len(seeds), size=(bootstrap_samples, len(seeds)))
-                affine_boot = affine[indices].mean(axis=1)
-                nonlinear_boot = nonlinear[indices].mean(axis=1)
-                require(
-                    bool(np.all(np.abs(affine_boot) > 1e-12)),
-                    f"Zero bootstrap denominator for {dataset}/{method}/{metric}",
-                )
-                difference = affine - nonlinear
-                difference_boot = difference[indices].mean(axis=1)
-                reduction_boot = 100.0 * (affine_boot - nonlinear_boot) / affine_boot
-                wins = int(np.sum(difference > 0))
-                losses = int(np.sum(difference < 0))
-                summary.append(
-                    {
-                        "dataset": dataset,
-                        "dataset_label": label,
-                        "method": method,
-                        "metric": metric,
-                        "n_seeds": len(seeds),
-                        "affine_mean": float(affine.mean()),
-                        "affine_std": sample_std(affine),
-                        "nonlinear_mean": float(nonlinear.mean()),
-                        "nonlinear_std": sample_std(nonlinear),
-                        "paired_mean_difference_affine_minus_nonlinear": float(
-                            difference.mean()
-                        ),
-                        "paired_mean_difference_ci95_low": float(
-                            np.quantile(difference_boot, 0.025)
-                        ),
-                        "paired_mean_difference_ci95_high": float(
-                            np.quantile(difference_boot, 0.975)
-                        ),
-                        "ratio_of_means_reduction_percent": float(
-                            100.0 * (affine.mean() - nonlinear.mean()) / affine.mean()
-                        ),
-                        "ratio_of_means_reduction_ci95_low": float(
-                            np.quantile(reduction_boot, 0.025)
-                        ),
-                        "ratio_of_means_reduction_ci95_high": float(
-                            np.quantile(reduction_boot, 0.975)
-                        ),
-                        "nonlinear_seed_wins": wins,
-                        "nonlinear_seed_losses": losses,
-                        "ties": int(np.sum(difference == 0)),
-                        "exact_sign_test_pvalue_two_sided": exact_sign_test(
-                            wins,
-                            losses,
-                        ),
-                    }
-                )
-    return summary
-
-
-def write_csv(path, rows):
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
-        writer.writeheader()
-        writer.writerows(rows)
-
-
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "endpoints",
-        nargs="*",
-        type=Path,
-        default=[DEFAULT_ENDPOINTS],
-    )
-    parser.add_argument("--output", type=Path, default=Path("summary.csv"))
-    parser.add_argument("--bootstrap-samples", type=int, default=10_000)
-    parser.add_argument("--bootstrap-seed", type=int, default=20_260_727)
-    return parser.parse_args()
+    for seed in config['seeds']:
+        for dataset in config['dataset_order']:
+            for variant in config['passes']:
+                path = output / 'seeds' / f'seed_{seed}' / 'datasets' / dataset / 'passes' / variant / 'complete.json'
+                if path.exists(): rows.extend(json.loads(path.read_text())['rows'])
+    tables = []
+    for dataset in config['dataset_order']:
+        raw = [row for row in rows if row['dataset'] == dataset]
+        keyed = {(row['seed'], row['method'], row['variant']): row for row in raw}
+        estimates = {f'{method}_{variant}': mean_sd([row['final_regret'] for row in raw if row['method'] == method and row['variant'] == variant])
+                     for method in config['datasets'][dataset]['method_order'] for variant in config['passes']}
+        comparisons = {}
+        for name, (before, after) in COMPARISONS.items():
+            if any(method not in config['target_methods'] for method, _ in (before, after)): continue
+            pairs = []
+            for seed in config['seeds']:
+                old, new = keyed.get((seed, *before)), keyed.get((seed, *after))
+                if old is not None and new is not None:
+                    pairs.append({'seed': seed, 'before_gap': old['final_regret'], 'after_gap': new['final_regret'],
+                                  'before_flagged': old['flagged'], 'after_flagged': new['flagged']})
+            comparisons[name] = paired_summary(pairs)
+        tables.append({'dataset': dataset, 'estimates': estimates, 'comparisons': comparisons, 'raw_endpoints': raw})
+    expected_methods, expected_cells = config['expected_method_runs'], config['expected_target_cells']
+    result = {'experiment': 'ordered_nonlinear', 'seeds': config['seeds'], 'rounds': config['rounds'], 'passes': config['passes'],
+              'methods': config['target_methods'], 'completed_cells': sum(row['target'] for row in rows), 'expected_cells': expected_cells,
+              'completed_method_runs': len(rows), 'expected_method_runs': expected_methods,
+              'complete': len(rows) == expected_methods, 'tables': tables,
+              'bootstrap': {'draws': 20000, 'seed': 20261009, 'interval': 'Pointwise paired-seed percentile 95%; no multiplicity adjustment'},
+              'retention_policy': 'All completed endpoints and solver flags are retained, including infeasible runs.',
+              'flagged_method_runs': sum(row['flagged'] for row in rows)}
+    write_json(output / 'results.json', result)
+    return result
 
 
 def main():
-    args = parse_args()
-    summary = summarize(
-        load_rows(args.endpoints),
-        args.bootstrap_samples,
-        args.bootstrap_seed,
-    )
-    write_csv(args.output, summary)
-    print(args.output)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--input', type=Path, default=ACCEPTED, help='Saved JSON to display, or a run directory to summarize')
+    args = parser.parse_args()
+    if args.input.is_file():
+        result = json.loads(args.input.read_text())
+    else:
+        result = summarize(args.input, json.loads((args.input / 'config.json').read_text()))
+    print(f'{result["completed_cells"]} target cells; {args.input}')
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

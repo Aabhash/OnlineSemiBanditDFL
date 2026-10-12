@@ -117,6 +117,16 @@ def update_bayesian_stats(
     return A_new, b_new, A_inv_new
 
 
+@jax.jit
+def posterior_gradient(h, A, b, A_inv, rewards, observed, output_gradient):
+    def predictions(features):
+        _, next_b, next_inverse = update_bayesian_stats(A, b, A_inv, features, rewards, observed)
+        return compute_bayesian_predictions(features, next_inverse, next_b)
+
+    _, pullback = jax.vjp(predictions, h)
+    return pullback(output_gradient)[0]
+
+
 def init_shared_regression(
     feature_dim: int,
     lambda_reg: float = 1.0,

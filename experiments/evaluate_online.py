@@ -193,7 +193,10 @@ def run_evaluation(
     seeds: Optional[list] = None,
     diagnostics: bool = True,
     diagnostics_interval: int = 25,
+    gradient_mode: Optional[str] = None,
 ):
+    if gradient_mode not in (None, 'current', 'posterior'):
+        raise ValueError("gradient_mode must be 'current' or 'posterior'")
     dataset_config = config['datasets'][dataset].copy()
     dataset_config.pop('env_type', None)
     dataset_config.pop('tuning_year', None)
@@ -268,17 +271,21 @@ def run_evaluation(
             co_solver = make_co_solver(env_base)
 
             for agent_name, agent in agents.items():
+                if gradient_mode is not None and agent_name in ('BayesianSPO', 'BayesianMSE'):
+                    agent.gradient_mode = gradient_mode
                 if verbose:
                     print(f'  {agent_name}...', end=' ', flush=True)
 
 
                 if tuned_params and agent_name in tuned_params:
                     lr = tuned_params[agent_name].get('lr', config['agent_defaults']['lr'])
-                    agent_params = tuned_params[agent_name]
+                    agent_params = dict(tuned_params[agent_name])
                 else:
                     lr = config['agent_defaults']['lr']
                     agent_params = {}
 
+                if agent_name in ('BayesianSPO', 'BayesianMSE'):
+                    agent_params['gradient_mode'] = agent.gradient_mode
 
                 start_time = time.perf_counter()
 
@@ -326,7 +333,6 @@ def run_evaluation(
 
 
                 if wandb_enabled:
-                    agent_params = tuned_params.get(agent_name, {}) if tuned_params else {}
                     is_minimize = config.get('datasets', {}).get(dataset, {}).get('minimize', False)
                     wandb_logger = EvaluationWandbLogger(
                         config=config,
@@ -1167,6 +1173,8 @@ Examples:
                         help='Feedback type to evaluate')
     parser.add_argument('--agents', type=str, default=None,
                         help='Comma-separated agent names to evaluate (default: all)')
+    parser.add_argument('--gradient-mode', choices=['current', 'posterior'], default=None,
+                        help='Override BayesianSPO/MSE gradients: frozen coefficients or differentiation through the current posterior update')
 
 
     parser.add_argument('--use-tuned-params', action='store_true',
@@ -1198,6 +1206,8 @@ Examples:
                         help='Disable wandb logging (overrides config)')
 
     args = parser.parse_args()
+    if args.gradient_mode == 'posterior' and not args.output_dir and not args.no_save:
+        parser.error('--gradient-mode posterior requires --output_dir to keep experimental results separate')
 
     config = load_config(args.config)
 
@@ -1249,6 +1259,8 @@ Examples:
     print(f'Seeds: {n_seeds}')
     print(f'Noise: {args.noise}')
     print(f'Tuned params: {args.use_tuned_params} (from {args.tuning_dir})' if args.use_tuned_params else 'Tuned params: No (using defaults)')
+    if args.gradient_mode is not None:
+        print(f'BayesianSPO/MSE gradient mode: {args.gradient_mode}')
     if args.use_tuned_params and args.tuning_feedback:
         print(f'Tuning feedback source: {args.tuning_feedback}')
     print(f'Diagnostics: {not args.no_diagnostics}')
@@ -1329,6 +1341,7 @@ Examples:
             seeds=evaluation_seeds,
             diagnostics=not args.no_diagnostics,
             diagnostics_interval=args.diagnostics_interval,
+            gradient_mode=args.gradient_mode,
         )
 
         print_summary(results, dataset, trajectories)

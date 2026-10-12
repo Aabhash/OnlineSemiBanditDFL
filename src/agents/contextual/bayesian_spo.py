@@ -8,6 +8,7 @@ from src.agents.bayesian_utils import (
     compute_bayesian_predictions,
     compute_uncertainties,
     update_bayesian_stats,
+    posterior_gradient,
 )
 from src.agents.feature_extractors import (
     clip_gated_residual_params,
@@ -54,7 +55,11 @@ class BayesianSPOAgent(AgentBase):
         missing_grad_weight: float = 0.0,
         exploration_strategy: str = "ucb",
         ts_scale: float = 1.0,
+        gradient_mode: str = 'current',
     ):
+        if gradient_mode not in ('current', 'posterior'):
+            raise ValueError("gradient_mode must be 'current' or 'posterior'")
+        self.gradient_mode = gradient_mode
         self.context_dim = context_dim
         self.n_arms = n_arms
         self.weights = jnp.asarray(weights)
@@ -224,6 +229,8 @@ class BayesianSPOAgent(AgentBase):
                 )
                 grad_weight = jnp.where(selection_mask, 1.0, missing_weight)
                 spo_grad_val = spo_grad_val * grad_weight
+            if self.gradient_mode == 'posterior':
+                return posterior_gradient(h, *self._posterior_update, spo_grad_val)
             return jnp.einsum("n,ni->i", spo_grad_val, theta)
 
         pred_np = np.asarray(pred, dtype=float).reshape(-1)
@@ -251,14 +258,21 @@ class BayesianSPOAgent(AgentBase):
                 targets.append(sampled)
 
         grad_h_total = jnp.zeros_like(h)
+        output_gradients = []
         for target_vec in targets:
             spo_grad_val = self.loss_grad_fn(pred, jnp.asarray(target_vec))
             if self.mask_grad and not full_feedback:
                 missing_weight = jnp.asarray(self.missing_grad_weight, dtype=spo_grad_val.dtype)
                 grad_weight = jnp.where(selection_mask, 1.0, missing_weight)
                 spo_grad_val = spo_grad_val * grad_weight
-            grad_h_total = grad_h_total + jnp.einsum("n,ni->i", spo_grad_val, theta)
+            if self.gradient_mode == 'posterior':
+                output_gradients.append(spo_grad_val)
+            else:
+                grad_h_total = grad_h_total + jnp.einsum("n,ni->i", spo_grad_val, theta)
 
+        if self.gradient_mode == 'posterior':
+            output_gradient = jnp.mean(jnp.stack(output_gradients), axis=0)
+            return posterior_gradient(h, *self._posterior_update, output_gradient)
         return grad_h_total / max(len(targets), 1)
 
     def _backprop_and_step(self, X, grad_h):
@@ -293,6 +307,8 @@ class BayesianSPOAgent(AgentBase):
 
         selection_mask = selection > 0.5
         obs_mask = jnp.ones(self.n_arms, dtype=jnp.bool_) if full_feedback else selection_mask
+        if self.gradient_mode == 'posterior':
+            self._posterior_update = self.A, self.b_bayes, self.A_inv, rewards, obs_mask
         self.A, self.b_bayes, self.A_inv = update_bayesian_stats(
             self.A, self.b_bayes, self.A_inv, h, rewards, obs_mask
         )

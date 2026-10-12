@@ -6,6 +6,9 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import yaml
+
+from experiments.rebuttal.structure.run import flip_collapse_constant
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -16,6 +19,8 @@ DEFAULT_OUTCOME_JSON = (
     REPO_ROOT / "results/paper/eval_online_10k/metrics/final_eval_regrets.json"
 )
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "results/rebuttal/pretraining_structure_validation"
+DEFAULT_CONTEXT_DIR = DEFAULT_OUTPUT_DIR / "per_seed"
+DEFAULT_CONFIG_PATH = REPO_ROOT / "experiments/configs/experiment.yaml"
 DATASET_ORDER = [
     "knapsack_32",
     "knapsack_100",
@@ -32,6 +37,7 @@ DATASET_LABELS = {
 }
 STRUCTURAL_METRICS = [
     "normalized_per_change_margin_median",
+    "normalized_stability_radius_median",
     "strict_gap_noise_snr_median",
     "global_invariant_predictable_variance_fraction",
     "variance_weighted_noncontest_fraction",
@@ -44,6 +50,78 @@ STRUCTURAL_METRICS = [
     "local_near_alternative_predictable_variance_fraction",
     "equivalent_optimal_action_rate",
 ]
+
+
+def add_stability_radii(
+    frame: pd.DataFrame,
+    context_dir: Path,
+    config: dict,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    from src.envs import create_env
+
+    required = {"dataset", "environment_seed"}
+    missing = sorted(required - set(frame.columns))
+    if missing:
+        raise ValueError("Structural summary is missing: " + ", ".join(missing))
+
+    updated = frame.copy()
+    radius_rows = []
+    for index, row in updated.iterrows():
+        dataset = str(row["dataset"])
+        seed = int(row["environment_seed"])
+        dataset_config = dict(config["datasets"][dataset])
+        for key in {
+            "env_type",
+            "n_rounds",
+            "eval_interval",
+            "log_interval",
+            "eval_metric",
+            "skip_tuning",
+            "tuning_year",
+        }:
+            dataset_config.pop(key, None)
+        env = create_env(dataset, seed=seed, **dataset_config)
+        if dataset.startswith("portfolio"):
+            kind = "portfolio"
+        elif dataset.startswith("shortest_path"):
+            kind = "shortest_path"
+        else:
+            kind = "knapsack"
+        max_support, constant = flip_collapse_constant(env, kind)
+        context_path = context_dir / f"{dataset}_seed_{seed}.csv"
+        contexts = pd.read_csv(context_path)
+        context_required = {
+            "first_strictly_positive_objective_gap",
+            "ranking_relevant_coefficient_rms",
+            "has_equivalent_optimal_action",
+        }
+        context_missing = sorted(context_required - set(contexts.columns))
+        if context_missing:
+            raise ValueError(
+                f"{context_path} is missing: " + ", ".join(context_missing)
+            )
+        gap = contexts["first_strictly_positive_objective_gap"].to_numpy(dtype=float)
+        scale = contexts["ranking_relevant_coefficient_rms"].to_numpy(dtype=float)
+        equivalent = contexts["has_equivalent_optimal_action"].to_numpy(dtype=bool)
+        if not bool(np.isfinite(gap).all() and np.isfinite(scale).all()):
+            raise ValueError(f"{context_path} contains non-finite radius inputs.")
+        if bool((scale <= 0.0).any()):
+            raise ValueError(f"{context_path} contains a nonpositive cost scale.")
+        radii = gap / (constant * scale)
+        radii[equivalent] = 0.0
+        median = float(np.median(radii))
+        updated.loc[index, "normalized_stability_radius_median"] = median
+        radius_rows.append(
+            {
+                "dataset": dataset,
+                "environment_seed": seed,
+                "n_design_contexts": int(len(contexts)),
+                "maximum_feasible_support": max_support,
+                "flip_collapse_constant": constant,
+                "normalized_stability_radius_median": median,
+            }
+        )
+    return updated, pd.DataFrame(radius_rows)
 
 
 def _validate_structure_summary(frame: pd.DataFrame) -> None:
@@ -169,6 +247,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--structure-summary", type=Path, default=DEFAULT_STRUCTURE_SUMMARY
     )
+    parser.add_argument("--context-dir", type=Path, default=DEFAULT_CONTEXT_DIR)
+    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG_PATH)
     parser.add_argument("--outcome-json", type=Path, default=DEFAULT_OUTCOME_JSON)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     return parser.parse_args()
@@ -177,17 +257,28 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     structure_path = args.structure_summary.resolve()
+    context_dir = args.context_dir.resolve()
+    config_path = args.config.resolve()
     outcome_path = args.outcome_json.resolve()
     output_dir = args.output_dir.resolve()
 
     structure_frame = pd.read_csv(structure_path)
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    structure_frame, radius_frame = add_stability_radii(
+        structure_frame,
+        context_dir,
+        config,
+    )
     outcome_payload = json.loads(outcome_path.read_text(encoding="utf-8"))
     scorecard = build_scorecard(structure_frame, outcome_payload)
 
     output_dir.mkdir(parents=True, exist_ok=True)
+    radius_path = output_dir / "stability_radius_per_seed.csv"
+    radius_frame.to_csv(radius_path, index=False)
     scorecard_path = output_dir / "dataset_scorecard.csv"
     scorecard.to_csv(scorecard_path, index=False)
     print(scorecard.to_string(index=False))
+    print(f"\nWrote {radius_path}")
     print(f"\nWrote {scorecard_path}")
 
 
