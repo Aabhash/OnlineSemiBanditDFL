@@ -79,11 +79,11 @@ PAPER_FONT = "Avenir Next"
 PAPER_BOLD_WEIGHT = "600"
 PAPER_EMPHASIS_FONT = "Avenir Next Demi Bold"
 
-DEFAULT_OUTPUT_DIR = REPO_ROOT / "paper_neurips_2026/figures/decision_nuisance_top2"
-DEFAULT_CACHE_DIR = REPO_ROOT / "results/ablations/decision_nuisance_top2/cache"
+DEFAULT_OUTPUT_DIR = REPO_ROOT / "results/paper/figures/decision_nuisance_top2"
+DEFAULT_CACHE_DIR = REPO_ROOT / "results/paper/ablations/decision_nuisance_top2/cache"
 DEFAULT_SUMMARY_PATH = (
     REPO_ROOT
-    / "results/ablations/decision_nuisance_top2/decision_nuisance_top2_summary.csv"
+    / "results/paper/ablations/decision_nuisance_top2/decision_nuisance_top2_summary.csv"
 )
 
 MODEL_ORDER = ["Oracle", "BayesianSPO", "BayesianMSE"]
@@ -280,13 +280,14 @@ def make_feature_frames(data):
         feedback_cat = pd.Categorical([feedback], categories=FEEDBACK_ORDER, ordered=True)[0]
         model_cat = pd.Categorical([model], categories=MODEL_ORDER, ordered=True)[0]
         acc = _decision_accuracy(h, labels)
+        coordinates = data.get("display_features", {}).get((feedback, model), h)
         for i, label in enumerate(labels):
             point_rows.append(
                 {
                     "feedback": feedback_cat,
                     "model": model_cat,
-                    "h1": float(h[i, 0]),
-                    "h2": float(h[i, 1]),
+                    "h1": float(coordinates[i, 0]),
+                    "h2": float(coordinates[i, 1]),
                     "decision": label,
                 }
             )
@@ -294,20 +295,21 @@ def make_feature_frames(data):
         for decision in ACTION_ORDER:
             mask = labels == decision
             if mask.sum() >= 3:
-                for row in _convex_hull_df(h[mask, 0], h[mask, 1], decision):
+                for row in _convex_hull_df(coordinates[mask, 0], coordinates[mask, 1], decision):
                     row["feedback"] = feedback_cat
                     row["model"] = model_cat
                     hull_rows.append(row)
 
-        h1_min, h1_max = float(h[:, 0].min()), float(h[:, 0].max())
-        h2_min, h2_max = float(h[:, 1].min()), float(h[:, 1].max())
+        h1_min, h1_max = float(coordinates[:, 0].min()), float(coordinates[:, 0].max())
+        h2_min, h2_max = float(coordinates[:, 1].min()), float(coordinates[:, 1].max())
+        annotation = data.get("feature_annotations", {}).get((feedback, model), f"Acc. {acc:.2f}")
         ann_rows.append(
             {
                 "feedback": feedback_cat,
                 "model": model_cat,
                 "h1": h1_min + 0.03 * (h1_max - h1_min),
-                "h2": h2_max - 0.04 * (h2_max - h2_min),
-                "text": f"Acc. {acc:.2f}",
+                "h2": h2_max - (0.13 if "\n" in annotation else 0.04) * (h2_max - h2_min),
+                "text": annotation,
             }
         )
         if model == "Oracle":
@@ -350,7 +352,7 @@ def make_capacity_frames(data):
         shares = feature_capacity_shares(W1)
         left = 0.0
         for share, dim in zip(shares, DIMENSION_LABELS):
-            right = left + float(share)
+            right = min(1.0, left + float(share))
             rect_rows.append(
                 {
                     "feedback": feedback_cat,
@@ -729,6 +731,12 @@ def build_combined_plot(data):
                     size=0.85,
                 )
             )
+        if model != "Oracle":
+            p = p + theme(
+                plot_title=element_blank(),
+                plot_margin=[0, None, None, None],
+                plot_inset=[0, None, None, None],
+            )
         return p
 
     def capacity_panel(feedback, model, show_xlabel=False):
@@ -992,7 +1000,7 @@ def build_combined_plot(data):
                 data=pd.DataFrame(
                     {
                         "x": [0.04],
-                        "y": [0.58],
+                        "y": [0.66],
                         "label": ["Action constraint"],
                     }
                 ),
@@ -1006,8 +1014,8 @@ def build_combined_plot(data):
                 data=pd.DataFrame(
                     {
                         "x": [0.04],
-                        "y": [0.47],
-                        "label": ["Pick one from {0,1}. Pick another from {2,3}."],
+                        "y": [0.52],
+                        "label": ["Pick two arms from {0, 1, 2, 3}"],
                     }
                 ),
                 mapping=aes("x", "y", label="label"),
@@ -1018,7 +1026,7 @@ def build_combined_plot(data):
             )
             + geom_text(
                 data=pd.DataFrame(
-                    {"x": [0.04], "y": [0.32], "label": ["Feature roles"]}
+                    {"x": [0.04], "y": [0.35], "label": ["Feature roles"]}
                 ),
                 mapping=aes("x", "y", label="label"),
                 color="#4b4b4b",
@@ -1097,11 +1105,11 @@ def build_combined_plot(data):
             )
         return (
             ggplot()
-            + geom_rect(
-                data=pd.DataFrame({"xmin": [0.0], "xmax": [1.0], "ymin": [0.36], "ymax": [0.64]}),
-                mapping=aes(xmin="xmin", xmax="xmax", ymin="ymin", ymax="ymax"),
-                fill=sep_color,
+            + geom_path(
+                data=pd.DataFrame({"x": [0.0, 1.0], "y": [0.95, 0.95]}),
+                mapping=aes("x", "y"),
                 color=sep_color,
+                size=0.6,
             )
             + scale_x_continuous(limits=[0.0, 1.0], breaks=[])
             + scale_y_continuous(limits=[0.0, 1.0], breaks=[])
@@ -1145,7 +1153,7 @@ def build_combined_plot(data):
                 blank(),
             ],
             ncol=1,
-            heights=[0.40, 0.08, 0.78, 0.20, 0.08],
+            heights=[0.30, 0.06, 0.78, 0.20, 0.08],
             align=True,
             vspace=0,
         )
@@ -1202,7 +1210,7 @@ def build_combined_plot(data):
                 partial_row,
             ],
             ncol=1,
-            heights=[0.14, 1.0, 0.055, 1.0],
+            heights=[0.14, 1.0, 0.01, 1.0],
             align=True,
             vspace=4,
         )

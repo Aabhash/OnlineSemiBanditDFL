@@ -160,6 +160,7 @@ def create_agent_pair(
     posterior_imputed_spo: bool = False,
     action_gap_imputation_samples: int = 1,
     action_gap_imputation_scale: float = 1.0,
+    gradient_mode: str = 'current',
     **_unused,
 ) -> tuple[BayesianSPOAgent, BayesianMSEAgent]:
     """Create matched BayesianSPO and BayesianMSE agents for this diagnostic."""
@@ -177,6 +178,7 @@ def create_agent_pair(
         nonlinear=False,
         seed=seed,
         solver=env.knapsack_solver.solve,
+        gradient_mode=gradient_mode,
     )
 
     spo = BayesianSPOAgent(

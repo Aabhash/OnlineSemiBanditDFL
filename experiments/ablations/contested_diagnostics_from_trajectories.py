@@ -575,7 +575,7 @@ def main() -> None:
     parser.add_argument("--feedback", default="semi_bandit")
     parser.add_argument(
         "--paper-output",
-        default="paper_neurips_2026/result_figures",
+        default="results/paper/figures/result_figures",
         help="Directory where compact appendix flip diagnostics are copied.",
     )
     parser.add_argument(

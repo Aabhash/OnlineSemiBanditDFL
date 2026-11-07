@@ -94,8 +94,27 @@ src/
   losses.py            # SPO+ and prediction losses
 experiments/
   ablations/           # Paper ablations
-results/paper/         # Canonical paper result artifacts
-paper_neurips_2026/    # Paper source and figures
+  rebuttal/            # Retained rebuttal experiments
+    nonlinear/         # Nonlinear extension
+results/paper/         # Submitted result archive, preserved unchanged
+```
+
+## PyEPO online extension
+
+The [PyEPO fork](https://github.com/Aabhash/PyEPO) is a separate repository. Its online extension provides full-feedback and semi-bandit comparisons. Start with `notebooks/11 Online Learning.ipynb`.
+
+## Citation
+
+If you use this code, please cite our paper:
+
+```bibtex
+@inproceedings{dhakal2026semibandit,
+  author = {Aabhash Dhakal and Tim Lachner and Jayanta Mandi and Marco Foschini and Christoph Michael Flath},
+  title = {Online Decision-Focused Learning under Semi-Bandit Feedback},
+  booktitle = {40th Annual Conference on Neural Information Processing Systems},
+  year = {2026},
+  url = {https://neurips.cc/virtual/2026/loc/sydney/poster/150539}
+}
 ```
 
 ## License

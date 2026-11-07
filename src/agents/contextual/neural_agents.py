@@ -52,8 +52,8 @@ class BayesianMSEAgent(AgentBase):
         ts_scale: float = 1.0,
         gradient_mode: str = 'current',
     ):
-        if gradient_mode not in ('current', 'posterior'):
-            raise ValueError("gradient_mode must be 'current' or 'posterior'")
+        if gradient_mode not in ('current', 'posterior', 'pre_prediction'):
+            raise ValueError("gradient_mode must be 'current', 'posterior', or 'pre_prediction'")
         self.gradient_mode = gradient_mode
         self.context_dim = context_dim
         self.n_arms = n_arms
@@ -208,7 +208,8 @@ class BayesianMSEAgent(AgentBase):
         return self.solver(np.asarray(values))
 
     def _compute_mse_grad_h(self, X, h, Y_target, selection_mask, full_feedback):
-        pred = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
+        pred = (self._pre_prediction if self.gradient_mode == 'pre_prediction'
+                else compute_bayesian_predictions(h, self.A_inv, self.b_bayes))
         mse_grad = 2 * (pred - Y_target) / self.n_arms
         if self.mask_grad and not full_feedback:
             missing_weight = jnp.asarray(self.missing_grad_weight, dtype=mse_grad.dtype)
@@ -249,6 +250,9 @@ class BayesianMSEAgent(AgentBase):
 
         selection_mask = selection > 0.5
         obs_mask = jnp.ones(self.n_arms, dtype=jnp.bool_) if full_feedback else selection_mask
+        if self.gradient_mode == 'pre_prediction':
+            # Use pre-observation loss values, but updated heads for backpropagation.
+            self._pre_prediction = compute_bayesian_predictions(h, self.A_inv, self.b_bayes)
         if self.gradient_mode == 'posterior':
             self._posterior_update = self.A, self.b_bayes, self.A_inv, rewards, obs_mask
         self.A, self.b_bayes, self.A_inv = update_bayesian_stats(

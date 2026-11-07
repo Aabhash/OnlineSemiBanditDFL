@@ -195,8 +195,8 @@ def run_evaluation(
     diagnostics_interval: int = 25,
     gradient_mode: Optional[str] = None,
 ):
-    if gradient_mode not in (None, 'current', 'posterior'):
-        raise ValueError("gradient_mode must be 'current' or 'posterior'")
+    if gradient_mode not in (None, 'current', 'posterior', 'pre_prediction'):
+        raise ValueError("gradient_mode must be 'current', 'posterior', or 'pre_prediction'")
     dataset_config = config['datasets'][dataset].copy()
     dataset_config.pop('env_type', None)
     dataset_config.pop('tuning_year', None)
@@ -1173,8 +1173,8 @@ Examples:
                         help='Feedback type to evaluate')
     parser.add_argument('--agents', type=str, default=None,
                         help='Comma-separated agent names to evaluate (default: all)')
-    parser.add_argument('--gradient-mode', choices=['current', 'posterior'], default=None,
-                        help='Override BayesianSPO/MSE gradients: frozen coefficients or differentiation through the current posterior update')
+    parser.add_argument('--gradient-mode', choices=['current', 'posterior', 'pre_prediction'], default=None,
+                        help='BayesianSPO/MSE: current freezes updated heads; posterior differentiates through their update; pre_prediction uses old predictions with updated frozen heads')
 
 
     parser.add_argument('--use-tuned-params', action='store_true',
@@ -1206,8 +1206,8 @@ Examples:
                         help='Disable wandb logging (overrides config)')
 
     args = parser.parse_args()
-    if args.gradient_mode == 'posterior' and not args.output_dir and not args.no_save:
-        parser.error('--gradient-mode posterior requires --output_dir to keep experimental results separate')
+    if args.gradient_mode in ('posterior', 'pre_prediction') and not args.output_dir and not args.no_save:
+        parser.error(f'--gradient-mode {args.gradient_mode} requires --output_dir to keep experimental results separate')
 
     config = load_config(args.config)
 

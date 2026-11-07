@@ -137,11 +137,18 @@ experimental/
 wandb/
 
 archive/
+/experiments/archive
 writing_outputs/
 *obsidian
+/Online DFL Obsidian/
 notebooks/
 /data/
 .aris/
 results/rebuttal/*
 /results/exploratory/
 /experiments/exploratory/
+.agents/*
+/.claude/
+/AGENTS.md
+/CODEX.md
+/results/paper/

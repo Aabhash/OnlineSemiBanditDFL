@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+from scipy import stats
 
 
 METHODS = (
@@ -64,6 +65,9 @@ def paired_comparison(spo_rows, baseline_rows, bootstrap_seed=2026):
     rng = np.random.default_rng(bootstrap_seed)
     indices = rng.integers(0, len(seeds), size=(100_000, len(seeds)))
     boot_relative = relative[indices].mean(axis=1)
+    statistic, p_value = stats.wilcoxon(
+        baseline_values, spo_values, alternative="greater"
+    )
     return {
         "n_pairs": len(seeds),
         "ratio_of_means_reduction_percent": float(
@@ -75,6 +79,8 @@ def paired_comparison(spo_rows, baseline_rows, bootstrap_seed=2026):
         ],
         "BayesianSPO_wins": int((difference > 0).sum()),
         "baseline_wins": int((difference < 0).sum()),
+        "wilcoxon_one_sided_statistic": float(statistic),
+        "wilcoxon_one_sided_p": float(p_value),
     }
 
 

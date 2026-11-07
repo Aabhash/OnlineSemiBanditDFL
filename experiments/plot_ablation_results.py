@@ -2,6 +2,8 @@
 """Render ablation figures from saved result files using LetsPlot."""
 
 import argparse
+import hashlib
+import json
 import os
 import pickle
 import re
@@ -109,7 +111,6 @@ AGENT_LABELS = {
     "BayesianMSE": "BayesianMSE",
     "WeberBLL-Online": "BLL",
     "LinUCB": "LinUCB",
-    "Random": "Random",
     "BayesianSPO-masked": "BayesianSPO\nmasked",
     "BayesianSPO-unmasked": "BayesianSPO\nunmasked",
     "BayesianMSE-masked": "BayesianMSE\nmasked",
@@ -135,7 +136,6 @@ AGENT_ORDER = [
     "BayesianMSE",
     "BLL",
     "LinUCB",
-    "Random",
     "BayesianSPO\nGreedy",
     "BayesianSPO\nUCB",
     "BayesianSPO\nTS",
@@ -160,7 +160,6 @@ AGENT_COLORS = {
     "BayesianMSE": PAPER_COLORS["BayesianMSE"],
     "BLL": PAPER_COLORS["BLL"],
     "LinUCB": PAPER_COLORS["LinUCB"],
-    "Random": OKABE_ITO["gray"],
     "BayesianSPO\nGreedy": OKABE_ITO["sky"],
     "BayesianSPO\nUCB": PAPER_COLORS["BayesianSPO"],
     "BayesianSPO\nTS": OKABE_ITO["green"],
@@ -185,7 +184,6 @@ AGENT_LINETYPES = {
     "BayesianMSE": "longdash",
     "BLL": "dotdash",
     "LinUCB": "dotted",
-    "Random": "twodash",
     "BayesianSPO\nGreedy": "dotdash",
     "BayesianSPO\nUCB": "solid",
     "BayesianSPO\nTS": "dashed",
@@ -842,10 +840,12 @@ def plot_ablation_design_summary(results_dir, output_dir, fmt="pdf"):
     dataset_names = _dataset_label_map()
     dataset_order = core_design_dataset_order(dataset_names, set(dataset_names.values()))
     rows = []
+    provenance = []
 
-    def append_final_method_rows(data, dataset, check, ablation_agent, baseline_agent):
+    def append_final_method_rows(data, dataset, check, ablation_agent, baseline_agent, source_path):
         paired_baseline = []
         paired_ablation = []
+        paired_records = []
         seeds = sorted(
             {
                 seed
@@ -866,6 +866,12 @@ def plot_ablation_design_summary(results_dir, output_dir, fmt="pdf"):
                 continue
             paired_baseline.append(baseline_regret)
             paired_ablation.append(ablation_regret)
+            paired_records.append({
+                "seed": int(seed), "baseline_regret": baseline_regret,
+                "ablation_regret": ablation_regret,
+                "baseline_rounds": data[baseline_key].get("n_rounds"),
+                "ablation_rounds": data[ablation_key].get("n_rounds"),
+            })
         if not paired_baseline:
             return
         rows.append(
@@ -874,8 +880,16 @@ def plot_ablation_design_summary(results_dir, output_dir, fmt="pdf"):
                 "check": check,
                 "baseline_regret": float(np.mean(paired_baseline)),
                 "ablation_regret": float(np.mean(paired_ablation)),
+                "ablation_sd": float(np.std(paired_ablation, ddof=1)) if len(paired_ablation) > 1 else None,
             }
         )
+        provenance.append({
+            **rows[-1], "baseline_sd": float(np.std(paired_baseline, ddof=1)) if len(paired_baseline) > 1 else None,
+            "baseline_agent": baseline_agent, "ablation_agent": ablation_agent,
+            "source": str(source_path),
+            "source_sha256": hashlib.sha256(Path(source_path).read_bytes()).hexdigest(),
+            "records": paired_records,
+        })
 
     architecture_dir = resolve_ablation_dir(results_dir, "architecture")
     for dataset_name, data_path in core_design_entries(architecture_dir):
@@ -889,6 +903,7 @@ def plot_ablation_design_summary(results_dir, output_dir, fmt="pdf"):
             "Non-Bayesian head SPO",
             "DeterministicSPO",
             "BayesianSPO",
+            data_path,
         )
 
     decoupling_dir = resolve_ablation_dir(results_dir, "decoupling")
@@ -898,11 +913,16 @@ def plot_ablation_design_summary(results_dir, output_dir, fmt="pdf"):
             continue
         dataset = dataset_names.get(dataset_name, dataset_name)
         append_final_method_rows(
+            data, dataset, "DecoupledSPO-Eps", "DecoupledSPO-Eps",
+            "DecoupledSPO-UCB", data_path,
+        )
+        append_final_method_rows(
             data,
             dataset,
             "Coupled head SPO (0.5x lr)",
             "CoupledSPO-Eps-x0.5",
             "DecoupledSPO-UCB",
+            data_path,
         )
         append_final_method_rows(
             data,
@@ -910,6 +930,7 @@ def plot_ablation_design_summary(results_dir, output_dir, fmt="pdf"):
             "Coupled head SPO (1x lr)",
             "CoupledSPO-Eps-x1",
             "DecoupledSPO-UCB",
+            data_path,
         )
         append_final_method_rows(
             data,
@@ -917,6 +938,7 @@ def plot_ablation_design_summary(results_dir, output_dir, fmt="pdf"):
             "Coupled head SPO (2x lr)",
             "CoupledSPO-Eps-x2",
             "DecoupledSPO-UCB",
+            data_path,
         )
 
     df = pd.DataFrame(rows)
@@ -929,6 +951,7 @@ def plot_ablation_design_summary(results_dir, output_dir, fmt="pdf"):
         "Coupled head SPO (0.5x lr)",
         "Coupled head SPO (1x lr)",
         "Coupled head SPO (2x lr)",
+        "DecoupledSPO-Eps",
     ]
     check_positions = {check: len(check_order) - idx for idx, check in enumerate(check_order)}
     present_datasets = [
@@ -1114,16 +1137,23 @@ def plot_ablation_design_summary(results_dir, output_dir, fmt="pdf"):
                 panel_grid_major_y=element_blank(),
                 panel_grid_minor_x=element_line(color="#f0f0f0", size=0.30),
                 panel_grid_minor_y=element_blank(),
-                panel_spacing_x=2.15,
+                panel_spacing_x=20,
                 panel_spacing_y=0.80,
                 plot_title=element_blank(),
                 plot_margin=[4, 10, 28, 10],
             )
-            + ggsize(980, 350)
+            + ggsize(980, 400)
         )
 
     linear_plot = make_design_plot(log_scale=False)
     save_plot(linear_plot, output_dir, "ablation_design_summary_linear", fmt, png_width=2200)
+    data_path = Path(output_dir) / "ablation_design_summary_linear_data.json"
+    data_path.write_text(json.dumps({
+        "metric": "Final cumulative realized regret",
+        "standard_deviation": "Sample SD across paired evaluation seeds (ddof=1)",
+        "display_units": "Knapsack and shortest path: thousands; Portfolio: unscaled",
+        "rows": provenance,
+    }, indent=2, allow_nan=False) + "\n")
 
 
 def _dataset_label_map():
@@ -1347,6 +1377,38 @@ def plot_imputation(results_dir, output_dir, fmt="pdf"):
             baseline_df["dataset"] = _categorical(baseline_df["dataset"], dataset_order)
             baseline_df["facet"] = _categorical(baseline_df["facet"], facet_order)
 
+        # Table 2 supplies the blue reference; paired ablation statistics retain w=0.
+        root = Path(__file__).resolve().parents[1]
+        table_source = root / "results/rebuttal/sp20_m_sweep/metrics/final_eval_regrets.json"
+        table_regrets = json.loads(table_source.read_text())
+        dataset_keys = {label: key for key, label in dataset_names.items()}
+        table_reference_df = baseline_df.copy()
+        reference_records = []
+        for idx, row in baseline_df.iterrows():
+            dataset_key = dataset_keys[str(row["dataset"])]
+            values = np.asarray(table_regrets[dataset_key]["BayesianSPO"], dtype=float)
+            if values.size != 10 or not np.isfinite(values).all():
+                raise ValueError(f"Table 2 reference requires ten finite regrets: {dataset_key}")
+            mean = float(values.mean())
+            table_reference_df.loc[idx, "regret"] = mean
+            table_reference_df.loc[idx, "regret_axis"] = mean if row["axis_unit"] == "raw" else mean / 1000.0
+            reference_records.append({
+                "dataset": dataset_key, "table2_mean": mean,
+                "table2_sample_sd": float(values.std(ddof=1)),
+                "ablation_full_mask_mean": float(row["regret"]),
+            })
+        (Path(output_dir) / "masked_imputation_dose_matched_reference.json").write_text(
+            json.dumps({
+                "metric": "Final cumulative realized regret at T=10000 over ten seeds",
+                "blue_reference_source": str(table_source.relative_to(root)),
+                "blue_reference_sha256": hashlib.sha256(table_source.read_bytes()).hexdigest(),
+                "paired_comparisons": "Original within-ablation w=0 runs; unchanged",
+                "positive_weight_results": "Original archived measurements; unchanged",
+                "additional_baseline_markers": False,
+                "rows": reference_records,
+            }, indent=2, allow_nan=False) + "\n"
+        )
+
         weight_order = sorted(set(matched_df["weight"].unique()).union({0.0}))
         weight_labels = {weight: f"w={weight:g}" for weight in weight_order}
         weight_positions = {weight: len(weight_order) - idx for idx, weight in enumerate(weight_order)}
@@ -1513,7 +1575,7 @@ def plot_imputation(results_dir, output_dir, fmt="pdf"):
                     "xmid": 0.63,
                     "y": 0.5,
                     "label_x": 0.68,
-                    "label": "Imputation Weight",
+                    "label": "Unobserved-arm weight",
                 },
             ]
         )
@@ -1687,7 +1749,7 @@ def plot_imputation(results_dir, output_dir, fmt="pdf"):
                 "weight": 0.0,
                 "regret": row.regret_axis,
             }
-            for row in baseline_df.itertuples(index=False)
+            for row in table_reference_df.itertuples(index=False)
         )
         swapped_point_df = pd.DataFrame(
             swapped_point_rows, columns=["facet", "kind", "weight", "regret"]
@@ -1705,7 +1767,7 @@ def plot_imputation(results_dir, output_dir, fmt="pdf"):
                 "y": row.regret_axis,
                 "yend": row.regret_axis,
             }
-            for row in baseline_df.itertuples(index=False)
+            for row in table_reference_df.itertuples(index=False)
             if np.isfinite(row.regret_axis)
         ]
         swapped_baseline_df = pd.DataFrame(
@@ -1959,7 +2021,7 @@ def plot_imputation(results_dir, output_dir, fmt="pdf"):
     save_plot(bar_plot, output_dir, "masked_imputation_effect_bar", fmt)
 
 
-def plot_context_variation(results_dir, output_dir, fmt="pdf"):
+def plot_context_variation(results_dir, output_dir, fmt="pdf", main_table_dir=None):
     ablation_dir = resolve_ablation_dir(results_dir, "context_variation")
     entries = list_result_entries(ablation_dir)
     if not entries:
@@ -1981,6 +2043,9 @@ def plot_context_variation(results_dir, output_dir, fmt="pdf"):
             continue
         dataset_label = dataset_names.get(dataset_name, dataset_name)
         scale = 1.0 if dataset_name == "portfolio_32" else 1000.0
+        if main_table_dir:
+            reference_path = Path(main_table_dir) / f"final_eval_regrets_{dataset_name}.json"
+            reference = json.loads(reference_path.read_text())[dataset_name]
         agents = [
             name
             for name in sorted(set(name for name, _, _ in data.keys()))
@@ -1991,12 +2056,15 @@ def plot_context_variation(results_dir, output_dir, fmt="pdf"):
         for name in agents:
             label = display_label(name)
             for noise_width in noise_widths:
+                main_table = main_table_dir is not None and noise_width == 0.25
                 vals = [
                     data[(name, noise_width, seed)]["final_regret"]
                     for seed in seeds
                     if (name, noise_width, seed) in data
                 ]
-                mean, std = _summary(vals)
+                if main_table:
+                    vals = reference[label]
+                mean, std = float(np.mean(vals)), float(np.std(vals, ddof=1))
                 rows.append(
                     {
                         "dataset": dataset_label,
@@ -2020,6 +2088,7 @@ def plot_context_variation(results_dir, output_dir, fmt="pdf"):
     df["dataset"] = _categorical(df["dataset"], dataset_order)
     df["agent_label"] = _categorical(df["agent_label"], labels)
     noise_widths = sorted(df["noise_width"].unique())
+    noise_labels = {width: f"{width:g}" for width in noise_widths}
 
     regret_plot = (
         ggplot(df, aes("noise_width", "mean", color="agent_label", linetype="agent_label"))
@@ -2029,8 +2098,8 @@ def plot_context_variation(results_dir, output_dir, fmt="pdf"):
         + facet_wrap("dataset", ncol=3, scales="free_y")
         + _color_scale(labels)
         + _linetype_scale(labels)
-        + scale_x_continuous(breaks=noise_widths)
-        + labs(title="Regret vs. context noise", x="Noise width", y="Final cumulative regret")
+        + scale_x_continuous(breaks=noise_widths, labels=[noise_labels[w] for w in noise_widths])
+        + labs(x="Noise width", y="Final cumulative regret")
         + _paper_theme()
         + theme(
             legend_text=element_text(family=PAPER_FONT, size=15.5, face="bold"),
@@ -2052,7 +2121,7 @@ def plot_context_variation(results_dir, output_dir, fmt="pdf"):
                 gap = float(mse.iloc[0] - spo.iloc[0])
                 gap_rows.append({
                     "dataset": dataset,
-                    "noise_width": str(noise_width),
+                    "noise_width": noise_labels[noise_width],
                     "gap": gap,
                     "advantage": "BayesianSPO" if gap >= 0 else "BayesianMSE",
                 })
@@ -2068,7 +2137,7 @@ def plot_context_variation(results_dir, output_dir, fmt="pdf"):
             "BayesianSPO": PAPER_COLORS["BayesianSPO"],
             "BayesianMSE": PAPER_COLORS["BayesianMSE"],
         })
-        + labs(title="BayesianSPO advantage", x="Noise width", y="MSE regret - SPO regret")
+        + labs(x="Noise width", y="MSE regret - SPO regret")
         + _paper_theme(legend_position="none")
         + theme(
             axis_title=element_text(size=16.5),
@@ -2122,7 +2191,8 @@ def _numeric_sweep_plot(data, dataset_name, prefix, x_label, title, stem, output
 
 
 def _numeric_sweep_summary_plot(entries, prefix, x_label, y_label, stem, output_dir, fmt,
-                                x_scale="linear", x_pad_left=0.04, x_pad_right=0.04):
+                                x_scale="linear", x_pad_left=0.04, x_pad_right=0.04,
+                                tuned_parameter=None, point_overrides=None):
     def format_tick(value):
         value = float(value)
         if abs(value) < 1.0:
@@ -2139,6 +2209,7 @@ def _numeric_sweep_summary_plot(entries, prefix, x_label, y_label, stem, output_
         for key in ["knapsack_32", "knapsack_100", "shortest_path_8x8", "shortest_path_20x20", "portfolio_32"]
     ]
     rows = []
+    tuned_rows = []
     x_breaks = set()
     for dataset_name, data_path in entries:
         data = load_pkl(data_path)
@@ -2155,6 +2226,13 @@ def _numeric_sweep_summary_plot(entries, prefix, x_label, y_label, stem, output_
         pairs = sorted(set(pairs))
         if not pairs:
             continue
+        if tuned_parameter:
+            tuning_path = Path(__file__).resolve().parents[1] / "results/paper/tuning" / f"best_hyperparams_{dataset_name}_semi_bandit.json"
+            params = json.loads(tuning_path.read_text())["BayesianSPO"]["params"]
+            tuned_rows.append({
+                "dataset": dataset_names[dataset_name],
+                "value": params[tuned_parameter],
+            })
 
         for value, name in pairs:
             seeds = sorted({seed for _, seed in data.keys()})
@@ -2164,6 +2242,8 @@ def _numeric_sweep_summary_plot(entries, prefix, x_label, y_label, stem, output_
                 if (name, seed) in data and np.isfinite(float(data[(name, seed)]["final_regret"]))
             ]
             regrets = np.asarray(regrets, dtype=float)
+            if point_overrides and (dataset_name, float(value)) in point_overrides:
+                regrets = np.asarray(point_overrides[(dataset_name, float(value))], dtype=float)
             if regrets.size == 0:
                 continue
             mean = float(regrets.mean())
@@ -2217,8 +2297,16 @@ def _numeric_sweep_summary_plot(entries, prefix, x_label, y_label, stem, output_
         pad_df["dataset"] = _categorical(pad_df["dataset"], present_dataset_order)
         pad_df = pad_df.sort_values(["dataset", "x_value"]).reset_index(drop=True)
 
+    plot = ggplot(df, aes("x_value", "mean"))
+    if tuned_parameter:
+        tuned_df = pd.DataFrame(tuned_rows)
+        tuned_df["dataset"] = _categorical(tuned_df["dataset"], present_dataset_order)
+        plot = plot + geom_vline(
+            data=tuned_df, mapping=aes(xintercept="value"),
+            inherit_aes=False, color="#555555", linetype="dashed", size=0.65,
+        )
     plot = (
-        ggplot(df, aes("x_value", "mean"))
+        plot
         + geom_blank(data=pad_df, mapping=aes("x_value", "mean"), inherit_aes=False)
         + geom_line(color=PAPER_COLORS["BayesianSPO"], size=0.95)
         + geom_errorbar(aes(ymin="ymin", ymax="ymax"), width=0.0, color="#666666", alpha=0.62, size=0.42)
@@ -2244,15 +2332,64 @@ def _numeric_sweep_summary_plot(entries, prefix, x_label, y_label, stem, output_
         plot = plot + scale_x_continuous(breaks=x_breaks, labels=x_labels, expand=[0.0, 0.0])
     plot = plot + scale_y_continuous(expand=[0.10, 0.0])
     save_plot(plot + ggsize(1120, 300), output_dir, stem, fmt, png_width=2400)
+    return df
 
 
-def plot_imputation_samples(results_dir, output_dir, fmt="pdf"):
+def plot_imputation_samples(results_dir, output_dir, fmt="pdf", main_table_dir=None):
     ablation_dir = resolve_ablation_dir(results_dir, "imputation_samples")
     entries = list_result_entries(ablation_dir)
     if not entries:
         print("  imputation_samples: no data found, skipping")
         return
-    _numeric_sweep_summary_plot(
+    if any(dataset == "shortest_path_20x20" for dataset, _ in entries):
+        sp20_path = Path("results/rebuttal/sp20_m_sweep/imputation_samples.pkl").resolve(strict=True)
+        entries = [
+            (dataset, sp20_path if dataset == "shortest_path_20x20" else path)
+            for dataset, path in entries
+        ]
+    point_overrides = {}
+    if any(dataset == "portfolio_32" for dataset, _ in entries):
+        # Use the main evaluation for the displayed M=1 point; preserve the raw sweep.
+        root = Path(__file__).resolve().parents[1]
+        metrics_dir = Path(main_table_dir) if main_table_dir else root / "results/paper/eval_online_10k/metrics"
+        source = (metrics_dir / "trajectories_portfolio_32.pkl").resolve(strict=True)
+        trajectories = load_pkl(source)
+        records = sorted(
+            (key[3], record) for key, record in trajectories.items()
+            if key[:3] == ("BayesianSPO", "portfolio_32", "semi_bandit")
+        )
+        if len(records) != 10 or any(len(record["cumulative_regret"]) != 10000 for _, record in records):
+            raise ValueError("Portfolio main-evaluation reference requires ten 10,000-round trajectories")
+        tuning_path = root / "results/paper/tuning/best_hyperparams_portfolio_32_semi_bandit.json"
+        params = json.loads(tuning_path.read_text())["BayesianSPO"]["params"]
+        if params["imputation_samples"] != 1 or any(
+            any(params[name] != value for name, value in record["hyperparameters"].items())
+            for _, record in records
+        ):
+            raise ValueError("Portfolio reference trajectories do not match the tuned M=1 settings")
+        regrets = np.asarray([record["cumulative_regret"][-1] for _, record in records], dtype=float)
+        mean = float(regrets.mean())
+        sd = float(regrets.std(ddof=1))
+        half_width = 1.96 * sd / np.sqrt(len(regrets))
+        point_overrides[("portfolio_32", 1.0)] = regrets
+        provenance = {
+            "source": str(source.relative_to(root)) if source.is_relative_to(root) else str(source),
+            "role": "Canonical main-evaluation point replaces the archived Portfolio M=1 point in the figure",
+            "sweep_source": str(next(path for dataset, path in entries if dataset == "portfolio_32")),
+            "sweep_usage": "M>1 points only; the raw M=1 record is preserved but not plotted",
+            "metric": "Final cumulative realized regret at T=10000, unscaled",
+            "seeds": [seed for seed, _ in records],
+            "final_regrets": regrets.tolist(), "mean": mean, "sample_sd": sd,
+            "ci95_normal": [mean - half_width, mean + half_width],
+            "hyperparameters_by_seed": {str(seed): record["hyperparameters"] for seed, record in records},
+            "completion_count_source": str(tuning_path.relative_to(root)),
+            "imputation_samples": params["imputation_samples"],
+        }
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
+        (Path(output_dir) / "imputation_samples_summary_reference.json").write_text(
+            json.dumps(provenance, indent=2) + "\n"
+        )
+    return _numeric_sweep_summary_plot(
         entries,
         prefix="M",
         x_label="Posterior completions M",
@@ -2263,6 +2400,7 @@ def plot_imputation_samples(results_dir, output_dir, fmt="pdf"):
         x_scale="linear",
         x_pad_left=0.05,
         x_pad_right=0.10,
+        point_overrides=point_overrides,
     )
 
 def plot_beta_sensitivity(results_dir, output_dir, fmt="pdf"):
@@ -2282,6 +2420,7 @@ def plot_beta_sensitivity(results_dir, output_dir, fmt="pdf"):
         x_scale="log10",
         x_pad_left=0.035,
         x_pad_right=0.10,
+        tuned_parameter="beta",
     )
 
 
@@ -2300,6 +2439,7 @@ def plot_lambda_reg_sweep(results_dir, output_dir, fmt="pdf"):
         output_dir=output_dir,
         fmt=fmt,
         x_scale="log10",
+        tuned_parameter="lambda_reg",
         x_pad_left=0.12,
         x_pad_right=0.12,
     )
@@ -2333,6 +2473,11 @@ def main():
     parser.add_argument("--output", type=str, default=OUTPUT_DIR)
     parser.add_argument("--format", type=str, default="pdf", choices=["pdf", "png", "svg"])
     parser.add_argument(
+        "--main-table-dir",
+        type=Path,
+        help="Main evaluation metrics directory for context-variation and completion-count references",
+    )
+    parser.add_argument(
         "--ablations",
         type=str,
         default=None,
@@ -2353,7 +2498,11 @@ def main():
     print()
 
     for name in ablations:
-        if name in PLOT_FUNCTIONS:
+        if name == "context_variation":
+            plot_context_variation(args.results_dir, args.output, args.format, args.main_table_dir)
+        elif name == "imputation_samples":
+            plot_imputation_samples(args.results_dir, args.output, args.format, args.main_table_dir)
+        elif name in PLOT_FUNCTIONS:
             PLOT_FUNCTIONS[name](args.results_dir, args.output, args.format)
         else:
             print(f"  Unknown ablation: {name}")

@@ -139,8 +139,6 @@ def load_trajectories(path: str, override_paths: list[str] | None = None) -> dic
         raw = pickle.load(f)
 
     for override_path in override_paths or []:
-        if not os.path.exists(override_path):
-            continue
         with open(override_path, "rb") as f:
             override = pickle.load(f)
         raw.update(override)
@@ -150,7 +148,7 @@ def load_trajectories(path: str, override_paths: list[str] | None = None) -> dic
 
 
 def calibrate_to_final_regrets(raw: dict, canonical_path: str | None) -> dict:
-    if not canonical_path or not os.path.exists(canonical_path):
+    if not canonical_path:
         return raw
 
     with open(canonical_path) as f:
@@ -203,7 +201,7 @@ def calibrate_to_final_regrets(raw: dict, canonical_path: str | None) -> dict:
 
 
 def calibrate_wall_times(raw: dict, canonical_path: str | None) -> dict:
-    if not canonical_path or not os.path.exists(canonical_path):
+    if not canonical_path:
         return raw
 
     summary = pd.read_csv(canonical_path)
@@ -602,28 +600,30 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--trajectories",
-        default="results/FINAL/eval_online_10k/metrics/trajectories.pkl",
+        default="results/paper/eval_online_10k/metrics/trajectories.pkl",
         help="Pickled final evaluation trajectories.",
     )
     parser.add_argument(
         "--output",
-        default="paper_neurips_2026/figures/results",
+        default="results/paper/figures/result_figures",
         help="Directory for generated PDF figures.",
     )
     parser.add_argument(
         "--trajectory-overrides",
         nargs="*",
-        default=[],
+        default=[
+            "results/rebuttal/sp20_m_sweep/metrics/trajectory_overrides_sp20.pkl",
+        ],
         help="Optional trajectory pickle(s) whose entries override the main pickle.",
     )
     parser.add_argument(
         "--canonical-regrets",
-        default="results/FINAL/eval_online_10k/metrics/final_eval_regrets.json",
+        default="results/rebuttal/sp20_m_sweep/metrics/final_eval_regrets.json",
         help="Final regret JSON used to align trajectory endpoints with the table.",
     )
     parser.add_argument(
         "--canonical-times",
-        default="results/FINAL/eval_online_10k/metrics/final_eval_summary.csv",
+        default="results/rebuttal/sp20_m_sweep/metrics/final_eval_summary.csv",
         help="Final summary CSV used to align wall-clock means with the table.",
     )
     args = parser.parse_args()
