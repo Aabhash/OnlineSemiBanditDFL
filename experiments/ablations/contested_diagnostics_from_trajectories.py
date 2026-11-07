@@ -46,8 +46,8 @@ from lets_plot.export import ggsave
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_TRAJECTORIES = REPO_ROOT / "results/FINAL/eval_online_10k/metrics/trajectories.pkl"
-DEFAULT_OUTPUT_DIR = REPO_ROOT / "results/ablations/contested_diagnostics_from_trajectories"
+DEFAULT_TRAJECTORIES = REPO_ROOT / "results/paper/eval_online_10k/metrics/trajectories.pkl"
+DEFAULT_OUTPUT_DIR = REPO_ROOT / "results/paper/ablations/contested_diagnostics_from_trajectories"
 
 MPL_CACHE = Path("/tmp/constrained_bandits_contested_diag_mpl_cache")
 XDG_CACHE = Path("/tmp/constrained_bandits_contested_diag_xdg_cache")

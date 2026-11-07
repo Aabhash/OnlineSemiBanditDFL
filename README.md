@@ -29,15 +29,19 @@ bash tune_online.sh
 # Run final online evaluations
 bash run_online.sh
 
-# Generate main paper figures from saved results
-bash run.sh
-
 # Run ablations
 bash run_ablations.sh
 ```
 
-Final paper artifacts are consolidated under `results/paper/`. Paper figures are
-written to `paper_neurips_2026/result_figures/`.
+`bash run.sh` runs the online evaluations and generates their figures.
+
+## Saved Paper Results
+
+Saved metrics, trajectories, tuning outputs, ablations, and figures live on the
+[`paper_results` branch](https://github.com/Aabhash/ConstrainedBanditsDFL/tree/paper_results),
+under `results/paper/`. The main branch contains the code.
+
+Figures are written to `results/paper/figures/result_figures/`.
 
 ## Common Commands
 
@@ -50,13 +54,6 @@ uv run python experiments/tune_hyperparams.py \
 uv run python experiments/evaluate_online.py \
   --datasets knapsack_32 --feedback semi_bandit --full \
   --output_dir results/eval_online
-
-# Re-plot core results without rerunning experiments
-uv run python experiments/plot_paper_core_results.py \
-  --trajectories results/eval_online_10k/metrics/trajectories.pkl \
-  --canonical-regrets results/eval_online_10k/metrics/final_eval_regrets.json \
-  --canonical-times results/eval_online_10k/metrics/final_eval_summary.csv \
-  --output paper_neurips_2026/result_figures
 ```
 
 ## Benchmarks
@@ -83,6 +80,7 @@ uv run python experiments/plot_paper_core_results.py \
 | `experiments/plot_paper_core_results.py` | Main-result figures |
 | `experiments/plot_ablation_results.py` | Ablation figures |
 | `experiments/ablations/*.py` | Core design and sensitivity ablations |
+| `experiments/rebuttal/nonlinear/` | Camera-ready nonlinear extension for SPO, MSE and BLL |
 
 ## Structure
 
@@ -96,7 +94,6 @@ experiments/
   ablations/           # Paper ablations
   rebuttal/            # Retained rebuttal experiments
     nonlinear/         # Nonlinear extension
-results/paper/         # Submitted result archive, preserved unchanged
 ```
 
 ## PyEPO online extension
