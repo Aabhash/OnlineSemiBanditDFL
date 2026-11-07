@@ -1,0 +1,30 @@
+{
+  "valid": true,
+  "checked_utc": "2026-10-26T16:25:02.859866+00:00",
+  "active_constraint": "unrestricted_exact_two_of_four",
+  "figure5_canvas": [
+    1215,
+    760
+  ],
+  "figure5_accuracy_annotations": 5,
+  "figure5_summary_matches_original": true,
+  "table3_rows_match_original": true,
+  "no_training_rerun": true,
+  "all_six_pairs_permitted": true,
+  "both_agents_receive_unrestricted_solver": true,
+  "withdrawn_archive": "archive/20261026_one_per_pair_diagnostic_withdrawn",
+  "main_text_pages": 10,
+  "pdf_pages": 68,
+  "latexmk_exit_code": 0,
+  "undefined_references": false,
+  "figure5_pdf_page": 10,
+  "table3_pdf_page": 38,
+  "sha256": {
+    "paper_neurips_2026/main_camera_ready.tex": "1594b8f0a3dd86c8984185d416353295a4bfdc194332e287ef0b9062d642dab7",
+    "paper_neurips_2026/main_camera_ready.pdf": "3200071fb96707787a3b18c983e187f37d7c412af584c3bee88a76d54cd64170",
+    "paper_neurips_2026/figures/decision_nuisance_top2/decision_nuisance_top2_combined.pdf": "0118dd25fccf1dbe87ad75e74fc1bfe3b2866d21761096c5a3fd78fff6ce1e4b",
+    "paper_neurips_2026/figures/decision_nuisance_top2/decision_nuisance_top2_combined.svg": "ece213f468eff5222d54a721e9c89f5f235c202cb8a83a33855246f6b9f9cc07",
+    "results/paper/ablations/decision_nuisance_top2/cache/decision_nuisance_top2_m8_r10000_seed0.npz": "17c700b593ed26fdf250eb1ce7b9ed6d416955d18967cfa27cd384ed6d77e87c",
+    "results/exploratory/quadrant_capacity_20261021/summary.json": "feb3ebfccacfcc4770fcc4a942a78844378a7c23b14ac27a072d8a13672847a1"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "agent_name": "BayesianPFY",
+  "dataset": "knapsack_100",
+  "feedback_type": "semi_bandit",
+  "best_params": {
+    "init_lr": 0.003,
+    "beta": 3.295110211468679,
+    "hidden_dim": 8,
+    "lambda_reg": 0.025379253489976286,
+    "imputation_samples": 4
+  },
+  "mean_validation_regret": 14927.31877366971,
+  "std_validation_regret": 0.0,
+  "mean_train_regret": 14927.31877366971,
+  "std_train_regret": 0.0,
+  "mean_holdout_regret": null,
+  "std_holdout_regret": null,
+  "total_wall_time_seconds": 5019.931617368013,
+  "total_gpu_time_seconds": null,
+  "n_trials": 150,
+  "validation_ci_lower": null,
+  "validation_ci_upper": null
+}

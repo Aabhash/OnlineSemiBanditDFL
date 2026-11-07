@@ -1,0 +1,101 @@
+{
+  "source": "results/paper/eval_online_10k/metrics/trajectories_portfolio_32.pkl",
+  "role": "Canonical main-evaluation point replaces the archived Portfolio M=1 point in the figure",
+  "sweep_source": "results/paper/ablations/imputation_samples/portfolio_32/results.pkl",
+  "sweep_usage": "M>1 points only; the raw M=1 record is preserved but not plotted",
+  "metric": "Final cumulative realized regret at T=10000, unscaled",
+  "seeds": [
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109
+  ],
+  "final_regrets": [
+    69.643888092872,
+    70.19341182156941,
+    68.70933406445417,
+    75.28413155323116,
+    69.23652443643489,
+    63.485768173520356,
+    65.00657476185503,
+    69.73962120609195,
+    70.17168525199783,
+    64.82931309179895
+  ],
+  "mean": 68.63002524538258,
+  "sample_sd": 3.4281427308578034,
+  "ci95_normal": [
+    66.50524036734518,
+    70.75481012341999
+  ],
+  "hyperparameters_by_seed": {
+    "100": {
+      "init_lr": 0.003,
+      "beta": 0.16550975250188352,
+      "hidden_dim": 32,
+      "lambda_reg": 0.010930987468173704
+    },
+    "101": {
+      "init_lr": 0.003,
+      "beta": 0.16550975250188352,
+      "hidden_dim": 32,
+      "lambda_reg": 0.010930987468173704
+    },
+    "102": {
+      "init_lr": 0.003,
+      "beta": 0.16550975250188352,
+      "hidden_dim": 32,
+      "lambda_reg": 0.010930987468173704
+    },
+    "103": {
+      "init_lr": 0.003,
+      "beta": 0.16550975250188352,
+      "hidden_dim": 32,
+      "lambda_reg": 0.010930987468173704
+    },
+    "104": {
+      "init_lr": 0.003,
+      "beta": 0.16550975250188352,
+      "hidden_dim": 32,
+      "lambda_reg": 0.010930987468173704
+    },
+    "105": {
+      "init_lr": 0.003,
+      "beta": 0.16550975250188352,
+      "hidden_dim": 32,
+      "lambda_reg": 0.010930987468173704
+    },
+    "106": {
+      "init_lr": 0.003,
+      "beta": 0.16550975250188352,
+      "hidden_dim": 32,
+      "lambda_reg": 0.010930987468173704
+    },
+    "107": {
+      "init_lr": 0.003,
+      "beta": 0.16550975250188352,
+      "hidden_dim": 32,
+      "lambda_reg": 0.010930987468173704
+    },
+    "108": {
+      "init_lr": 0.003,
+      "beta": 0.16550975250188352,
+      "hidden_dim": 32,
+      "lambda_reg": 0.010930987468173704
+    },
+    "109": {
+      "init_lr": 0.003,
+      "beta": 0.16550975250188352,
+      "hidden_dim": 32,
+      "lambda_reg": 0.010930987468173704
+    }
+  },
+  "completion_count_source": "results/paper/tuning/best_hyperparams_portfolio_32_semi_bandit.json",
+  "imputation_samples": 1
+}

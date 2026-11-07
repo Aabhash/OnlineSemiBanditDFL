@@ -1,0 +1,25 @@
+{
+  "M": 1,
+  "seed": 102,
+  "rounds": 10000,
+  "params": {
+    "init_lr": 0.003,
+    "beta": 0.12724288303620818,
+    "hidden_dim": 8,
+    "lambda_reg": 0.09004682388013154,
+    "imputation_samples": 1,
+    "imputation_scale": 1.0,
+    "use_posterior_predictive": false,
+    "noise_var": 1.0,
+    "max_grad_norm": 5.0,
+    "nonlinear": false,
+    "gradient_mode": "current",
+    "missing_grad_weight": 0.0,
+    "exploration_strategy": "ucb"
+  },
+  "final_regret": 26008.167214442714,
+  "final_pseudo_regret": 23967.568476584438,
+  "seconds": 32.91877820761874,
+  "table2_regret": 29768.35731106656,
+  "difference_from_table2": -3760.1900966238463
+}

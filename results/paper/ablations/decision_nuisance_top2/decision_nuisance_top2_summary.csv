@@ -1,0 +1,7 @@
+feedback,model,accuracy,decision_share,nuisance_share
+Full feedback,Oracle,0.98,1.00,0.00
+Full feedback,BayesianSPO,0.98,0.99,0.01
+Full feedback,BayesianMSE,0.60,0.58,0.42
+Partial feedback,Oracle,0.98,1.00,0.00
+Partial feedback,BayesianSPO,0.60,0.56,0.44
+Partial feedback,BayesianMSE,0.50,0.36,0.64

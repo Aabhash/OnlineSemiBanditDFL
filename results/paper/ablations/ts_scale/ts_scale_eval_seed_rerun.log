@@ -1,0 +1,576 @@
+
+=== TS-scale sweep ===
+Datasets: ['knapsack_100', 'shortest_path_20x20', 'portfolio_32']
+n_rounds=10000, n_seeds=10
+Seeds: [100, 101, 102, 103, 104, 105, 106, 107, 108, 109]
+Strategy: TS
+Default scale multipliers of tuned beta: [0.125, 0.25, 0.5, 1.0, 2.0]
+Use tuned params: True (tuning_dir=results/FINAL/tuning)
+
+--- knapsack_100 ---
+  scale multipliers: [0.125, 0.25, 0.5, 1.0, 2.0]
+  BayesianSPO beta=3.881003914520923; actual ts_scales=[0.485125, 0.970251, 1.940502, 3.881004, 7.762008]
+  BayesianMSE beta=4.7951612555128325; actual ts_scales=[0.599395, 1.19879, 2.397581, 4.795161, 9.590323]
+  Seed 1/10 (seed=100):
+    BayesianSPO-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=67737
+    BayesianMSE-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=73161
+    BayesianSPO-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=67727
+    BayesianMSE-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=75446
+    BayesianSPO-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=64046
+    BayesianMSE-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=70009
+    BayesianSPO-TS-x1... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=75223
+    BayesianMSE-TS-x1... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=82939
+    BayesianSPO-TS-x2... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=100993
+    BayesianMSE-TS-x2... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=120482
+  Seed 2/10 (seed=101):
+    BayesianSPO-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=53846
+    BayesianMSE-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=53052
+    BayesianSPO-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=45937
+    BayesianMSE-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=53417
+    BayesianSPO-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=48802
+    BayesianMSE-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=59939
+    BayesianSPO-TS-x1... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=57706
+    BayesianMSE-TS-x1... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=71839
+    BayesianSPO-TS-x2... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=89253
+    BayesianMSE-TS-x2... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=111019
+  Seed 3/10 (seed=102):
+    BayesianSPO-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=88931
+    BayesianMSE-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=70037
+    BayesianSPO-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=59103
+    BayesianMSE-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=60456
+    BayesianSPO-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=56491
+    BayesianMSE-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=62001
+    BayesianSPO-TS-x1... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=65300
+    BayesianMSE-TS-x1... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=75106
+    BayesianSPO-TS-x2... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=95185
+    BayesianMSE-TS-x2... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=112513
+  Seed 4/10 (seed=103):
+    BayesianSPO-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=60070
+    BayesianMSE-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=58804
+    BayesianSPO-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=52381
+    BayesianMSE-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=61353
+    BayesianSPO-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=59116
+    BayesianMSE-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=63932
+    BayesianSPO-TS-x1... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=67014
+    BayesianMSE-TS-x1... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=76764
+    BayesianSPO-TS-x2... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=92973
+    BayesianMSE-TS-x2... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=115270
+  Seed 5/10 (seed=104):
+    BayesianSPO-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=67169
+    BayesianMSE-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=57676
+    BayesianSPO-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=59394
+    BayesianMSE-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=58189
+    BayesianSPO-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=53091
+    BayesianMSE-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=62131
+    BayesianSPO-TS-x1... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=64729
+    BayesianMSE-TS-x1... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=76354
+    BayesianSPO-TS-x2... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=93517
+    BayesianMSE-TS-x2... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=111359
+  Seed 6/10 (seed=105):
+    BayesianSPO-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=64659
+    BayesianMSE-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=70243
+    BayesianSPO-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=56522
+    BayesianMSE-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=65587
+    BayesianSPO-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=62814
+    BayesianMSE-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=64786
+    BayesianSPO-TS-x1... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=67907
+    BayesianMSE-TS-x1... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=79202
+    BayesianSPO-TS-x2... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=98767
+    BayesianMSE-TS-x2... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=119082
+  Seed 7/10 (seed=106):
+    BayesianSPO-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=62450
+    BayesianMSE-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=69162
+    BayesianSPO-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=62159
+    BayesianMSE-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=57405
+    BayesianSPO-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=56075
+    BayesianMSE-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=61184
+    BayesianSPO-TS-x1... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=66486
+    BayesianMSE-TS-x1... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=76307
+    BayesianSPO-TS-x2... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=93259
+    BayesianMSE-TS-x2... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=112002
+  Seed 8/10 (seed=107):
+    BayesianSPO-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=61222
+    BayesianMSE-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=66451
+    BayesianSPO-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=56640
+    BayesianMSE-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=64175
+    BayesianSPO-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=59249
+    BayesianMSE-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=68214
+    BayesianSPO-TS-x1... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=70386
+    BayesianMSE-TS-x1... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=82695
+    BayesianSPO-TS-x2... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=102673
+    BayesianMSE-TS-x2... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=118162
+  Seed 9/10 (seed=108):
+    BayesianSPO-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=62398
+    BayesianMSE-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=57835
+    BayesianSPO-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=52148
+    BayesianMSE-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=58954
+    BayesianSPO-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=52700
+    BayesianMSE-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=63618
+    BayesianSPO-TS-x1... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=64527
+    BayesianMSE-TS-x1... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=76268
+    BayesianSPO-TS-x2... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=93207
+    BayesianMSE-TS-x2... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=115221
+  Seed 10/10 (seed=109):
+    BayesianSPO-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=71090
+    BayesianMSE-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=65008
+    BayesianSPO-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=57950
+    BayesianMSE-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=60110
+    BayesianSPO-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=61871
+    BayesianMSE-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=64903
+    BayesianSPO-TS-x1... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=66688
+    BayesianMSE-TS-x1... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=74655
+    BayesianSPO-TS-x2... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=95058
+    BayesianMSE-TS-x2... Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+regret=112333
+Results saved to results/FINAL/ablations/ts_scale/knapsack_100/results.pkl
+
+--- shortest_path_20x20 ---
+  scale multipliers: [0.125, 0.25, 0.5, 1.0, 2.0]
+  BayesianSPO beta=0.12724288303620818; actual ts_scales=[0.015905, 0.031811, 0.063621, 0.127243, 0.254486]
+  BayesianMSE beta=0.20877326415674752; actual ts_scales=[0.026097, 0.052193, 0.104387, 0.208773, 0.417547]
+  Seed 1/10 (seed=100):
+    BayesianSPO-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=19354
+    BayesianMSE-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=21549
+    BayesianSPO-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=20867
+    BayesianMSE-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=22810
+    BayesianSPO-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=20211
+    BayesianMSE-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=22823
+    BayesianSPO-TS-x1... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=23031
+    BayesianMSE-TS-x1... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=23898
+    BayesianSPO-TS-x2... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=20484
+    BayesianMSE-TS-x2... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=23414
+  Seed 2/10 (seed=101):
+    BayesianSPO-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=22956
+    BayesianMSE-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=26795
+    BayesianSPO-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=21830
+    BayesianMSE-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=26171
+    BayesianSPO-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=19989
+    BayesianMSE-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=23447
+    BayesianSPO-TS-x1... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=22204
+    BayesianMSE-TS-x1... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=26599
+    BayesianSPO-TS-x2... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=23104
+    BayesianMSE-TS-x2... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=26089
+  Seed 3/10 (seed=102):
+    BayesianSPO-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=24310
+    BayesianMSE-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=29212
+    BayesianSPO-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=30619
+    BayesianMSE-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=28013
+    BayesianSPO-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=26453
+    BayesianMSE-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=33125
+    BayesianSPO-TS-x1... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=27848
+    BayesianMSE-TS-x1... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=24935
+    BayesianSPO-TS-x2... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=27691
+    BayesianMSE-TS-x2... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=28041
+  Seed 4/10 (seed=103):
+    BayesianSPO-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=23797
+    BayesianMSE-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=27245
+    BayesianSPO-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=26514
+    BayesianMSE-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=22382
+    BayesianSPO-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=21478
+    BayesianMSE-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=26449
+    BayesianSPO-TS-x1... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=22853
+    BayesianMSE-TS-x1... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=23343
+    BayesianSPO-TS-x2... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=22777
+    BayesianMSE-TS-x2... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=22596
+  Seed 5/10 (seed=104):
+    BayesianSPO-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=22164
+    BayesianMSE-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=24198
+    BayesianSPO-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=22540
+    BayesianMSE-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=26813
+    BayesianSPO-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=21785
+    BayesianMSE-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=24141
+    BayesianSPO-TS-x1... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=21302
+    BayesianMSE-TS-x1... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=26212
+    BayesianSPO-TS-x2... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=22776
+    BayesianMSE-TS-x2... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=28073
+  Seed 6/10 (seed=105):
+    BayesianSPO-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=19901
+    BayesianMSE-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=21566
+    BayesianSPO-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=19315
+    BayesianMSE-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=24025
+    BayesianSPO-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=18915
+    BayesianMSE-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=22814
+    BayesianSPO-TS-x1... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=19864
+    BayesianMSE-TS-x1... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=23823
+    BayesianSPO-TS-x2... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=21116
+    BayesianMSE-TS-x2... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=22342
+  Seed 7/10 (seed=106):
+    BayesianSPO-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=24611
+    BayesianMSE-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=27120
+    BayesianSPO-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=24596
+    BayesianMSE-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=24405
+    BayesianSPO-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=23685
+    BayesianMSE-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=23125
+    BayesianSPO-TS-x1... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=23906
+    BayesianMSE-TS-x1... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=29362
+    BayesianSPO-TS-x2... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=23197
+    BayesianMSE-TS-x2... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=25407
+  Seed 8/10 (seed=107):
+    BayesianSPO-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=21167
+    BayesianMSE-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=28420
+    BayesianSPO-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=22793
+    BayesianMSE-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=26465
+    BayesianSPO-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=22643
+    BayesianMSE-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=27283
+    BayesianSPO-TS-x1... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=21055
+    BayesianMSE-TS-x1... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=31161
+    BayesianSPO-TS-x2... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=23479
+    BayesianMSE-TS-x2... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=27248
+  Seed 9/10 (seed=108):
+    BayesianSPO-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=21206
+    BayesianMSE-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=23414
+    BayesianSPO-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=20424
+    BayesianMSE-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=27618
+    BayesianSPO-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=21202
+    BayesianMSE-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=22326
+    BayesianSPO-TS-x1... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=20157
+    BayesianMSE-TS-x1... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=23117
+    BayesianSPO-TS-x2... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=21830
+    BayesianMSE-TS-x2... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=25010
+  Seed 10/10 (seed=109):
+    BayesianSPO-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=23809
+    BayesianMSE-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=25826
+    BayesianSPO-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=23490
+    BayesianMSE-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=27850
+    BayesianSPO-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=21949
+    BayesianMSE-TS-x0.5... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=26584
+    BayesianSPO-TS-x1... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=24635
+    BayesianMSE-TS-x1... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=27238
+    BayesianSPO-TS-x2... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=23149
+    BayesianMSE-TS-x2... Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+regret=24726
+Results saved to results/FINAL/ablations/ts_scale/shortest_path_20x20/results.pkl
+
+--- portfolio_32 ---
+  scale multipliers: [0.0625, 0.125, 0.25]
+  BayesianSPO beta=0.16550975250188352; actual ts_scales=[0.010344, 0.020689, 0.041377]
+  BayesianMSE beta=0.3336713957503156; actual ts_scales=[0.020854, 0.041709, 0.083418]
+  Seed 1/10 (seed=100):
+    BayesianSPO-TS-x0.0625... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=138
+    BayesianMSE-TS-x0.0625... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=180
+    BayesianSPO-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=128
+    BayesianMSE-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=175
+    BayesianSPO-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=121
+    BayesianMSE-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=214
+  Seed 2/10 (seed=101):
+    BayesianSPO-TS-x0.0625... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=160
+    BayesianMSE-TS-x0.0625... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=193
+    BayesianSPO-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=130
+    BayesianMSE-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=164
+    BayesianSPO-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=111
+    BayesianMSE-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=218
+  Seed 3/10 (seed=102):
+    BayesianSPO-TS-x0.0625... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=198
+    BayesianMSE-TS-x0.0625... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=170
+    BayesianSPO-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=106
+    BayesianMSE-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=132
+    BayesianSPO-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=114
+    BayesianMSE-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=209
+  Seed 4/10 (seed=103):
+    BayesianSPO-TS-x0.0625... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=157
+    BayesianMSE-TS-x0.0625... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=166
+    BayesianSPO-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=163
+    BayesianMSE-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=171
+    BayesianSPO-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=115
+    BayesianMSE-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=216
+  Seed 5/10 (seed=104):
+    BayesianSPO-TS-x0.0625... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=146
+    BayesianMSE-TS-x0.0625... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=185
+    BayesianSPO-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=107
+    BayesianMSE-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=150
+    BayesianSPO-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=115
+    BayesianMSE-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=216
+  Seed 6/10 (seed=105):
+    BayesianSPO-TS-x0.0625... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=183
+    BayesianMSE-TS-x0.0625... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=135
+    BayesianSPO-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=83
+    BayesianMSE-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=124
+    BayesianSPO-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=105
+    BayesianMSE-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=206
+  Seed 7/10 (seed=106):
+    BayesianSPO-TS-x0.0625... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=227
+    BayesianMSE-TS-x0.0625... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=194
+    BayesianSPO-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=148
+    BayesianMSE-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=154
+    BayesianSPO-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=117
+    BayesianMSE-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=207
+  Seed 8/10 (seed=107):
+    BayesianSPO-TS-x0.0625... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=192
+    BayesianMSE-TS-x0.0625... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=186
+    BayesianSPO-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=126
+    BayesianMSE-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=165
+    BayesianSPO-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=113
+    BayesianMSE-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=210
+  Seed 9/10 (seed=108):
+    BayesianSPO-TS-x0.0625... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=170
+    BayesianMSE-TS-x0.0625... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=143
+    BayesianSPO-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=114
+    BayesianMSE-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=147
+    BayesianSPO-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=105
+    BayesianMSE-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=212
+  Seed 10/10 (seed=109):
+    BayesianSPO-TS-x0.0625... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=132
+    BayesianMSE-TS-x0.0625... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=183
+    BayesianSPO-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=92
+    BayesianMSE-TS-x0.125... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=135
+    BayesianSPO-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=104
+    BayesianMSE-TS-x0.25... Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl
+regret=211
+Results saved to results/FINAL/ablations/ts_scale/portfolio_32/results.pkl

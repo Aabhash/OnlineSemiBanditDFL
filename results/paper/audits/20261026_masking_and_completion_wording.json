@@ -1,0 +1,299 @@
+{
+  "date": "2026-10-26",
+  "scope": "Read-only evidence for E.3.2 masking-weight wording and E.6 Portfolio completion-count wording; no new experiments or manuscript edits.",
+  "metric": "Final cumulative realized regret at T=10000; raw Portfolio units and raw regret elsewhere (figures show Knapsack/SP in thousands).",
+  "plotting_source": "experiments/plot_ablation_results.py",
+  "masking_weight_check": {
+    "figure": "paper_neurips_2026/result_figures/masked_imputation_dose_matched.pdf",
+    "method": "BayesianSPO",
+    "feedback": "semi-bandit",
+    "displayed_weights": [
+      0,
+      0.05,
+      0.25,
+      0.5,
+      0.75,
+      1
+    ],
+    "excluded_archived_weight": 0.1,
+    "baseline": "Each dataset uses its own w=0 record from the same imputation results.pkl, paired on seed; no substitution from the main table. Portfolio masking baseline is 69.7477858644, distinct from the main-evaluation M=1 value.",
+    "statistic_definitions": {
+      "mean_paired_percent_change": "mean_s[100*(R_s(w)-R_s(0))/abs(R_s(0))]",
+      "ratio_of_mean_regrets_percent_change": "100*(mean_s R_s(w)-mean_s R_s(0))/abs(mean_s R_s(0))",
+      "figure_coordinates": "Mean final cumulative regret, not mean paired percent change. The two percentage summaries need not coincide."
+    },
+    "settings_provenance": "The manuscript describes fixed tuned hyperparameters and UCB exploration while varying only the missing-arm gradient weight; observed-arm gradients are unchanged. Compact result records contain no hyperparameter snapshot, so the audit verifies weights, seeds, horizon and measurements directly, rather than reconstructing unsaved settings.",
+    "datasets": {
+      "knapsack_100": {
+        "raw_source": "results/paper/ablations/imputation/knapsack_100/results.pkl",
+        "sha256": "3906cf45549a9c72d7a0b2d8d5c51a1bab5ab12a63d51de862de166cd6fe7283",
+        "seeds": [
+          100,
+          101,
+          102,
+          103,
+          104,
+          105,
+          106,
+          107,
+          108,
+          109
+        ],
+        "rounds": [
+          10000
+        ],
+        "displayed_rows": [
+          {
+            "weight": 0.0,
+            "mean_final_regret": 49622.81427012961,
+            "mean_paired_percent_change": 0.0,
+            "ratio_of_mean_regrets_percent_change": 0.0
+          },
+          {
+            "weight": 0.05,
+            "mean_final_regret": 49612.53397926284,
+            "mean_paired_percent_change": -0.021766428779235247,
+            "ratio_of_mean_regrets_percent_change": -0.020716863841720702
+          },
+          {
+            "weight": 0.25,
+            "mean_final_regret": 49764.802330910716,
+            "mean_paired_percent_change": 0.3945323537088197,
+            "ratio_of_mean_regrets_percent_change": 0.2861346396199379
+          },
+          {
+            "weight": 0.5,
+            "mean_final_regret": 50074.1074926977,
+            "mean_paired_percent_change": 0.9470725809128233,
+            "ratio_of_mean_regrets_percent_change": 0.9094470541541774
+          },
+          {
+            "weight": 0.75,
+            "mean_final_regret": 50129.29984193779,
+            "mean_paired_percent_change": 1.1160056205198738,
+            "ratio_of_mean_regrets_percent_change": 1.0206707927749676
+          },
+          {
+            "weight": 1.0,
+            "mean_final_regret": 50668.79996357986,
+            "mean_paired_percent_change": 2.153902993738899,
+            "ratio_of_mean_regrets_percent_change": 2.107872576021717
+          }
+        ],
+        "best_displayed_nonzero_weight": 0.05,
+        "best_displayed_mean_paired_percent_change": -0.021766428779235247,
+        "best_displayed_ratio_of_means_percent_change": -0.020716863841720702
+      },
+      "shortest_path_20x20": {
+        "raw_source": "results/paper/ablations/imputation/shortest_path_20x20/results.pkl",
+        "sha256": "47279328fe9d87f32e8723afd9efde8a6586a22e96a9a8e41ce2569c1f9950dc",
+        "seeds": [
+          100,
+          101,
+          102,
+          103,
+          104,
+          105,
+          106,
+          107,
+          108,
+          109
+        ],
+        "rounds": [
+          10000
+        ],
+        "displayed_rows": [
+          {
+            "weight": 0.0,
+            "mean_final_regret": 22934.584841373275,
+            "mean_paired_percent_change": 0.0,
+            "ratio_of_mean_regrets_percent_change": 0.0
+          },
+          {
+            "weight": 0.05,
+            "mean_final_regret": 23897.126633421696,
+            "mean_paired_percent_change": 4.321666067293288,
+            "ratio_of_mean_regrets_percent_change": 4.196900875711629
+          },
+          {
+            "weight": 0.25,
+            "mean_final_regret": 23765.587092977188,
+            "mean_paired_percent_change": 3.9327605956467115,
+            "ratio_of_mean_regrets_percent_change": 3.623358597295432
+          },
+          {
+            "weight": 0.5,
+            "mean_final_regret": 23661.68724898634,
+            "mean_paired_percent_change": 3.5701507053897346,
+            "ratio_of_mean_regrets_percent_change": 3.1703316743776284
+          },
+          {
+            "weight": 0.75,
+            "mean_final_regret": 23750.45275195594,
+            "mean_paired_percent_change": 4.011327503427856,
+            "ratio_of_mean_regrets_percent_change": 3.5573694323468485
+          },
+          {
+            "weight": 1.0,
+            "mean_final_regret": 32075.829088632097,
+            "mean_paired_percent_change": 40.075751446474456,
+            "ratio_of_mean_regrets_percent_change": 39.857901551234114
+          }
+        ],
+        "best_displayed_nonzero_weight": 0.5,
+        "best_displayed_mean_paired_percent_change": 3.5701507053897346,
+        "best_displayed_ratio_of_means_percent_change": 3.1703316743776284
+      },
+      "portfolio_32": {
+        "raw_source": "results/paper/ablations/imputation/portfolio_32/results.pkl",
+        "sha256": "03ec3f3a1dff2d6e6f4d345b2e9972fe30efecc7e13c38412e06b20cb9b68028",
+        "seeds": [
+          100,
+          101,
+          102,
+          103,
+          104,
+          105,
+          106,
+          107,
+          108,
+          109
+        ],
+        "rounds": [
+          10000
+        ],
+        "displayed_rows": [
+          {
+            "weight": 0.0,
+            "mean_final_regret": 69.74778586444432,
+            "mean_paired_percent_change": 0.0,
+            "ratio_of_mean_regrets_percent_change": 0.0
+          },
+          {
+            "weight": 0.05,
+            "mean_final_regret": 69.43695558223052,
+            "mean_paired_percent_change": -0.41032348702070703,
+            "ratio_of_mean_regrets_percent_change": -0.4456489598363775
+          },
+          {
+            "weight": 0.25,
+            "mean_final_regret": 70.16020318182721,
+            "mean_paired_percent_change": 0.8393152846913207,
+            "ratio_of_mean_regrets_percent_change": 0.5912980781704346
+          },
+          {
+            "weight": 0.5,
+            "mean_final_regret": 71.38806461250559,
+            "mean_paired_percent_change": 2.500450079992179,
+            "ratio_of_mean_regrets_percent_change": 2.3517287720776756
+          },
+          {
+            "weight": 0.75,
+            "mean_final_regret": 72.75142694323709,
+            "mean_paired_percent_change": 4.399565066422049,
+            "ratio_of_mean_regrets_percent_change": 4.306432156327344
+          },
+          {
+            "weight": 1.0,
+            "mean_final_regret": 110.67330923633335,
+            "mean_paired_percent_change": 58.49920934045514,
+            "ratio_of_mean_regrets_percent_change": 58.67644809747551
+          }
+        ],
+        "best_displayed_nonzero_weight": 0.05,
+        "best_displayed_mean_paired_percent_change": -0.41032348702070703,
+        "best_displayed_ratio_of_means_percent_change": -0.4456489598363775
+      }
+    },
+    "recommended_wording": "Among the displayed nonzero weights, the best mean paired changes relative to full masking are approximately 0.0% on Knapsack 100, +3.6% on SP 20x20, and -0.4% on Portfolio. Thus partial leakage offers no consistent improvement over full masking across these instances."
+  },
+  "portfolio_completion_count_check": {
+    "figure": "paper_neurips_2026/result_figures/imputation_samples_summary.pdf",
+    "plot_provenance": "paper_neurips_2026/result_figures/imputation_samples_summary_reference.json",
+    "method": "BayesianSPO",
+    "feedback": "semi_bandit",
+    "seeds": [
+      100,
+      101,
+      102,
+      103,
+      104,
+      105,
+      106,
+      107,
+      108,
+      109
+    ],
+    "rounds": [
+      10000
+    ],
+    "canonical_M1_source": "results/paper/eval_online_10k/metrics/trajectories_portfolio_32.pkl",
+    "canonical_M1_source_sha256": "905cabbed8d3eb489951cd993d752e7d9031e5e65206a2e9720f6051692c817d",
+    "canonical_M1_completion_count_source": "results/paper/tuning/best_hyperparams_portfolio_32_semi_bandit.json",
+    "canonical_M1_settings": {
+      "imputation_samples": 1,
+      "init_lr": 0.003,
+      "beta": 0.16550975250188352,
+      "hidden_dim": 32,
+      "lambda_reg": 0.010930987468173704
+    },
+    "canonical_settings_same_for_all_seeds": true,
+    "archived_sweep_source": "results/paper/ablations/imputation_samples/portfolio_32/results.pkl",
+    "archived_sweep_sha256": "d9f3e67f58022ca862e1de269c4e136a9b95b0ae92022c67ca6d34f5550deb93",
+    "archived_settings_limitation": "The archived compact sweep lacks a hyperparameter snapshot and solver telemetry. An identical configuration with the main evaluation cannot be independently established; the discrepancy between their M=1 records has no established cause.",
+    "ci_definition": "Normal-approximation 95% interval: mean +/- 1.96*sample_SD/sqrt(10), with sample_SD using ddof=1.",
+    "displayed_points": {
+      "1": {
+        "mean": 68.63002524538258,
+        "sample_sd": 3.4281427308578034,
+        "ci95": [
+          66.50524036734518,
+          70.75481012341999
+        ]
+      },
+      "4": {
+        "mean": 70.03563057767902,
+        "sample_sd": 4.673818995664863,
+        "ci95": [
+          67.13876755173735,
+          72.93249360362069
+        ],
+        "pct_vs_canonical": 2.0480909445549145
+      },
+      "8": {
+        "mean": 70.44769559617308,
+        "sample_sd": 5.782650309990325,
+        "ci95": [
+          66.86357180137084,
+          74.03181939097531
+        ],
+        "pct_vs_canonical": 2.648506020931096
+      },
+      "12": {
+        "mean": 70.15134546944756,
+        "sample_sd": 4.470669085725637,
+        "ci95": [
+          67.38039606219164,
+          72.92229487670349
+        ],
+        "pct_vs_canonical": 2.2166977479981753
+      }
+    },
+    "M_gt_1_mean_range": [
+      70.03563057767902,
+      70.44769559617308
+    ],
+    "unplotted_archived_M1": {
+      "mean": 70.34415897646014,
+      "sample_sd": 6.228298022915093,
+      "ci95": [
+        66.48381986750802,
+        74.20449808541225
+      ]
+    },
+    "all_displayed_ci_overlap": true,
+    "interpretation": "M=1 has the lowest displayed mean; M>1 means are 2.05%-2.65% higher. Overlapping pointwise intervals do not establish equivalence, lack of a difference, or a causal effect. Because M=1 and M>1 use separate sources whose configurations cannot be fully reconciled, their difference is descriptive and cannot be attributed solely to changing M.",
+    "recommended_wording": "For Portfolio, the displayed mean is lowest at M=1 (68.63), compared with 70.04-70.45 for M=4,8,12; the 95% intervals overlap. The M=1 point comes from the main evaluation and the M>1 points from a separate archived sweep, so this comparison is descriptive rather than a controlled effect of M.",
+    "caption_correction_needed": "Replace the blanket assertion that every facet holds all other tuned hyperparameters fixed with an explicit Portfolio source exception."
+  }
+}

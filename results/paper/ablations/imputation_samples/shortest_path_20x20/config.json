@@ -1,0 +1,39 @@
+{
+  "dataset": "shortest_path_20x20",
+  "rounds": 10000,
+  "seeds": [100, 101, 102, 103, 104, 105, 106, 107, 108, 109],
+  "m_values": [2, 1, 4, 8, 12],
+  "environment": {
+    "grid_size": 20,
+    "context_dim": 5,
+    "deg": 6,
+    "noise_width": 0.25
+  },
+  "agent_params": {
+    "init_lr": 0.003,
+    "beta": 0.12724288303620818,
+    "hidden_dim": 8,
+    "lambda_reg": 0.09004682388013154,
+    "imputation_samples": 2,
+    "imputation_scale": 1.0,
+    "use_posterior_predictive": false,
+    "noise_var": 1.0,
+    "max_grad_norm": 5.0,
+    "nonlinear": false,
+    "gradient_mode": "current",
+    "missing_grad_weight": 0.0,
+    "exploration_strategy": "ucb"
+  },
+  "factory_settings": {
+    "mask_grad": true,
+    "minimize": true,
+    "decay_rounds": 10000
+  },
+  "update_lr": 0.001,
+  "diagnostics": true,
+  "diagnostics_interval": 25,
+  "episode_source": "results/rebuttal/camera_ready_nonlinear/ordered_nonlinear/sources/8368303e6ed9",
+  "tuning_source": "results/paper/tuning/best_hyperparams_shortest_path_20x20_semi_bandit.json",
+  "table2_source": "results/paper/eval_online_10k/metrics/results_summary.json",
+  "comparison": "Test the documented Table 2 configuration without changing archived values; M=2 completes before the other M values."
+}

@@ -135,8 +135,15 @@ def save_vector_pdf(fig, out: str, **savefig_kwargs) -> None:
 
 
 def load_trajectories(path: str) -> dict:
-    with open(path, "rb") as f:
-        return pickle.load(f)
+    paths = (
+        [os.path.join(path, f"trajectories_{dataset}.pkl") for dataset in DATASETS]
+        if os.path.isdir(path) else [path]
+    )
+    raw = {}
+    for filename in paths:
+        with open(filename, "rb") as f:
+            raw.update(pickle.load(f))
+    return raw
 
 
 def calibrate_to_final_regrets(raw: dict, canonical_path: str | None) -> dict:
@@ -592,8 +599,8 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--trajectories",
-        default="results/paper/eval_online_10k/metrics/trajectories.pkl",
-        help="Pickled final evaluation trajectories.",
+        default="results/paper/eval_online_10k/metrics",
+        help="Trajectory pickle or directory of per-dataset trajectory pickles.",
     )
     parser.add_argument(
         "--output",

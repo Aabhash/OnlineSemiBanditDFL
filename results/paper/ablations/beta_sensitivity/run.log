@@ -1,0 +1,564 @@
+
+=== Beta sensitivity ablation ===
+Beta values: [0.1, 0.3, 1.0, 3.0, 5.0]
+n_rounds=10000, seeds=[100, 101, 102, 103, 104, 105, 106, 107, 108, 109]
+Use tuned params: True (tuning_dir=results/FINAL/tuning)
+
+--- knapsack_32 ---
+  tuned beta=3.84252; fixed sweep values=[0.1, 0.3, 1.0, 3.0, 5.0]
+  resuming from results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl (12/12 matching entries)
+  Seed 1/10 (seed=100):
+    beta0.1... skipped
+    beta0.3... skipped
+    beta1... skipped
+    beta3... skipped
+    beta5... skipped
+  Seed 2/10 (seed=101):
+    beta0.1... skipped
+    beta0.3... skipped
+    beta1... skipped
+    beta3... skipped
+    beta5... skipped
+  Seed 3/10 (seed=102):
+    beta0.1... skipped
+    beta0.3... skipped
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=16621
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=17347
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=16131
+  Seed 4/10 (seed=103):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=19868
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=22295
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=21761
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=18853
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=16654
+  Seed 5/10 (seed=104):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=18178
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=18744
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=17327
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=16965
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=16931
+  Seed 6/10 (seed=105):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=21334
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=25626
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=21717
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=21908
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=16531
+  Seed 7/10 (seed=106):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=22192
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=17750
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=16372
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=16632
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=15927
+  Seed 8/10 (seed=107):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=24017
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=25376
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=21736
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=18843
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=17750
+  Seed 9/10 (seed=108):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=23495
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=19719
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=22064
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=16072
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=15639
+  Seed 10/10 (seed=109):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=25250
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=26190
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=22548
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=19540
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+regret=19021
+Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_32/results.pkl
+
+--- knapsack_100 ---
+  tuned beta=3.881; fixed sweep values=[0.1, 0.3, 1.0, 3.0, 5.0]
+  Seed 1/10 (seed=100):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=70039
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=60612
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=63365
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=55434
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=57916
+  Seed 2/10 (seed=101):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=65308
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=65436
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=53513
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=47003
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=41363
+  Seed 3/10 (seed=102):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=67090
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=74885
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=59096
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=53568
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=50636
+  Seed 4/10 (seed=103):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=58310
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=68186
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=52420
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=61145
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=55265
+  Seed 5/10 (seed=104):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=52577
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=49793
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=54957
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=47784
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=43390
+  Seed 6/10 (seed=105):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=62292
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=62710
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=64642
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=50898
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=49328
+  Seed 7/10 (seed=106):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=63568
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=63126
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=58715
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=48121
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=47929
+  Seed 8/10 (seed=107):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=59438
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=62368
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=52255
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=50665
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=48010
+  Seed 9/10 (seed=108):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=63385
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=83837
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=50645
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=48892
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=50264
+  Seed 10/10 (seed=109):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=57995
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=67805
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=57044
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=54258
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+regret=53892
+Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/knapsack_100/results.pkl
+
+--- shortest_path_8x8 ---
+  tuned beta=0.190495; fixed sweep values=[0.1, 0.3, 1.0, 3.0, 5.0]
+  Seed 1/10 (seed=100):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=6368
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=6148
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=6991
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=8306
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=10479
+  Seed 2/10 (seed=101):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=5694
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=5744
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=6099
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=7709
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=10040
+  Seed 3/10 (seed=102):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=5792
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=5676
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=6240
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=7724
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=9649
+  Seed 4/10 (seed=103):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=5479
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=5443
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=6348
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=7909
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=9979
+  Seed 5/10 (seed=104):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=7404
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=6560
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=7280
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=8266
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=11841
+  Seed 6/10 (seed=105):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=5843
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=5799
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=6151
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=8039
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=9965
+  Seed 7/10 (seed=106):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=4762
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=4659
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=4971
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=7038
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=9538
+  Seed 8/10 (seed=107):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=8074
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=7988
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=8155
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=10555
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=11930
+  Seed 9/10 (seed=108):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=6211
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=6427
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=7766
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=8373
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=10024
+  Seed 10/10 (seed=109):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=6220
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=5905
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=6840
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=8314
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+regret=10290
+Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_8x8/results.pkl
+
+--- shortest_path_20x20 ---
+  tuned beta=0.127243; fixed sweep values=[0.1, 0.3, 1.0, 3.0, 5.0]
+  Seed 1/10 (seed=100):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=20361
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=20373
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=23314
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=33445
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=42334
+  Seed 2/10 (seed=101):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=21929
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=23345
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=25643
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=33992
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=47056
+  Seed 3/10 (seed=102):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=23756
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=27554
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=27493
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=35986
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=48122
+  Seed 4/10 (seed=103):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=24787
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=24281
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=31497
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=34947
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=46359
+  Seed 5/10 (seed=104):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=25085
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=21816
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=24583
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=35506
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=47350
+  Seed 6/10 (seed=105):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=19568
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=20747
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=22894
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=33579
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=46876
+  Seed 7/10 (seed=106):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=24235
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=26332
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=24896
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=37753
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=49128
+  Seed 8/10 (seed=107):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=22183
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=24161
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=26086
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=37756
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=45577
+  Seed 9/10 (seed=108):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=20255
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=19902
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=23231
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=34003
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=46881
+  Seed 10/10 (seed=109):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=24666
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=27317
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=26361
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=35123
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+regret=46021
+Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/shortest_path_20x20/results.pkl
+
+--- portfolio_32 ---
+  tuned beta=0.16551; fixed sweep values=[0.1, 0.3, 1.0, 3.0, 5.0]
+  Seed 1/10 (seed=100):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=68
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=94
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=329
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=848
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=992
+  Seed 2/10 (seed=101):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=69
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=90
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=335
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=833
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=1018
+  Seed 3/10 (seed=102):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=66
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=94
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=336
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=858
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=1018
+  Seed 4/10 (seed=103):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=69
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=95
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=328
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=843
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=1004
+  Seed 5/10 (seed=104):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=80
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=87
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=324
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=864
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=1024
+  Seed 6/10 (seed=105):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=63
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=84
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=317
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=865
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=1041
+  Seed 7/10 (seed=106):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=72
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=83
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=351
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=891
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=1043
+  Seed 8/10 (seed=107):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=68
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=95
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=324
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=880
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=1049
+  Seed 9/10 (seed=108):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=62
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=83
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=351
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=861
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=1026
+  Seed 10/10 (seed=109):
+    beta0.1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=59
+    beta0.3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=86
+    beta1... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=318
+    beta3... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=883
+    beta5... Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl
+regret=1048
+Results saved to results/FINAL/ablations/beta_sensitivity_fixed_grid/portfolio_32/results.pkl

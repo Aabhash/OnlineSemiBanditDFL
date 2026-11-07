@@ -1,0 +1,80 @@
+{
+  "dataset": "topk_8arm",
+  "feedback_type": "semi_bandit",
+  "confidence": 0.95,
+  "n_bootstrap": 10000,
+  "agents": {
+    "LinUCB": {
+      "train_cumulative_regret": {
+        "mean": 415.4034633368542,
+        "ci_lower": 262.3515992422294,
+        "ci_upper": 530.7984188692624,
+        "ci_width": 268.446819627033
+      }
+    },
+    "TS": {
+      "train_cumulative_regret": {
+        "mean": 414.33995511189914,
+        "ci_lower": 265.2297213673791,
+        "ci_upper": 526.1009681934792,
+        "ci_width": 260.87124682610005
+      }
+    },
+    "EpsilonGreedy": {
+      "train_cumulative_regret": {
+        "mean": 372.7401712833803,
+        "ci_lower": 243.7000957216625,
+        "ci_upper": 445.5911558375001,
+        "ci_width": 201.89106011583758
+      }
+    },
+    "NeuralUCB": {
+      "train_cumulative_regret": {
+        "mean": 245.72866179462076,
+        "ci_lower": 201.09095400206493,
+        "ci_upper": 305.1143794183472,
+        "ci_width": 104.02342541628227
+      }
+    },
+    "BayesianSPO": {
+      "train_cumulative_regret": {
+        "mean": 42.64932535966012,
+        "ci_lower": 38.91067494595728,
+        "ci_upper": 44.69078657085199,
+        "ci_width": 5.780111624894708
+      }
+    },
+    "BayesianPFY": {
+      "train_cumulative_regret": {
+        "mean": 79.96238022930144,
+        "ci_lower": 72.64972078264898,
+        "ci_upper": 86.78914444044766,
+        "ci_width": 14.139423657798673
+      }
+    },
+    "BayesianMSE": {
+      "train_cumulative_regret": {
+        "mean": 34.56767951983266,
+        "ci_lower": 30.440240551786292,
+        "ci_upper": 40.932037913248514,
+        "ci_width": 10.491797361462222
+      }
+    },
+    "WeberBLL-Online": {
+      "train_cumulative_regret": {
+        "mean": 40.98436391980931,
+        "ci_lower": 39.619356573837294,
+        "ci_upper": 41.929427697426185,
+        "ci_width": 2.310071123588891
+      }
+    },
+    "WeberDecisionSPO": {
+      "train_cumulative_regret": {
+        "mean": 36.596588679851216,
+        "ci_lower": 34.26155542306002,
+        "ci_upper": 40.46238108354309,
+        "ci_width": 6.200825660483076
+      }
+    }
+  }
+}

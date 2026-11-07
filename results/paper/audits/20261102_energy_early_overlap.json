@@ -1,0 +1,1407 @@
+{
+  "date": "2026-11-02",
+  "scope": "Read-only analysis of archived trajectories used by the current paper energy_regret.pdf; no experiments or figure/source edits.",
+  "figure": "paper_neurips_2026/result_figures/energy_regret.pdf",
+  "figure_sha256": "ab413bc856dc517d3a8a6d0f74f0dd1382369d686708d442a5f3ef8ae18f23a8",
+  "plotting_source": "experiments/rebuttal/energy/plot.py",
+  "plotting_source_sha256": "bfda8c3f47bf0c84ad081032d353095532a538e126aee29a7743b1edefce8240",
+  "combined_manifest": "results/rebuttal/energy_scheduling_task_start/semi_bandit_all_methods_30seed/manifest.json",
+  "combined_manifest_sha256": "41222cff311755c0136408fe4cce6bf4f54bb695958af20bb7c8d80ff768b1a0",
+  "methods_plotted": [
+    "BayesianSPO",
+    "BayesianMSE",
+    "LinUCB",
+    "BLL-Online",
+    "TS",
+    "EpsilonGreedy"
+  ],
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29
+  ],
+  "rounds": 395,
+  "feedback": "semi_bandit",
+  "benchmark": {
+    "data_root": "/Users/aabhash/Documents/code/DFL for TS Autoregressor/constrained-bandits/data/Energy/SchedulingInstances",
+    "energy_instance": "load3",
+    "dataset_split": "experiment",
+    "validation_fraction": 0.5,
+    "n_days": 395,
+    "n_arms": 309,
+    "context_dim": 384,
+    "n_tasks": 20,
+    "n_machines": 5,
+    "n_resources": 1,
+    "component_definition": "task_start",
+    "n_internal_assignments": 1545,
+    "cost_scale": 68573.80015000001,
+    "context_normalization": {
+      "method": "z_score",
+      "fit_split": "validation",
+      "fit_start": 0,
+      "fit_stop": 394,
+      "fit_days": 394,
+      "feature_names": [
+        "HolidayFlag",
+        "DayOfWeek",
+        "WeekOfYear",
+        "Month",
+        "ForecastWindProduction",
+        "SystemLoadEA",
+        "SMPEA",
+        "CO2Intensity"
+      ],
+      "mean": [
+        0.03553299492385787,
+        2.982233502538071,
+        28.073604060913706,
+        6.855329949238579,
+        513.7197202834178,
+        4024.799029187813,
+        61.444665820643166,
+        503.25509676395717
+      ],
+      "std": [
+        0.18512266526710447,
+        1.9903801861899024,
+        15.337229966697363,
+        3.5239405316816894,
+        385.86083625895645,
+        862.6917038326549,
+        31.767285548622887,
+        80.53580335509623
+      ]
+    }
+  },
+  "metric_definition": "Day t cumulative regret sums realized schedule cost minus the full-cost optimal feasible schedule cost for held-out days 1 through t. Stored trajectories are in normalized cost units. Multiply by 68573.80015000001 for original benchmark units, then divide by one million for plotted millions. Plot curves are pointwise means over 30 learner seeds; ribbons are mean +/- one sample SD, not confidence intervals. Every seed sees the same 395 chronological days.",
+  "agreement_tolerance": {
+    "normalized_cumulative_regret_atol": 1e-09,
+    "rtol": 0,
+    "equivalent_original_cost_units": 6.857380015000002e-05,
+    "use": "Exact comparisons are also recorded; tolerance prevents treating insignificant arithmetic noise as behavioral divergence."
+  },
+  "observations": {
+    "plot_uses_all395_days_unsmoothed": true,
+    "plot_adds_shared_day0_origin": true,
+    "point_marker_first_day_by_method": {
+      "BayesianSPO": 50,
+      "BayesianMSE": 58,
+      "LinUCB": 66,
+      "BLL-Online": 74,
+      "TS": 82,
+      "EpsilonGreedy": 90
+    },
+    "marker_interval_days": 65,
+    "plot_y_axis_million_range": [
+      0,
+      175
+    ],
+    "zero_bonus_methods": [
+      "BayesianSPO",
+      "BayesianMSE",
+      "LinUCB",
+      "BLL-Online"
+    ],
+    "zero_bonus_methods_first_two_days_equal_seedwise": true,
+    "first_two_day_common_cumulative_regret_million": [
+      0.4787926065500003,
+      0.6447115297000005
+    ],
+    "all_six_greedy_method_pairs_first_mean_divergence_day": 3,
+    "TS_and_EpsilonGreedy_pairwise_and_vs_greedy_first_mean_divergence_day": 1,
+    "greedy_mean_spread_day50_million": 0.2220003858933346,
+    "greedy_max_mean_spread_first50_million": 0.5034983907099964,
+    "day_of_greedy_max_mean_spread_first50": 29,
+    "greedy_max_mean_spread_as_percent_of175M_plot_height": 0.2877133661199979,
+    "SPO_MSE_max_mean_gap_first50_million": 0.39748540817666494,
+    "seeds_whose_SPO_MSE_first_divergence_is_day5": [
+      8
+    ]
+  },
+  "method_evidence": {
+    "BayesianSPO": {
+      "trajectory_source": "results/rebuttal/energy_scheduling_task_start/semi_bandit_final_30seed/trajectories.pkl",
+      "trajectory_sha256": "0b0d3f4693cc7c7069944669a024d1d3cc5855af40d108d89f151a568b415462",
+      "manifest_source": "results/rebuttal/energy_scheduling_task_start/semi_bandit_final_30seed/manifest.json",
+      "manifest_sha256": "2573317066c9ea0fb3c968083486ffd29a434df09af4c93afe608b39f3c989a3",
+      "hyperparameters": {
+        "hidden_dim": 8,
+        "beta": 0.0,
+        "lambda_reg": 4.0,
+        "lr": 0.003,
+        "max_grad_norm": 5.0,
+        "imputation_samples": 1
+      },
+      "saved_per_seed_params_match_combined_manifest": true,
+      "per_seed_rows_count": 30,
+      "record_fields": [
+        "cumulative_pseudo_regret",
+        "cumulative_regret",
+        "obs_counts",
+        "regrets",
+        "wall_time_seconds"
+      ],
+      "shape_seeds_by_days": [
+        30,
+        395
+      ],
+      "checkpoint_summaries": {
+        "1": {
+          "mean_million_raw_cost_units": 0.47879260655000017,
+          "sample_sd_million_raw_cost_units": 1.1292025708167404e-16,
+          "min_seed_value_million": 0.4787926065500003,
+          "max_seed_value_million": 0.4787926065500003
+        },
+        "2": {
+          "mean_million_raw_cost_units": 0.6447115297000005,
+          "sample_sd_million_raw_cost_units": 0.0,
+          "min_seed_value_million": 0.6447115297000005,
+          "max_seed_value_million": 0.6447115297000005
+        },
+        "3": {
+          "mean_million_raw_cost_units": 0.9554400948583339,
+          "sample_sd_million_raw_cost_units": 0.07395655713416581,
+          "min_seed_value_million": 0.8465653885000005,
+          "max_seed_value_million": 1.2544239648500008
+        },
+        "10": {
+          "mean_million_raw_cost_units": 4.65093579263667,
+          "sample_sd_million_raw_cost_units": 0.14813495281264827,
+          "min_seed_value_million": 4.169614764950003,
+          "max_seed_value_million": 4.866774313850002
+        },
+        "25": {
+          "mean_million_raw_cost_units": 10.906604545108333,
+          "sample_sd_million_raw_cost_units": 0.5666455750767523,
+          "min_seed_value_million": 9.482796436750004,
+          "max_seed_value_million": 11.967186237050008
+        },
+        "50": {
+          "mean_million_raw_cost_units": 23.316090910106677,
+          "sample_sd_million_raw_cost_units": 0.8651306723314117,
+          "min_seed_value_million": 20.86636259935,
+          "max_seed_value_million": 24.887928639900018
+        },
+        "100": {
+          "mean_million_raw_cost_units": 35.44280505255334,
+          "sample_sd_million_raw_cost_units": 4.028854207862172,
+          "min_seed_value_million": 29.134477495650007,
+          "max_seed_value_million": 45.91787018890001
+        },
+        "395": {
+          "mean_million_raw_cost_units": 92.81429133753336,
+          "sample_sd_million_raw_cost_units": 13.293745577603216,
+          "min_seed_value_million": 69.795160156,
+          "max_seed_value_million": 127.38717955480001
+        }
+      },
+      "actions_saved": false,
+      "obs_count_shapes": [
+        [
+          309
+        ]
+      ],
+      "cumulative_regret_matches_cumsum_daily_regret_max_abs_error": 0.0
+    },
+    "BayesianMSE": {
+      "trajectory_source": "results/rebuttal/energy_scheduling_task_start/semi_bandit_final_30seed/trajectories.pkl",
+      "trajectory_sha256": "0b0d3f4693cc7c7069944669a024d1d3cc5855af40d108d89f151a568b415462",
+      "manifest_source": "results/rebuttal/energy_scheduling_task_start/semi_bandit_final_30seed/manifest.json",
+      "manifest_sha256": "2573317066c9ea0fb3c968083486ffd29a434df09af4c93afe608b39f3c989a3",
+      "hyperparameters": {
+        "hidden_dim": 8,
+        "beta": 0.0,
+        "lambda_reg": 4.0,
+        "lr": 0.001,
+        "max_grad_norm": 5.0
+      },
+      "saved_per_seed_params_match_combined_manifest": true,
+      "per_seed_rows_count": 30,
+      "record_fields": [
+        "cumulative_pseudo_regret",
+        "cumulative_regret",
+        "obs_counts",
+        "regrets",
+        "wall_time_seconds"
+      ],
+      "shape_seeds_by_days": [
+        30,
+        395
+      ],
+      "checkpoint_summaries": {
+        "1": {
+          "mean_million_raw_cost_units": 0.47879260655000017,
+          "sample_sd_million_raw_cost_units": 1.1292025708167404e-16,
+          "min_seed_value_million": 0.4787926065500003,
+          "max_seed_value_million": 0.4787926065500003
+        },
+        "2": {
+          "mean_million_raw_cost_units": 0.6447115297000005,
+          "sample_sd_million_raw_cost_units": 0.0,
+          "min_seed_value_million": 0.6447115297000005,
+          "max_seed_value_million": 0.6447115297000005
+        },
+        "3": {
+          "mean_million_raw_cost_units": 0.9240070436716674,
+          "sample_sd_million_raw_cost_units": 0.061344415659702334,
+          "min_seed_value_million": 0.8465653885000005,
+          "max_seed_value_million": 1.2399651519500008
+        },
+        "10": {
+          "mean_million_raw_cost_units": 4.308273174213335,
+          "sample_sd_million_raw_cost_units": 0.09190217625866581,
+          "min_seed_value_million": 4.030708925900001,
+          "max_seed_value_million": 4.441074628150001
+        },
+        "25": {
+          "mean_million_raw_cost_units": 10.60299437927667,
+          "sample_sd_million_raw_cost_units": 0.5048794237203986,
+          "min_seed_value_million": 9.605944201700003,
+          "max_seed_value_million": 11.611771560400006
+        },
+        "50": {
+          "mean_million_raw_cost_units": 23.21380007197667,
+          "sample_sd_million_raw_cost_units": 0.7596712287488677,
+          "min_seed_value_million": 21.140490766250007,
+          "max_seed_value_million": 24.81470207990002
+        },
+        "100": {
+          "mean_million_raw_cost_units": 37.17994277097667,
+          "sample_sd_million_raw_cost_units": 2.8270773176311033,
+          "min_seed_value_million": 31.48533226304999,
+          "max_seed_value_million": 42.18610309615002
+        },
+        "395": {
+          "mean_million_raw_cost_units": 101.1354206727067,
+          "sample_sd_million_raw_cost_units": 12.172541563718235,
+          "min_seed_value_million": 73.45872197025011,
+          "max_seed_value_million": 131.65818788509998
+        }
+      },
+      "actions_saved": false,
+      "obs_count_shapes": [
+        [
+          309
+        ]
+      ],
+      "cumulative_regret_matches_cumsum_daily_regret_max_abs_error": 0.0
+    },
+    "LinUCB": {
+      "trajectory_source": "results/rebuttal/energy_scheduling_task_start/semi_bandit_baseline_final_30seed/LinUCB/trajectories.pkl",
+      "trajectory_sha256": "6c49162d11dee7a285be6a77f094cffddd63cae9a147df07cc359dd34085fa4e",
+      "manifest_source": "results/rebuttal/energy_scheduling_task_start/semi_bandit_baseline_final_30seed/LinUCB/manifest.json",
+      "manifest_sha256": "cae462afaf1fcabc45af541a9c23b0f8bdf49ea43a0ab531411f25db2b35866b",
+      "hyperparameters": {
+        "alpha": 0.0,
+        "lambda_reg": 4.0,
+        "lr": 0.001
+      },
+      "saved_per_seed_params_match_combined_manifest": true,
+      "per_seed_rows_count": 30,
+      "record_fields": [
+        "cumulative_pseudo_regret",
+        "cumulative_regret",
+        "obs_counts",
+        "regrets",
+        "wall_time_seconds"
+      ],
+      "shape_seeds_by_days": [
+        30,
+        395
+      ],
+      "checkpoint_summaries": {
+        "1": {
+          "mean_million_raw_cost_units": 0.47879260655000017,
+          "sample_sd_million_raw_cost_units": 1.1292025708167404e-16,
+          "min_seed_value_million": 0.4787926065500003,
+          "max_seed_value_million": 0.4787926065500003
+        },
+        "2": {
+          "mean_million_raw_cost_units": 0.6447115297000005,
+          "sample_sd_million_raw_cost_units": 0.0,
+          "min_seed_value_million": 0.6447115297000005,
+          "max_seed_value_million": 0.6447115297000005
+        },
+        "3": {
+          "mean_million_raw_cost_units": 0.920128189400001,
+          "sample_sd_million_raw_cost_units": 2.2584051416334807e-16,
+          "min_seed_value_million": 0.9201281894000012,
+          "max_seed_value_million": 0.9201281894000012
+        },
+        "10": {
+          "mean_million_raw_cost_units": 4.315824493450004,
+          "sample_sd_million_raw_cost_units": 1.8067241133067846e-15,
+          "min_seed_value_million": 4.315824493450002,
+          "max_seed_value_million": 4.315824493450002
+        },
+        "25": {
+          "mean_million_raw_cost_units": 10.983533337300004,
+          "sample_sd_million_raw_cost_units": 0.0,
+          "min_seed_value_million": 10.983533337300004,
+          "max_seed_value_million": 10.983533337300004
+        },
+        "50": {
+          "mean_million_raw_cost_units": 23.333253088650018,
+          "sample_sd_million_raw_cost_units": 7.226896453227138e-15,
+          "min_seed_value_million": 23.33325308865001,
+          "max_seed_value_million": 23.33325308865001
+        },
+        "100": {
+          "mean_million_raw_cost_units": 38.61007991285001,
+          "sample_sd_million_raw_cost_units": 7.226896453227138e-15,
+          "min_seed_value_million": 38.610079912850004,
+          "max_seed_value_million": 38.610079912850004
+        },
+        "395": {
+          "mean_million_raw_cost_units": 112.36386746220008,
+          "sample_sd_million_raw_cost_units": 2.890758581290855e-14,
+          "min_seed_value_million": 112.36386746220005,
+          "max_seed_value_million": 112.36386746220005
+        }
+      },
+      "actions_saved": false,
+      "obs_count_shapes": [
+        [
+          309
+        ]
+      ],
+      "cumulative_regret_matches_cumsum_daily_regret_max_abs_error": 0.0
+    },
+    "BLL-Online": {
+      "trajectory_source": "results/rebuttal/energy_scheduling_task_start/semi_bandit_baseline_final_30seed/BLL-Online/trajectories.pkl",
+      "trajectory_sha256": "dafbd7fc711c5d130b98656bc04e43612e5776b16ac9f852d0d3a772d86eb42e",
+      "manifest_source": "results/rebuttal/energy_scheduling_task_start/semi_bandit_baseline_final_30seed/BLL-Online/manifest.json",
+      "manifest_sha256": "8659a98dbcba5db76701cc00177cc69fecd347a938e5314a816c7b83cff1698e",
+      "hyperparameters": {
+        "hidden_dim": 32,
+        "beta": 0.0,
+        "lambda_reg": 1.0,
+        "lr": 0.0003,
+        "max_grad_norm": 5.0,
+        "noise_var": 1.0
+      },
+      "saved_per_seed_params_match_combined_manifest": true,
+      "per_seed_rows_count": 30,
+      "record_fields": [
+        "cumulative_pseudo_regret",
+        "cumulative_regret",
+        "obs_counts",
+        "regrets",
+        "wall_time_seconds"
+      ],
+      "shape_seeds_by_days": [
+        30,
+        395
+      ],
+      "checkpoint_summaries": {
+        "1": {
+          "mean_million_raw_cost_units": 0.47879260655000017,
+          "sample_sd_million_raw_cost_units": 1.1292025708167404e-16,
+          "min_seed_value_million": 0.4787926065500003,
+          "max_seed_value_million": 0.4787926065500003
+        },
+        "2": {
+          "mean_million_raw_cost_units": 0.6447115297000005,
+          "sample_sd_million_raw_cost_units": 0.0,
+          "min_seed_value_million": 0.6447115297000005,
+          "max_seed_value_million": 0.6447115297000005
+        },
+        "3": {
+          "mean_million_raw_cost_units": 0.9083919742266674,
+          "sample_sd_million_raw_cost_units": 0.025154700245698887,
+          "min_seed_value_million": 0.8465653885000005,
+          "max_seed_value_million": 0.9201281894000012
+        },
+        "10": {
+          "mean_million_raw_cost_units": 4.3111203432100025,
+          "sample_sd_million_raw_cost_units": 0.06384330757238336,
+          "min_seed_value_million": 4.1250544422000015,
+          "max_seed_value_million": 4.409415174650002
+        },
+        "25": {
+          "mean_million_raw_cost_units": 11.070407669266668,
+          "sample_sd_million_raw_cost_units": 0.2322326300770509,
+          "min_seed_value_million": 10.539539699850007,
+          "max_seed_value_million": 11.469767316049996
+        },
+        "50": {
+          "mean_million_raw_cost_units": 23.43580045787001,
+          "sample_sd_million_raw_cost_units": 0.5459128669445871,
+          "min_seed_value_million": 21.95992034670001,
+          "max_seed_value_million": 24.465849997449993
+        },
+        "100": {
+          "mean_million_raw_cost_units": 41.45697732531167,
+          "sample_sd_million_raw_cost_units": 1.606602487193125,
+          "min_seed_value_million": 38.052308876099985,
+          "max_seed_value_million": 45.585726830099986
+        },
+        "395": {
+          "mean_million_raw_cost_units": 125.16674142556333,
+          "sample_sd_million_raw_cost_units": 5.645230327272545,
+          "min_seed_value_million": 112.86088722640011,
+          "max_seed_value_million": 138.31553061969998
+        }
+      },
+      "actions_saved": false,
+      "obs_count_shapes": [
+        [
+          309
+        ]
+      ],
+      "cumulative_regret_matches_cumsum_daily_regret_max_abs_error": 0.0
+    },
+    "TS": {
+      "trajectory_source": "results/rebuttal/energy_scheduling_task_start/semi_bandit_baseline_final_30seed/TS/trajectories.pkl",
+      "trajectory_sha256": "1134cf0c35bf115f471490827e80d463bdfa918b642da792e52ec205902ef9de",
+      "manifest_source": "results/rebuttal/energy_scheduling_task_start/semi_bandit_baseline_final_30seed/TS/manifest.json",
+      "manifest_sha256": "5f8c4f34a0cf53d928a3fe7c4c0d8198b35b609317a7ca23a9c3aaab4b4db352",
+      "hyperparameters": {
+        "prior_var": 0.1,
+        "noise_var": 0.01,
+        "lr": 0.001
+      },
+      "saved_per_seed_params_match_combined_manifest": true,
+      "per_seed_rows_count": 30,
+      "record_fields": [
+        "cumulative_pseudo_regret",
+        "cumulative_regret",
+        "obs_counts",
+        "regrets",
+        "wall_time_seconds"
+      ],
+      "shape_seeds_by_days": [
+        30,
+        395
+      ],
+      "checkpoint_summaries": {
+        "1": {
+          "mean_million_raw_cost_units": 0.5545292774633334,
+          "sample_sd_million_raw_cost_units": 0.103309363752647,
+          "min_seed_value_million": 0.33414494615000034,
+          "max_seed_value_million": 0.7492032411999999
+        },
+        "2": {
+          "mean_million_raw_cost_units": 0.9425356711766669,
+          "sample_sd_million_raw_cost_units": 0.118381291226061,
+          "min_seed_value_million": 0.6815630252000001,
+          "max_seed_value_million": 1.2050220307000001
+        },
+        "3": {
+          "mean_million_raw_cost_units": 1.4612858885116673,
+          "sample_sd_million_raw_cost_units": 0.15229878909495098,
+          "min_seed_value_million": 1.1594421780500004,
+          "max_seed_value_million": 1.706759509700001
+        },
+        "10": {
+          "mean_million_raw_cost_units": 5.072655920853334,
+          "sample_sd_million_raw_cost_units": 0.2554238262893571,
+          "min_seed_value_million": 4.36103677045,
+          "max_seed_value_million": 5.419033773600001
+        },
+        "25": {
+          "mean_million_raw_cost_units": 12.095781630735003,
+          "sample_sd_million_raw_cost_units": 0.26297569626485756,
+          "min_seed_value_million": 11.645241128700006,
+          "max_seed_value_million": 12.652847539700007
+        },
+        "50": {
+          "mean_million_raw_cost_units": 25.016337530011672,
+          "sample_sd_million_raw_cost_units": 0.4760009883494306,
+          "min_seed_value_million": 24.0125687415,
+          "max_seed_value_million": 25.84735520525001
+        },
+        "100": {
+          "mean_million_raw_cost_units": 47.45490999750334,
+          "sample_sd_million_raw_cost_units": 0.6806477946043265,
+          "min_seed_value_million": 45.73613049905001,
+          "max_seed_value_million": 48.54398877510002
+        },
+        "395": {
+          "mean_million_raw_cost_units": 160.55982438816332,
+          "sample_sd_million_raw_cost_units": 1.7710607304546726,
+          "min_seed_value_million": 157.39723624535,
+          "max_seed_value_million": 165.04546174459978
+        }
+      },
+      "actions_saved": false,
+      "obs_count_shapes": [
+        [
+          309
+        ]
+      ],
+      "cumulative_regret_matches_cumsum_daily_regret_max_abs_error": 0.0
+    },
+    "EpsilonGreedy": {
+      "trajectory_source": "results/rebuttal/energy_scheduling_task_start/semi_bandit_baseline_final_30seed/EpsilonGreedy/trajectories.pkl",
+      "trajectory_sha256": "d8eb90212e1c7f70a4836ddec40725c2a9b196b3fe1916aab83d1d6f2056055e",
+      "manifest_source": "results/rebuttal/energy_scheduling_task_start/semi_bandit_baseline_final_30seed/EpsilonGreedy/manifest.json",
+      "manifest_sha256": "31b7cbab8d98d19e19c0eaa0c2a7be1e2a382026a40fccbd8085a9c6c1cd9dc2",
+      "hyperparameters": {
+        "hidden_dim": 32,
+        "epsilon": 0.1,
+        "lr": 0.003,
+        "max_grad_norm": 5.0
+      },
+      "saved_per_seed_params_match_combined_manifest": true,
+      "per_seed_rows_count": 30,
+      "record_fields": [
+        "cumulative_pseudo_regret",
+        "cumulative_regret",
+        "obs_counts",
+        "regrets",
+        "wall_time_seconds"
+      ],
+      "shape_seeds_by_days": [
+        30,
+        395
+      ],
+      "checkpoint_summaries": {
+        "1": {
+          "mean_million_raw_cost_units": 0.5752201680366669,
+          "sample_sd_million_raw_cost_units": 0.1247408339544571,
+          "min_seed_value_million": 0.23018024370000031,
+          "max_seed_value_million": 0.7222775444999999
+        },
+        "2": {
+          "mean_million_raw_cost_units": 0.9803167754700003,
+          "sample_sd_million_raw_cost_units": 0.1692028002309649,
+          "min_seed_value_million": 0.4623957692000007,
+          "max_seed_value_million": 1.2359783986000006
+        },
+        "3": {
+          "mean_million_raw_cost_units": 1.5308895006500007,
+          "sample_sd_million_raw_cost_units": 0.2162838418126079,
+          "min_seed_value_million": 0.9032875246500007,
+          "max_seed_value_million": 1.8065707924000012
+        },
+        "10": {
+          "mean_million_raw_cost_units": 5.155539361751669,
+          "sample_sd_million_raw_cost_units": 0.44383771109337494,
+          "min_seed_value_million": 3.9176984154000016,
+          "max_seed_value_million": 5.8734455718500005
+        },
+        "25": {
+          "mean_million_raw_cost_units": 12.331736963010004,
+          "sample_sd_million_raw_cost_units": 0.7362374203622215,
+          "min_seed_value_million": 10.568704598300002,
+          "max_seed_value_million": 13.820399881450001
+        },
+        "50": {
+          "mean_million_raw_cost_units": 25.497355619180002,
+          "sample_sd_million_raw_cost_units": 1.4967530010109786,
+          "min_seed_value_million": 22.7756817301,
+          "max_seed_value_million": 28.925638966950004
+        },
+        "100": {
+          "mean_million_raw_cost_units": 48.97921407739501,
+          "sample_sd_million_raw_cost_units": 2.3130300900446477,
+          "min_seed_value_million": 44.22067704175002,
+          "max_seed_value_million": 53.326627388700004
+        },
+        "395": {
+          "mean_million_raw_cost_units": 174.895271246205,
+          "sample_sd_million_raw_cost_units": 3.272334382851227,
+          "min_seed_value_million": 165.08883967375,
+          "max_seed_value_million": 181.5323047144
+        }
+      },
+      "actions_saved": false,
+      "obs_count_shapes": [
+        [
+          309
+        ]
+      ],
+      "cumulative_regret_matches_cumsum_daily_regret_max_abs_error": 0.0
+    }
+  },
+  "pairwise_evidence": [
+    {
+      "methods": [
+        "BayesianSPO",
+        "BayesianMSE"
+      ],
+      "first_mean_divergence_day_exact": 3,
+      "first_mean_divergence_day_above_tolerance": 3,
+      "first_any_seed_divergence_day_above_tolerance": 3,
+      "per_seed_first_divergence_day_above_tolerance": {
+        "0": 3,
+        "1": 3,
+        "2": 3,
+        "3": 3,
+        "4": 3,
+        "5": 3,
+        "6": 3,
+        "7": 3,
+        "8": 5,
+        "9": 3,
+        "10": 3,
+        "11": 3,
+        "12": 3,
+        "13": 3,
+        "14": 3,
+        "15": 3,
+        "16": 3,
+        "17": 3,
+        "18": 3,
+        "19": 3,
+        "20": 3,
+        "21": 3,
+        "22": 3,
+        "23": 3,
+        "24": 3,
+        "25": 3,
+        "26": 3,
+        "27": 3,
+        "28": 3,
+        "29": 3
+      },
+      "first_divergence_histogram": {
+        "3": 29,
+        "5": 1
+      },
+      "exact_same_seed_cumulative_values_first_two_days": true,
+      "max_absolute_mean_gap_first50_million_raw_cost_units": 0.39748540817666494,
+      "day_of_max_absolute_mean_gap_first50": 18,
+      "mean_gap_at_day50_million_raw_cost_units_a_minus_b": 0.10229083813000218
+    },
+    {
+      "methods": [
+        "BayesianSPO",
+        "LinUCB"
+      ],
+      "first_mean_divergence_day_exact": 3,
+      "first_mean_divergence_day_above_tolerance": 3,
+      "first_any_seed_divergence_day_above_tolerance": 3,
+      "per_seed_first_divergence_day_above_tolerance": {
+        "0": 3,
+        "1": 3,
+        "2": 3,
+        "3": 3,
+        "4": 3,
+        "5": 3,
+        "6": 3,
+        "7": 3,
+        "8": 3,
+        "9": 3,
+        "10": 3,
+        "11": 3,
+        "12": 3,
+        "13": 3,
+        "14": 3,
+        "15": 3,
+        "16": 3,
+        "17": 3,
+        "18": 3,
+        "19": 3,
+        "20": 3,
+        "21": 3,
+        "22": 3,
+        "23": 3,
+        "24": 3,
+        "25": 3,
+        "26": 3,
+        "27": 3,
+        "28": 3,
+        "29": 3
+      },
+      "first_divergence_histogram": {
+        "3": 30
+      },
+      "exact_same_seed_cumulative_values_first_two_days": true,
+      "max_absolute_mean_gap_first50_million_raw_cost_units": 0.4752793459599995,
+      "day_of_max_absolute_mean_gap_first50": 15,
+      "mean_gap_at_day50_million_raw_cost_units_a_minus_b": -0.017162178543336116
+    },
+    {
+      "methods": [
+        "BayesianSPO",
+        "BLL-Online"
+      ],
+      "first_mean_divergence_day_exact": 3,
+      "first_mean_divergence_day_above_tolerance": 3,
+      "first_any_seed_divergence_day_above_tolerance": 3,
+      "per_seed_first_divergence_day_above_tolerance": {
+        "0": 3,
+        "1": 3,
+        "2": 3,
+        "3": 3,
+        "4": 3,
+        "5": 3,
+        "6": 3,
+        "7": 3,
+        "8": 4,
+        "9": 3,
+        "10": 3,
+        "11": 3,
+        "12": 3,
+        "13": 3,
+        "14": 3,
+        "15": 3,
+        "16": 3,
+        "17": 3,
+        "18": 3,
+        "19": 3,
+        "20": 3,
+        "21": 3,
+        "22": 3,
+        "23": 3,
+        "24": 3,
+        "25": 3,
+        "26": 3,
+        "27": 3,
+        "28": 3,
+        "29": 3
+      },
+      "first_divergence_histogram": {
+        "3": 29,
+        "4": 1
+      },
+      "exact_same_seed_cumulative_values_first_two_days": true,
+      "max_absolute_mean_gap_first50_million_raw_cost_units": 0.354323092849999,
+      "day_of_max_absolute_mean_gap_first50": 9,
+      "mean_gap_at_day50_million_raw_cost_units_a_minus_b": -0.11970954776333735
+    },
+    {
+      "methods": [
+        "BayesianSPO",
+        "TS"
+      ],
+      "first_mean_divergence_day_exact": 1,
+      "first_mean_divergence_day_above_tolerance": 1,
+      "first_any_seed_divergence_day_above_tolerance": 1,
+      "per_seed_first_divergence_day_above_tolerance": {
+        "0": 1,
+        "1": 1,
+        "2": 1,
+        "3": 1,
+        "4": 1,
+        "5": 1,
+        "6": 1,
+        "7": 1,
+        "8": 1,
+        "9": 1,
+        "10": 1,
+        "11": 1,
+        "12": 1,
+        "13": 1,
+        "14": 1,
+        "15": 1,
+        "16": 1,
+        "17": 1,
+        "18": 1,
+        "19": 1,
+        "20": 1,
+        "21": 1,
+        "22": 1,
+        "23": 1,
+        "24": 1,
+        "25": 1,
+        "26": 1,
+        "27": 1,
+        "28": 1,
+        "29": 1
+      },
+      "first_divergence_histogram": {
+        "1": 30
+      },
+      "exact_same_seed_cumulative_values_first_two_days": false,
+      "max_absolute_mean_gap_first50_million_raw_cost_units": 1.7002466199049986,
+      "day_of_max_absolute_mean_gap_first50": 50,
+      "mean_gap_at_day50_million_raw_cost_units_a_minus_b": -1.7002466199049986
+    },
+    {
+      "methods": [
+        "BayesianSPO",
+        "EpsilonGreedy"
+      ],
+      "first_mean_divergence_day_exact": 1,
+      "first_mean_divergence_day_above_tolerance": 1,
+      "first_any_seed_divergence_day_above_tolerance": 1,
+      "per_seed_first_divergence_day_above_tolerance": {
+        "0": 1,
+        "1": 1,
+        "2": 1,
+        "3": 1,
+        "4": 1,
+        "5": 1,
+        "6": 1,
+        "7": 1,
+        "8": 1,
+        "9": 1,
+        "10": 1,
+        "11": 1,
+        "12": 1,
+        "13": 1,
+        "14": 1,
+        "15": 1,
+        "16": 1,
+        "17": 1,
+        "18": 1,
+        "19": 1,
+        "20": 1,
+        "21": 1,
+        "22": 1,
+        "23": 1,
+        "24": 1,
+        "25": 1,
+        "26": 1,
+        "27": 1,
+        "28": 1,
+        "29": 1
+      },
+      "first_divergence_histogram": {
+        "1": 30
+      },
+      "exact_same_seed_cumulative_values_first_two_days": false,
+      "max_absolute_mean_gap_first50_million_raw_cost_units": 2.181264709073322,
+      "day_of_max_absolute_mean_gap_first50": 50,
+      "mean_gap_at_day50_million_raw_cost_units_a_minus_b": -2.181264709073322
+    },
+    {
+      "methods": [
+        "BayesianMSE",
+        "LinUCB"
+      ],
+      "first_mean_divergence_day_exact": 3,
+      "first_mean_divergence_day_above_tolerance": 3,
+      "first_any_seed_divergence_day_above_tolerance": 3,
+      "per_seed_first_divergence_day_above_tolerance": {
+        "0": 3,
+        "1": 3,
+        "2": 5,
+        "3": 4,
+        "4": 5,
+        "5": 3,
+        "6": 5,
+        "7": 5,
+        "8": 3,
+        "9": 5,
+        "10": 5,
+        "11": 6,
+        "12": 3,
+        "13": 3,
+        "14": 3,
+        "15": 6,
+        "16": 4,
+        "17": 5,
+        "18": 3,
+        "19": 3,
+        "20": 6,
+        "21": 3,
+        "22": 5,
+        "23": 5,
+        "24": 3,
+        "25": 4,
+        "26": 6,
+        "27": 5,
+        "28": 6,
+        "29": 5
+      },
+      "first_divergence_histogram": {
+        "3": 11,
+        "4": 3,
+        "5": 11,
+        "6": 5
+      },
+      "exact_same_seed_cumulative_values_first_two_days": true,
+      "max_absolute_mean_gap_first50_million_raw_cost_units": 0.45987661924666284,
+      "day_of_max_absolute_mean_gap_first50": 23,
+      "mean_gap_at_day50_million_raw_cost_units_a_minus_b": -0.11945301667333831
+    },
+    {
+      "methods": [
+        "BayesianMSE",
+        "BLL-Online"
+      ],
+      "first_mean_divergence_day_exact": 3,
+      "first_mean_divergence_day_above_tolerance": 3,
+      "first_any_seed_divergence_day_above_tolerance": 3,
+      "per_seed_first_divergence_day_above_tolerance": {
+        "0": 3,
+        "1": 3,
+        "2": 6,
+        "3": 4,
+        "4": 5,
+        "5": 3,
+        "6": 3,
+        "7": 3,
+        "8": 4,
+        "9": 4,
+        "10": 5,
+        "11": 6,
+        "12": 3,
+        "13": 3,
+        "14": 3,
+        "15": 3,
+        "16": 4,
+        "17": 3,
+        "18": 3,
+        "19": 3,
+        "20": 5,
+        "21": 3,
+        "22": 5,
+        "23": 5,
+        "24": 3,
+        "25": 4,
+        "26": 5,
+        "27": 3,
+        "28": 7,
+        "29": 5
+      },
+      "first_divergence_histogram": {
+        "3": 15,
+        "4": 5,
+        "5": 7,
+        "6": 2,
+        "7": 1
+      },
+      "exact_same_seed_cumulative_values_first_two_days": true,
+      "max_absolute_mean_gap_first50_million_raw_cost_units": 0.5034983907099948,
+      "day_of_max_absolute_mean_gap_first50": 29,
+      "mean_gap_at_day50_million_raw_cost_units_a_minus_b": -0.22200038589333956
+    },
+    {
+      "methods": [
+        "BayesianMSE",
+        "TS"
+      ],
+      "first_mean_divergence_day_exact": 1,
+      "first_mean_divergence_day_above_tolerance": 1,
+      "first_any_seed_divergence_day_above_tolerance": 1,
+      "per_seed_first_divergence_day_above_tolerance": {
+        "0": 1,
+        "1": 1,
+        "2": 1,
+        "3": 1,
+        "4": 1,
+        "5": 1,
+        "6": 1,
+        "7": 1,
+        "8": 1,
+        "9": 1,
+        "10": 1,
+        "11": 1,
+        "12": 1,
+        "13": 1,
+        "14": 1,
+        "15": 1,
+        "16": 1,
+        "17": 1,
+        "18": 1,
+        "19": 1,
+        "20": 1,
+        "21": 1,
+        "22": 1,
+        "23": 1,
+        "24": 1,
+        "25": 1,
+        "26": 1,
+        "27": 1,
+        "28": 1,
+        "29": 1
+      },
+      "first_divergence_histogram": {
+        "1": 30
+      },
+      "exact_same_seed_cumulative_values_first_two_days": false,
+      "max_absolute_mean_gap_first50_million_raw_cost_units": 1.8025374580350009,
+      "day_of_max_absolute_mean_gap_first50": 50,
+      "mean_gap_at_day50_million_raw_cost_units_a_minus_b": -1.8025374580350009
+    },
+    {
+      "methods": [
+        "BayesianMSE",
+        "EpsilonGreedy"
+      ],
+      "first_mean_divergence_day_exact": 1,
+      "first_mean_divergence_day_above_tolerance": 1,
+      "first_any_seed_divergence_day_above_tolerance": 1,
+      "per_seed_first_divergence_day_above_tolerance": {
+        "0": 1,
+        "1": 1,
+        "2": 1,
+        "3": 1,
+        "4": 1,
+        "5": 1,
+        "6": 1,
+        "7": 1,
+        "8": 1,
+        "9": 1,
+        "10": 1,
+        "11": 1,
+        "12": 1,
+        "13": 1,
+        "14": 1,
+        "15": 1,
+        "16": 1,
+        "17": 1,
+        "18": 1,
+        "19": 1,
+        "20": 1,
+        "21": 1,
+        "22": 1,
+        "23": 1,
+        "24": 1,
+        "25": 1,
+        "26": 1,
+        "27": 1,
+        "28": 1,
+        "29": 1
+      },
+      "first_divergence_histogram": {
+        "1": 30
+      },
+      "exact_same_seed_cumulative_values_first_two_days": false,
+      "max_absolute_mean_gap_first50_million_raw_cost_units": 2.2835555472033238,
+      "day_of_max_absolute_mean_gap_first50": 50,
+      "mean_gap_at_day50_million_raw_cost_units_a_minus_b": -2.2835555472033238
+    },
+    {
+      "methods": [
+        "LinUCB",
+        "BLL-Online"
+      ],
+      "first_mean_divergence_day_exact": 3,
+      "first_mean_divergence_day_above_tolerance": 3,
+      "first_any_seed_divergence_day_above_tolerance": 3,
+      "per_seed_first_divergence_day_above_tolerance": {
+        "0": 3,
+        "1": 5,
+        "2": 5,
+        "3": 6,
+        "4": 6,
+        "5": 5,
+        "6": 3,
+        "7": 3,
+        "8": 3,
+        "9": 4,
+        "10": 5,
+        "11": 6,
+        "12": 6,
+        "13": 6,
+        "14": 5,
+        "15": 3,
+        "16": 6,
+        "17": 3,
+        "18": 5,
+        "19": 3,
+        "20": 5,
+        "21": 5,
+        "22": 5,
+        "23": 6,
+        "24": 5,
+        "25": 6,
+        "26": 5,
+        "27": 3,
+        "28": 6,
+        "29": 6
+      },
+      "first_divergence_histogram": {
+        "3": 8,
+        "4": 1,
+        "5": 11,
+        "6": 10
+      },
+      "exact_same_seed_cumulative_values_first_two_days": true,
+      "max_absolute_mean_gap_first50_million_raw_cost_units": 0.4247922749016647,
+      "day_of_max_absolute_mean_gap_first50": 29,
+      "mean_gap_at_day50_million_raw_cost_units_a_minus_b": -0.10254736922000124
+    },
+    {
+      "methods": [
+        "LinUCB",
+        "TS"
+      ],
+      "first_mean_divergence_day_exact": 1,
+      "first_mean_divergence_day_above_tolerance": 1,
+      "first_any_seed_divergence_day_above_tolerance": 1,
+      "per_seed_first_divergence_day_above_tolerance": {
+        "0": 1,
+        "1": 1,
+        "2": 1,
+        "3": 1,
+        "4": 1,
+        "5": 1,
+        "6": 1,
+        "7": 1,
+        "8": 1,
+        "9": 1,
+        "10": 1,
+        "11": 1,
+        "12": 1,
+        "13": 1,
+        "14": 1,
+        "15": 1,
+        "16": 1,
+        "17": 1,
+        "18": 1,
+        "19": 1,
+        "20": 1,
+        "21": 1,
+        "22": 1,
+        "23": 1,
+        "24": 1,
+        "25": 1,
+        "26": 1,
+        "27": 1,
+        "28": 1,
+        "29": 1
+      },
+      "first_divergence_histogram": {
+        "1": 30
+      },
+      "exact_same_seed_cumulative_values_first_two_days": false,
+      "max_absolute_mean_gap_first50_million_raw_cost_units": 1.6830844413616628,
+      "day_of_max_absolute_mean_gap_first50": 50,
+      "mean_gap_at_day50_million_raw_cost_units_a_minus_b": -1.6830844413616628
+    },
+    {
+      "methods": [
+        "LinUCB",
+        "EpsilonGreedy"
+      ],
+      "first_mean_divergence_day_exact": 1,
+      "first_mean_divergence_day_above_tolerance": 1,
+      "first_any_seed_divergence_day_above_tolerance": 1,
+      "per_seed_first_divergence_day_above_tolerance": {
+        "0": 1,
+        "1": 1,
+        "2": 1,
+        "3": 1,
+        "4": 1,
+        "5": 1,
+        "6": 1,
+        "7": 1,
+        "8": 1,
+        "9": 1,
+        "10": 1,
+        "11": 1,
+        "12": 1,
+        "13": 1,
+        "14": 1,
+        "15": 1,
+        "16": 1,
+        "17": 1,
+        "18": 1,
+        "19": 1,
+        "20": 1,
+        "21": 1,
+        "22": 1,
+        "23": 1,
+        "24": 1,
+        "25": 1,
+        "26": 1,
+        "27": 1,
+        "28": 1,
+        "29": 1
+      },
+      "first_divergence_histogram": {
+        "1": 30
+      },
+      "exact_same_seed_cumulative_values_first_two_days": false,
+      "max_absolute_mean_gap_first50_million_raw_cost_units": 2.1641025305299855,
+      "day_of_max_absolute_mean_gap_first50": 50,
+      "mean_gap_at_day50_million_raw_cost_units_a_minus_b": -2.1641025305299855
+    },
+    {
+      "methods": [
+        "BLL-Online",
+        "TS"
+      ],
+      "first_mean_divergence_day_exact": 1,
+      "first_mean_divergence_day_above_tolerance": 1,
+      "first_any_seed_divergence_day_above_tolerance": 1,
+      "per_seed_first_divergence_day_above_tolerance": {
+        "0": 1,
+        "1": 1,
+        "2": 1,
+        "3": 1,
+        "4": 1,
+        "5": 1,
+        "6": 1,
+        "7": 1,
+        "8": 1,
+        "9": 1,
+        "10": 1,
+        "11": 1,
+        "12": 1,
+        "13": 1,
+        "14": 1,
+        "15": 1,
+        "16": 1,
+        "17": 1,
+        "18": 1,
+        "19": 1,
+        "20": 1,
+        "21": 1,
+        "22": 1,
+        "23": 1,
+        "24": 1,
+        "25": 1,
+        "26": 1,
+        "27": 1,
+        "28": 1,
+        "29": 1
+      },
+      "first_divergence_histogram": {
+        "1": 30
+      },
+      "exact_same_seed_cumulative_values_first_two_days": false,
+      "max_absolute_mean_gap_first50_million_raw_cost_units": 1.5805370721416614,
+      "day_of_max_absolute_mean_gap_first50": 50,
+      "mean_gap_at_day50_million_raw_cost_units_a_minus_b": -1.5805370721416614
+    },
+    {
+      "methods": [
+        "BLL-Online",
+        "EpsilonGreedy"
+      ],
+      "first_mean_divergence_day_exact": 1,
+      "first_mean_divergence_day_above_tolerance": 1,
+      "first_any_seed_divergence_day_above_tolerance": 1,
+      "per_seed_first_divergence_day_above_tolerance": {
+        "0": 1,
+        "1": 1,
+        "2": 1,
+        "3": 1,
+        "4": 1,
+        "5": 1,
+        "6": 1,
+        "7": 1,
+        "8": 1,
+        "9": 1,
+        "10": 1,
+        "11": 1,
+        "12": 1,
+        "13": 1,
+        "14": 1,
+        "15": 1,
+        "16": 1,
+        "17": 1,
+        "18": 1,
+        "19": 1,
+        "20": 1,
+        "21": 1,
+        "22": 1,
+        "23": 1,
+        "24": 1,
+        "25": 1,
+        "26": 1,
+        "27": 1,
+        "28": 1,
+        "29": 1
+      },
+      "first_divergence_histogram": {
+        "1": 30
+      },
+      "exact_same_seed_cumulative_values_first_two_days": false,
+      "max_absolute_mean_gap_first50_million_raw_cost_units": 2.0615551613099847,
+      "day_of_max_absolute_mean_gap_first50": 50,
+      "mean_gap_at_day50_million_raw_cost_units_a_minus_b": -2.0615551613099847
+    },
+    {
+      "methods": [
+        "TS",
+        "EpsilonGreedy"
+      ],
+      "first_mean_divergence_day_exact": 1,
+      "first_mean_divergence_day_above_tolerance": 1,
+      "first_any_seed_divergence_day_above_tolerance": 1,
+      "per_seed_first_divergence_day_above_tolerance": {
+        "0": 1,
+        "1": 1,
+        "2": 1,
+        "3": 1,
+        "4": 1,
+        "5": 1,
+        "6": 1,
+        "7": 1,
+        "8": 1,
+        "9": 1,
+        "10": 1,
+        "11": 1,
+        "12": 1,
+        "13": 1,
+        "14": 1,
+        "15": 1,
+        "16": 1,
+        "17": 1,
+        "18": 1,
+        "19": 1,
+        "20": 1,
+        "21": 1,
+        "22": 1,
+        "23": 1,
+        "24": 1,
+        "25": 1,
+        "26": 1,
+        "27": 1,
+        "28": 1,
+        "29": 1
+      },
+      "first_divergence_histogram": {
+        "1": 30
+      },
+      "exact_same_seed_cumulative_values_first_two_days": false,
+      "max_absolute_mean_gap_first50_million_raw_cost_units": 0.481018089168323,
+      "day_of_max_absolute_mean_gap_first50": 50,
+      "mean_gap_at_day50_million_raw_cost_units_a_minus_b": -0.481018089168323
+    }
+  ],
+  "interpretations": [
+    {
+      "claim": "The apparent overlap through roughly 50 days is principally visual near-overlap on a broad cumulative-regret scale, not an enforced common first 50 day trajectory.",
+      "basis": "Stored mean trajectories differ from day 3 for all pairs among the four zero-bonus methods, and from day 1 for pairs involving TS or epsilon-greedy. The plotted data are unsmoothed."
+    },
+    {
+      "claim": "Zero prior means and zero exploration bonuses provide a code-supported explanation for a common initial scheduling objective among SPO, MSE, BLL and LinUCB.",
+      "basis": "The manifest sets beta=0 for the Bayesian methods and alpha=0 for LinUCB. Their per-arm regressions initialize response statistics at zero. This supports tied first-day predicted objectives; identical regret alone does not prove identical actions or machine assignments."
+    },
+    {
+      "claim": "The number 50 has a plotting role only: it is the starting offset for staggered shape markers.",
+      "basis": "plot.py draws lines at every day and separately creates markers at 50+8*method_index, then every 65 days. The online runner calls updates from the first round; there is no 50 day warm-up block."
+    }
+  ],
+  "limitations": [
+    "Archived trajectory records retain daily regrets and final 309-component obs_counts but not per-day actions or prefix observation counts. Coverage or repeated-selection rates at days 10/25/50 cannot be reconstructed reliably from these records without new execution.",
+    "Equal early regret does not establish identical task-start vectors or machine assignments.",
+    "No causal experiment was run to attribute later separation to a particular representation, exploration or coverage mechanism."
+  ],
+  "related_source_locations": {
+    "online_runner": "experiments/rebuttal/energy/run.py::run_energy_experiment",
+    "episode_loop": "src/agents/base.py::run_agent_on_episode",
+    "prior_initialization": "src/agents/bayesian_utils.py::init_per_arm_regression",
+    "environment": "src/envs/energy_scheduling.py",
+    "scheduling_oracle": "src/solvers/energy_scheduling.py"
+  },
+  "preservation": "All existing trajectories, manifests, figures, source files and prior audits are unchanged."
+}

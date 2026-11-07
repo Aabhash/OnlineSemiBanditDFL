@@ -1,0 +1,1084 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" display="block" class="plt-container" width="560.0" height="360.0">
+  <style type="text/css">
+  .plt-container {
+   font-family: Avenir Next;
+   user-select: none;
+   -webkit-user-select: none;
+   -moz-user-select: none;
+   -ms-user-select: none;
+}
+text {
+   text-rendering: optimizeLegibility;
+}
+#pnT75pj .plot-title {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 16.0px;
+
+}
+#pnT75pj .plot-subtitle {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 15.0px;
+
+}
+#pnT75pj .plot-caption {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 13.0px;
+
+}
+#pnT75pj .plot-tag {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 16.0px;
+
+}
+#pnT75pj .hyperlink-element {
+fill: #118ed8;
+font-weight: normal;
+font-style: normal;
+
+}
+#pnT75pj .legend-title {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 15.0px;
+
+}
+#pnT75pj .legend-item {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 13.0px;
+
+}
+#pnT75pj .axis-title-x {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 15.0px;
+
+}
+#pnT75pj .axis-text-x {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 13.0px;
+
+}
+.axis-tooltip-text-x {
+fill: #ffffff;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 13.0px;
+
+}
+#pnT75pj .axis-title-y {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 15.0px;
+
+}
+#pnT75pj .axis-text-y {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 13.0px;
+
+}
+.axis-tooltip-text-y {
+fill: #ffffff;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 13.0px;
+
+}
+#pnT75pj .facet-strip-text-x {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 13.0px;
+
+}
+#pnT75pj .facet-strip-text-y {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 13.0px;
+
+}
+.tooltip-text {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 13.0px;
+
+}
+.tooltip-title {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next Demi Bold;
+font-size: 13.0px;
+
+}
+.tooltip-label {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next Demi Bold;
+font-size: 13.0px;
+
+}
+
+  </style>
+  <g id="pnT75pj">
+    <rect x="0.0" y="0.0" height="360.0" width="560.0" fill="rgb(255,255,255)" fill-opacity="1.0" stroke="rgb(71,71,71)" stroke-opacity="1.0" stroke-width="0.0">
+    </rect>
+  </g>
+  <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" display="block" class="plt-container" width="542.0" height="161.2980769230769" x="9.0" y="9.0">
+    <style type="text/css">
+    .plt-container {
+   font-family: Avenir Next;
+   user-select: none;
+   -webkit-user-select: none;
+   -moz-user-select: none;
+   -ms-user-select: none;
+}
+text {
+   text-rendering: optimizeLegibility;
+}
+#pIlbDOO .plot-title {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next Demi Bold;
+font-size: 16.0px;
+
+}
+#pIlbDOO .plot-subtitle {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next Demi Bold;
+font-size: 14.0px;
+
+}
+#pIlbDOO .plot-caption {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 13.0px;
+
+}
+#pIlbDOO .plot-tag {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 16.0px;
+
+}
+#pIlbDOO .hyperlink-element {
+fill: #118ed8;
+font-weight: normal;
+font-style: normal;
+
+}
+#pIlbDOO .legend-title {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 15.0px;
+
+}
+#pIlbDOO .legend-item {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next Demi Bold;
+font-size: 14.0px;
+
+}
+#pIlbDOO .axis-title-x {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 15.0px;
+
+}
+#pIlbDOO .axis-text-x {
+fill: #444444;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 13.0px;
+
+}
+#dWozbnm .axis-tooltip-text-x {
+fill: #ffffff;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 13.0px;
+
+}
+#pIlbDOO .axis-title-y {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 15.0px;
+
+}
+#pIlbDOO .axis-text-y {
+fill: #444444;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 11.5px;
+
+}
+#dWozbnm .axis-tooltip-text-y {
+fill: #ffffff;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 13.0px;
+
+}
+#pIlbDOO .facet-strip-text-x {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next Demi Bold;
+font-size: 14.5px;
+
+}
+#pIlbDOO .facet-strip-text-y {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next Demi Bold;
+font-size: 14.5px;
+
+}
+#dWozbnm .tooltip-text {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 13.0px;
+
+}
+#dWozbnm .tooltip-title {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next Demi Bold;
+font-size: 13.0px;
+
+}
+#dWozbnm .tooltip-label {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next Demi Bold;
+font-size: 13.0px;
+
+}
+
+    </style>
+    <g id="pIlbDOO">
+      <path fill-rule="evenodd" fill="rgb(255,255,255)" fill-opacity="1.0" d="M-3.0 -3.0 L-3.0 164.2980769230769 L545.0 164.2980769230769 L545.0 -3.0 Z">
+      </path>
+      <g transform="translate(18.0 19.0 ) ">
+        <g>
+          <g transform="translate(82.15370567520867 0.0 ) ">
+            <g>
+              <line x1="35.90560589930111" y1="0.0" x2="35.90560589930111" y2="109.2980769230769" stroke="rgb(233,233,233)" stroke-opacity="1.0" stroke-width="1.0" fill="none">
+              </line>
+              <line x1="131.6538882974374" y1="0.0" x2="131.6538882974374" y2="109.2980769230769" stroke="rgb(233,233,233)" stroke-opacity="1.0" stroke-width="1.0" fill="none">
+              </line>
+              <line x1="227.40217069557366" y1="0.0" x2="227.40217069557366" y2="109.2980769230769" stroke="rgb(233,233,233)" stroke-opacity="1.0" stroke-width="1.0" fill="none">
+              </line>
+              <line x1="323.15045309371" y1="0.0" x2="323.15045309371" y2="109.2980769230769" stroke="rgb(233,233,233)" stroke-opacity="1.0" stroke-width="1.0" fill="none">
+              </line>
+              <line x1="418.89873549184625" y1="0.0" x2="418.89873549184625" y2="109.2980769230769" stroke="rgb(233,233,233)" stroke-opacity="1.0" stroke-width="1.0" fill="none">
+              </line>
+            </g>
+          </g>
+          <g transform="translate(82.15370567520867 0.0 ) ">
+            <g>
+              <line x1="0.0" y1="77.10754741833509" x2="438.8462943247913" y2="77.10754741833509" stroke="rgb(233,233,233)" stroke-opacity="1.0" stroke-width="1.0" fill="none">
+              </line>
+              <line x1="0.0" y1="49.885112319187655" x2="438.8462943247913" y2="49.885112319187655" stroke="rgb(233,233,233)" stroke-opacity="1.0" stroke-width="1.0" fill="none">
+              </line>
+              <line x1="0.0" y1="22.662677220040223" x2="438.8462943247913" y2="22.662677220040223" stroke="rgb(233,233,233)" stroke-opacity="1.0" stroke-width="1.0" fill="none">
+              </line>
+            </g>
+          </g>
+        </g>
+        <g clip-path="url(#cu1tKiZ)" clip-bounds-jfx="[rect (82.15370567520867, 0.0), (438.8462943247913, 109.2980769230769)]">
+          <g transform="translate(82.15370567520867 0.0 ) ">
+            <g>
+              <g buffered-rendering="static">
+                <rect x="35.90560589930111" y="67.30747078264201" height="19.600153271386148" width="6.874417070090111" stroke="rgb(255,255,255)" stroke-opacity="1.0" fill="rgb(110,159,189)" fill-opacity="0.78" stroke-width="0.55">
+                </rect>
+                <rect x="35.90560589930111" y="12.862600584347163" height="19.600153271386134" width="186.70662719991964" stroke="rgb(255,255,255)" stroke-opacity="1.0" fill="rgb(110,159,189)" fill-opacity="0.78" stroke-width="0.55">
+                </rect>
+                <rect x="35.90560589930111" y="40.08503568349458" height="19.60015327138614" width="127.90614556048514" stroke="rgb(255,255,255)" stroke-opacity="1.0" fill="rgb(110,159,189)" fill-opacity="0.78" stroke-width="0.55">
+                </rect>
+              </g>
+              <g buffered-rendering="static">
+                <line x1="33.94735997678389" y1="77.10754741833509" x2="51.61268596199854" y2="77.10754741833509" stroke="rgb(85,85,85)" stroke-opacity="1.0" fill="none" stroke-width="1.2100000000000002">
+                </line>
+                <line x1="188.1499643404569" y1="22.662677220040223" x2="257.07450185798467" y2="22.662677220040223" stroke="rgb(85,85,85)" stroke-opacity="1.0" fill="none" stroke-width="1.2100000000000002">
+                </line>
+                <line x1="106.42472937962928" y1="49.885112319187655" x2="221.19877353994326" y2="49.885112319187655" stroke="rgb(85,85,85)" stroke-opacity="1.0" fill="none" stroke-width="1.2100000000000002">
+                </line>
+              </g>
+              <g buffered-rendering="static">
+                <line x1="33.94735997678389" y1="78.74089352428393" x2="33.94735997678389" y2="75.47420131238624" stroke="rgb(85,85,85)" stroke-opacity="1.0" fill="none" stroke-width="1.2100000000000002">
+                </line>
+                <line x1="51.61268596199854" y1="78.74089352428393" x2="51.61268596199854" y2="75.47420131238624" stroke="rgb(85,85,85)" stroke-opacity="1.0" fill="none" stroke-width="1.2100000000000002">
+                </line>
+                <line x1="188.1499643404569" y1="24.296023325989083" x2="188.1499643404569" y2="21.029331114091377" stroke="rgb(85,85,85)" stroke-opacity="1.0" fill="none" stroke-width="1.2100000000000002">
+                </line>
+                <line x1="257.07450185798467" y1="24.296023325989083" x2="257.07450185798467" y2="21.029331114091377" stroke="rgb(85,85,85)" stroke-opacity="1.0" fill="none" stroke-width="1.2100000000000002">
+                </line>
+                <line x1="106.42472937962928" y1="51.5184584251365" x2="106.42472937962928" y2="48.25176621323881" stroke="rgb(85,85,85)" stroke-opacity="1.0" fill="none" stroke-width="1.2100000000000002">
+                </line>
+                <line x1="221.19877353994326" y1="51.5184584251365" x2="221.19877353994326" y2="48.25176621323881" stroke="rgb(85,85,85)" stroke-opacity="1.0" fill="none" stroke-width="1.2100000000000002">
+                </line>
+              </g>
+              <g buffered-rendering="static">
+                <line x1="35.90560589930111" y1="109.2980769230769" x2="35.90560589930111" y2="1.4210854715202004E-14" stroke="rgb(34,34,34)" stroke-opacity="1.0" fill="none" stroke-width="2.2">
+                </line>
+              </g>
+              <g buffered-rendering="static">
+                <g>
+                  <line x1="46.27833649243254" y1="96.9799250407127" x2="36.653962867391535" y2="88.6446432430858" stroke="rgb(34,34,34)" stroke-opacity="1.0" fill="none" stroke-width="0.9900000000000001">
+                  </line>
+                  <path stroke-miterlimit="3.960000000000001" d="M41.56384689775154 89.58965054909766 L36.653962867391535 88.6446432430858 L38.29050454880337 93.36923119601902 L41.56384689775154 89.58965054909766 Z" stroke="rgb(34,34,34)" stroke-opacity="1.0" fill="rgb(34,34,34)" fill-opacity="1.0" stroke-width="0.9900000000000001">
+                  </path>
+                </g>
+              </g>
+              <g buffered-rendering="static">
+                <g transform="rotate(0.0 51.06575061233935 99.15771984864449 ) ">
+                  <g transform="translate(51.06575061233935 102.3077198486445 ) ">
+                    <text style="fill:#222222;font-size:9.0px;font-family:Avenir Next;" y="0.0" fill-opacity="1.0">
+                      <tspan>BayesianSPO Baseline - Masked</tspan>
+                    </text>
+                  </g>
+                </g>
+              </g>
+            </g>
+          </g>
+          <defs>
+            <clipPath id="cJwPLf7">
+              <rect x="82.15370567520867" y="0.0" width="438.8462943247913" height="109.2980769230769">
+              </rect>
+            </clipPath>
+          </defs>
+          <defs>
+            <clipPath id="cJKVVxJ">
+              <rect x="82.15370567520867" y="0.0" width="438.8462943247913" height="109.2980769230769">
+              </rect>
+            </clipPath>
+          </defs>
+          <defs>
+            <clipPath id="cK7CRLK">
+              <rect x="82.15370567520867" y="0.0" width="438.8462943247913" height="109.2980769230769">
+              </rect>
+            </clipPath>
+          </defs>
+          <defs>
+            <clipPath id="cp4Phw8">
+              <rect x="82.15370567520867" y="0.0" width="438.8462943247913" height="109.2980769230769">
+              </rect>
+            </clipPath>
+          </defs>
+          <defs>
+            <clipPath id="cxe7Ppi">
+              <rect x="82.15370567520867" y="0.0" width="438.8462943247913" height="109.2980769230769">
+              </rect>
+            </clipPath>
+          </defs>
+          <defs>
+            <clipPath id="cu1tKiZ">
+              <rect x="82.15370567520867" y="0.0" width="438.8462943247913" height="109.2980769230769">
+              </rect>
+            </clipPath>
+          </defs>
+        </g>
+        <g>
+          <g transform="translate(82.15370567520867 109.2980769230769 ) ">
+            <g transform="translate(35.90560589930111 0.0 ) ">
+              <g transform="translate(0.0 2.0 ) ">
+                <text style="font-size:13.0px;" y="0.0" class="axis-text-x" text-anchor="middle" dy="0.7em">
+                  <tspan>0</tspan>
+                </text>
+              </g>
+            </g>
+            <g transform="translate(131.6538882974374 0.0 ) ">
+              <g transform="translate(0.0 2.0 ) ">
+                <text style="font-size:13.0px;" y="0.0" class="axis-text-x" text-anchor="middle" dy="0.7em">
+                  <tspan>30</tspan>
+                </text>
+              </g>
+            </g>
+            <g transform="translate(227.40217069557366 0.0 ) ">
+              <g transform="translate(0.0 2.0 ) ">
+                <text style="font-size:13.0px;" y="0.0" class="axis-text-x" text-anchor="middle" dy="0.7em">
+                  <tspan>60</tspan>
+                </text>
+              </g>
+            </g>
+            <g transform="translate(323.15045309371 0.0 ) ">
+              <g transform="translate(0.0 2.0 ) ">
+                <text style="font-size:13.0px;" y="0.0" class="axis-text-x" text-anchor="middle" dy="0.7em">
+                  <tspan>90</tspan>
+                </text>
+              </g>
+            </g>
+            <g transform="translate(418.89873549184625 0.0 ) ">
+              <g transform="translate(0.0 2.0 ) ">
+                <text style="font-size:13.0px;" y="0.0" class="axis-text-x" text-anchor="middle" dy="0.7em">
+                  <tspan>120</tspan>
+                </text>
+              </g>
+            </g>
+          </g>
+          <g transform="translate(82.15370567520867 0.0 ) ">
+            <g transform="translate(0.0 77.10754741833509 ) ">
+              <g transform="translate(-2.0 0.0 ) ">
+                <text style="font-size:11.0px;" y="0.0" class="axis-text-y" text-anchor="end" dy="0.35em">
+                  <tspan>Knapsack 100</tspan>
+                </text>
+              </g>
+            </g>
+            <g transform="translate(0.0 49.885112319187655 ) ">
+              <g transform="translate(-2.0 0.0 ) ">
+                <text style="font-size:11.0px;" y="0.0" class="axis-text-y" text-anchor="end" dy="0.35em">
+                  <tspan>SP 20x20</tspan>
+                </text>
+              </g>
+            </g>
+            <g transform="translate(0.0 22.662677220040223 ) ">
+              <g transform="translate(-2.0 0.0 ) ">
+                <text style="font-size:11.0px;" y="0.0" class="axis-text-y" text-anchor="end" dy="0.35em">
+                  <tspan>Portfolio</tspan>
+                </text>
+              </g>
+            </g>
+          </g>
+          <rect x="82.15370567520867" y="0.0" height="109.2980769230769" width="438.8462943247913" stroke="rgb(199,199,199)" stroke-opacity="1.0" stroke-width="0.45" fill-opacity="0.0">
+          </rect>
+        </g>
+      </g>
+      <g transform="translate(100.15370567520867 12.8 ) ">
+        <text style="font-size:16.0px;" y="0.0" class="plot-title">
+          <tspan>BayesianSPO-Unmasked</tspan>
+        </text>
+      </g>
+      <g transform="translate(12.0 73.64903846153845 ) rotate(-90.0 ) ">
+      </g>
+      <g transform="translate(319.5768528376043 158.2980769230769 ) ">
+        <text style="font-size:15.0px;" y="0.0" class="axis-title-x" text-anchor="middle">
+          <tspan>Unmasked regret increase vs full mask (%)</tspan>
+        </text>
+      </g>
+      <path fill="rgb(0,0,0)" fill-opacity="0.0" stroke="rgb(71,71,71)" stroke-opacity="1.0" stroke-width="0.0" d="M-3.0 -3.0 L-3.0 164.2980769230769 L545.0 164.2980769230769 L545.0 -3.0 Z" pointer-events="none">
+      </path>
+    </g>
+    <g id="dWozbnm">
+    </g>
+  </svg>
+  <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" display="block" class="plt-container" width="444.8462943247913" height="56.0" x="106.15370567520864" y="176.3080769230769">
+    <style type="text/css">
+    .plt-container {
+   font-family: Avenir Next;
+   user-select: none;
+   -webkit-user-select: none;
+   -moz-user-select: none;
+   -ms-user-select: none;
+}
+text {
+   text-rendering: optimizeLegibility;
+}
+#pvp1xXZ .plot-title {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 16.0px;
+
+}
+#pvp1xXZ .plot-subtitle {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 15.0px;
+
+}
+#pvp1xXZ .plot-caption {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 13.0px;
+
+}
+#pvp1xXZ .plot-tag {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 16.0px;
+
+}
+#pvp1xXZ .hyperlink-element {
+fill: #118ed8;
+font-weight: normal;
+font-style: normal;
+
+}
+#pvp1xXZ .legend-title {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 15.0px;
+
+}
+#pvp1xXZ .legend-item {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 13.0px;
+
+}
+#pvp1xXZ .axis-title-x {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 15.0px;
+
+}
+#pvp1xXZ .axis-text-x {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 13.0px;
+
+}
+#dgaKFYL .axis-tooltip-text-x {
+fill: #ffffff;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 13.0px;
+
+}
+#pvp1xXZ .axis-title-y {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 15.0px;
+
+}
+#pvp1xXZ .axis-text-y {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 13.0px;
+
+}
+#dgaKFYL .axis-tooltip-text-y {
+fill: #ffffff;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 13.0px;
+
+}
+#pvp1xXZ .facet-strip-text-x {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 13.0px;
+
+}
+#pvp1xXZ .facet-strip-text-y {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 13.0px;
+
+}
+#dgaKFYL .tooltip-text {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 13.0px;
+
+}
+#dgaKFYL .tooltip-title {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next Demi Bold;
+font-size: 13.0px;
+
+}
+#dgaKFYL .tooltip-label {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next Demi Bold;
+font-size: 13.0px;
+
+}
+
+    </style>
+    <g id="pvp1xXZ">
+      <path fill-rule="evenodd" fill="rgb(255,255,255)" fill-opacity="1.0" d="M-3.0 -3.0 L-3.0 59.0 L447.8462943247913 59.0 L447.8462943247913 -3.0 Z">
+      </path>
+      <g transform="translate(3.0 3.0 ) ">
+        <g>
+          <g transform="">
+            <g>
+            </g>
+          </g>
+          <g transform="">
+            <g>
+            </g>
+          </g>
+        </g>
+        <g clip-path="url(#cBd4R3C)" clip-bounds-jfx="[rect (0.0, 0.0), (438.8462943247913, 50.0)]">
+          <g transform="">
+            <g>
+              <g buffered-rendering="static">
+                <rect x="19.94755883294506" y="23.181818181818183" height="3.636363636363633" width="398.95117665890115" stroke="rgb(184,184,184)" stroke-opacity="1.0" fill="rgb(184,184,184)" fill-opacity="1.0" stroke-width="1.6500000000000001">
+                </rect>
+              </g>
+            </g>
+          </g>
+          <defs>
+            <clipPath id="cBd4R3C">
+              <rect x="0.0" y="0.0" width="438.8462943247913" height="50.0">
+              </rect>
+            </clipPath>
+          </defs>
+        </g>
+        <g>
+          <g transform="translate(0.0 50.0 ) ">
+          </g>
+          <g transform="">
+          </g>
+        </g>
+      </g>
+      <path fill="rgb(0,0,0)" fill-opacity="0.0" stroke="rgb(71,71,71)" stroke-opacity="1.0" stroke-width="0.0" d="M-3.0 -3.0 L-3.0 59.0 L447.8462943247913 59.0 L447.8462943247913 -3.0 Z" pointer-events="none">
+      </path>
+    </g>
+    <g id="dgaKFYL">
+    </g>
+  </svg>
+  <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" display="block" class="plt-container" width="542.0" height="161.2980769230769" x="9.0" y="189.70192307692307">
+    <style type="text/css">
+    .plt-container {
+   font-family: Avenir Next;
+   user-select: none;
+   -webkit-user-select: none;
+   -moz-user-select: none;
+   -ms-user-select: none;
+}
+text {
+   text-rendering: optimizeLegibility;
+}
+#pmFjEIf .plot-title {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next Demi Bold;
+font-size: 16.0px;
+
+}
+#pmFjEIf .plot-subtitle {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next Demi Bold;
+font-size: 14.0px;
+
+}
+#pmFjEIf .plot-caption {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 13.0px;
+
+}
+#pmFjEIf .plot-tag {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 16.0px;
+
+}
+#pmFjEIf .hyperlink-element {
+fill: #118ed8;
+font-weight: normal;
+font-style: normal;
+
+}
+#pmFjEIf .legend-title {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 15.0px;
+
+}
+#pmFjEIf .legend-item {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next Demi Bold;
+font-size: 14.0px;
+
+}
+#pmFjEIf .axis-title-x {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 15.0px;
+
+}
+#pmFjEIf .axis-text-x {
+fill: #444444;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 13.0px;
+
+}
+#dnOCwhv .axis-tooltip-text-x {
+fill: #ffffff;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 13.0px;
+
+}
+#pmFjEIf .axis-title-y {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 15.0px;
+
+}
+#pmFjEIf .axis-text-y {
+fill: #444444;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 11.5px;
+
+}
+#dnOCwhv .axis-tooltip-text-y {
+fill: #ffffff;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 13.0px;
+
+}
+#pmFjEIf .facet-strip-text-x {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next Demi Bold;
+font-size: 14.5px;
+
+}
+#pmFjEIf .facet-strip-text-y {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next Demi Bold;
+font-size: 14.5px;
+
+}
+#dnOCwhv .tooltip-text {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next;
+font-size: 13.0px;
+
+}
+#dnOCwhv .tooltip-title {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next Demi Bold;
+font-size: 13.0px;
+
+}
+#dnOCwhv .tooltip-label {
+fill: #474747;
+font-weight: normal;
+font-style: normal;
+font-family: Avenir Next Demi Bold;
+font-size: 13.0px;
+
+}
+
+    </style>
+    <g id="pmFjEIf">
+      <path fill-rule="evenodd" fill="rgb(255,255,255)" fill-opacity="1.0" d="M-3.0 -3.0 L-3.0 164.2980769230769 L545.0 164.2980769230769 L545.0 -3.0 Z">
+      </path>
+      <g transform="translate(18.0 19.0 ) ">
+        <g>
+          <g transform="translate(82.15370567520867 0.0 ) ">
+            <g>
+              <line x1="35.90560589930111" y1="0.0" x2="35.90560589930111" y2="109.2980769230769" stroke="rgb(233,233,233)" stroke-opacity="1.0" stroke-width="1.0" fill="none">
+              </line>
+              <line x1="131.6538882974374" y1="0.0" x2="131.6538882974374" y2="109.2980769230769" stroke="rgb(233,233,233)" stroke-opacity="1.0" stroke-width="1.0" fill="none">
+              </line>
+              <line x1="227.40217069557366" y1="0.0" x2="227.40217069557366" y2="109.2980769230769" stroke="rgb(233,233,233)" stroke-opacity="1.0" stroke-width="1.0" fill="none">
+              </line>
+              <line x1="323.15045309371" y1="0.0" x2="323.15045309371" y2="109.2980769230769" stroke="rgb(233,233,233)" stroke-opacity="1.0" stroke-width="1.0" fill="none">
+              </line>
+              <line x1="418.89873549184625" y1="0.0" x2="418.89873549184625" y2="109.2980769230769" stroke="rgb(233,233,233)" stroke-opacity="1.0" stroke-width="1.0" fill="none">
+              </line>
+            </g>
+          </g>
+          <g transform="translate(82.15370567520867 0.0 ) ">
+            <g>
+              <line x1="0.0" y1="77.10754741833509" x2="438.8462943247913" y2="77.10754741833509" stroke="rgb(233,233,233)" stroke-opacity="1.0" stroke-width="1.0" fill="none">
+              </line>
+              <line x1="0.0" y1="49.885112319187655" x2="438.8462943247913" y2="49.885112319187655" stroke="rgb(233,233,233)" stroke-opacity="1.0" stroke-width="1.0" fill="none">
+              </line>
+              <line x1="0.0" y1="22.662677220040223" x2="438.8462943247913" y2="22.662677220040223" stroke="rgb(233,233,233)" stroke-opacity="1.0" stroke-width="1.0" fill="none">
+              </line>
+            </g>
+          </g>
+        </g>
+        <g clip-path="url(#cfHZv33)" clip-bounds-jfx="[rect (82.15370567520867, 0.0), (438.8462943247913, 109.2980769230769)]">
+          <g transform="translate(82.15370567520867 0.0 ) ">
+            <g>
+              <g buffered-rendering="static">
+                <rect x="35.90560589930111" y="67.30747078264201" height="19.600153271386148" width="0.1" stroke="rgb(255,255,255)" stroke-opacity="1.0" fill="rgb(194,140,104)" fill-opacity="0.78" stroke-width="0.55">
+                </rect>
+                <rect x="35.90560589930111" y="12.862600584347163" height="19.600153271386134" width="0.1" stroke="rgb(255,255,255)" stroke-opacity="1.0" fill="rgb(194,140,104)" fill-opacity="0.78" stroke-width="0.55">
+                </rect>
+                <rect x="35.90560589930111" y="40.08503568349458" height="19.60015327138614" width="0.1" stroke="rgb(255,255,255)" stroke-opacity="1.0" fill="rgb(194,140,104)" fill-opacity="0.78" stroke-width="0.55">
+                </rect>
+              </g>
+              <g buffered-rendering="static">
+                <line x1="35.90560589930111" y1="77.10754741833509" x2="35.90560589930111" y2="77.10754741833509" stroke="rgb(85,85,85)" stroke-opacity="1.0" fill="none" stroke-width="1.2100000000000002">
+                </line>
+                <line x1="35.90560589930111" y1="22.662677220040223" x2="35.90560589930111" y2="22.662677220040223" stroke="rgb(85,85,85)" stroke-opacity="1.0" fill="none" stroke-width="1.2100000000000002">
+                </line>
+                <line x1="35.90560589930111" y1="49.885112319187655" x2="35.90560589930111" y2="49.885112319187655" stroke="rgb(85,85,85)" stroke-opacity="1.0" fill="none" stroke-width="1.2100000000000002">
+                </line>
+              </g>
+              <g buffered-rendering="static">
+                <line x1="35.90560589930111" y1="78.74089352428393" x2="35.90560589930111" y2="75.47420131238624" stroke="rgb(85,85,85)" stroke-opacity="1.0" fill="none" stroke-width="1.2100000000000002">
+                </line>
+                <line x1="35.90560589930111" y1="78.74089352428393" x2="35.90560589930111" y2="75.47420131238624" stroke="rgb(85,85,85)" stroke-opacity="1.0" fill="none" stroke-width="1.2100000000000002">
+                </line>
+                <line x1="35.90560589930111" y1="24.296023325989083" x2="35.90560589930111" y2="21.029331114091377" stroke="rgb(85,85,85)" stroke-opacity="1.0" fill="none" stroke-width="1.2100000000000002">
+                </line>
+                <line x1="35.90560589930111" y1="24.296023325989083" x2="35.90560589930111" y2="21.029331114091377" stroke="rgb(85,85,85)" stroke-opacity="1.0" fill="none" stroke-width="1.2100000000000002">
+                </line>
+                <line x1="35.90560589930111" y1="51.5184584251365" x2="35.90560589930111" y2="48.25176621323881" stroke="rgb(85,85,85)" stroke-opacity="1.0" fill="none" stroke-width="1.2100000000000002">
+                </line>
+                <line x1="35.90560589930111" y1="51.5184584251365" x2="35.90560589930111" y2="48.25176621323881" stroke="rgb(85,85,85)" stroke-opacity="1.0" fill="none" stroke-width="1.2100000000000002">
+                </line>
+              </g>
+              <g buffered-rendering="static">
+                <line x1="35.90560589930111" y1="109.2980769230769" x2="35.90560589930111" y2="1.4210854715202004E-14" stroke="rgb(34,34,34)" stroke-opacity="1.0" fill="none" stroke-width="2.2">
+                </line>
+              </g>
+              <g buffered-rendering="static">
+                <g>
+                  <line x1="46.27833649243254" y1="96.9799250407127" x2="36.653962867391535" y2="88.6446432430858" stroke="rgb(34,34,34)" stroke-opacity="1.0" fill="none" stroke-width="0.9900000000000001">
+                  </line>
+                  <path stroke-miterlimit="3.960000000000001" d="M41.56384689775154 89.58965054909766 L36.653962867391535 88.6446432430858 L38.29050454880337 93.36923119601902 L41.56384689775154 89.58965054909766 Z" stroke="rgb(34,34,34)" stroke-opacity="1.0" fill="rgb(34,34,34)" fill-opacity="1.0" stroke-width="0.9900000000000001">
+                  </path>
+                </g>
+              </g>
+              <g buffered-rendering="static">
+                <g transform="rotate(0.0 51.06575061233935 99.15771984864449 ) ">
+                  <g transform="translate(51.06575061233935 102.3077198486445 ) ">
+                    <text style="fill:#222222;font-size:9.0px;font-family:Avenir Next;" y="0.0" fill-opacity="1.0">
+                      <tspan>BayesianMSE Baseline - Masked</tspan>
+                    </text>
+                  </g>
+                </g>
+              </g>
+            </g>
+          </g>
+          <defs>
+            <clipPath id="cNcDCMj">
+              <rect x="82.15370567520867" y="0.0" width="438.8462943247913" height="109.2980769230769">
+              </rect>
+            </clipPath>
+          </defs>
+          <defs>
+            <clipPath id="cmA2mPr">
+              <rect x="82.15370567520867" y="0.0" width="438.8462943247913" height="109.2980769230769">
+              </rect>
+            </clipPath>
+          </defs>
+          <defs>
+            <clipPath id="c5Y1qXN">
+              <rect x="82.15370567520867" y="0.0" width="438.8462943247913" height="109.2980769230769">
+              </rect>
+            </clipPath>
+          </defs>
+          <defs>
+            <clipPath id="cZxM5a2">
+              <rect x="82.15370567520867" y="0.0" width="438.8462943247913" height="109.2980769230769">
+              </rect>
+            </clipPath>
+          </defs>
+          <defs>
+            <clipPath id="c3K7FDQ">
+              <rect x="82.15370567520867" y="0.0" width="438.8462943247913" height="109.2980769230769">
+              </rect>
+            </clipPath>
+          </defs>
+          <defs>
+            <clipPath id="cfHZv33">
+              <rect x="82.15370567520867" y="0.0" width="438.8462943247913" height="109.2980769230769">
+              </rect>
+            </clipPath>
+          </defs>
+        </g>
+        <g>
+          <g transform="translate(82.15370567520867 109.2980769230769 ) ">
+            <g transform="translate(35.90560589930111 0.0 ) ">
+              <g transform="translate(0.0 2.0 ) ">
+                <text style="font-size:13.0px;" y="0.0" class="axis-text-x" text-anchor="middle" dy="0.7em">
+                  <tspan>0</tspan>
+                </text>
+              </g>
+            </g>
+            <g transform="translate(131.6538882974374 0.0 ) ">
+              <g transform="translate(0.0 2.0 ) ">
+                <text style="font-size:13.0px;" y="0.0" class="axis-text-x" text-anchor="middle" dy="0.7em">
+                  <tspan>30</tspan>
+                </text>
+              </g>
+            </g>
+            <g transform="translate(227.40217069557366 0.0 ) ">
+              <g transform="translate(0.0 2.0 ) ">
+                <text style="font-size:13.0px;" y="0.0" class="axis-text-x" text-anchor="middle" dy="0.7em">
+                  <tspan>60</tspan>
+                </text>
+              </g>
+            </g>
+            <g transform="translate(323.15045309371 0.0 ) ">
+              <g transform="translate(0.0 2.0 ) ">
+                <text style="font-size:13.0px;" y="0.0" class="axis-text-x" text-anchor="middle" dy="0.7em">
+                  <tspan>90</tspan>
+                </text>
+              </g>
+            </g>
+            <g transform="translate(418.89873549184625 0.0 ) ">
+              <g transform="translate(0.0 2.0 ) ">
+                <text style="font-size:13.0px;" y="0.0" class="axis-text-x" text-anchor="middle" dy="0.7em">
+                  <tspan>120</tspan>
+                </text>
+              </g>
+            </g>
+          </g>
+          <g transform="translate(82.15370567520867 0.0 ) ">
+            <g transform="translate(0.0 77.10754741833509 ) ">
+              <g transform="translate(-2.0 0.0 ) ">
+                <text style="font-size:11.0px;" y="0.0" class="axis-text-y" text-anchor="end" dy="0.35em">
+                  <tspan>Knapsack 100</tspan>
+                </text>
+              </g>
+            </g>
+            <g transform="translate(0.0 49.885112319187655 ) ">
+              <g transform="translate(-2.0 0.0 ) ">
+                <text style="font-size:11.0px;" y="0.0" class="axis-text-y" text-anchor="end" dy="0.35em">
+                  <tspan>SP 20x20</tspan>
+                </text>
+              </g>
+            </g>
+            <g transform="translate(0.0 22.662677220040223 ) ">
+              <g transform="translate(-2.0 0.0 ) ">
+                <text style="font-size:11.0px;" y="0.0" class="axis-text-y" text-anchor="end" dy="0.35em">
+                  <tspan>Portfolio</tspan>
+                </text>
+              </g>
+            </g>
+          </g>
+          <rect x="82.15370567520867" y="0.0" height="109.2980769230769" width="438.8462943247913" stroke="rgb(199,199,199)" stroke-opacity="1.0" stroke-width="0.45" fill-opacity="0.0">
+          </rect>
+        </g>
+      </g>
+      <g transform="translate(100.15370567520867 12.8 ) ">
+        <text style="font-size:16.0px;" y="0.0" class="plot-title">
+          <tspan>BayesianMSE-Unmasked</tspan>
+        </text>
+      </g>
+      <g transform="translate(12.0 73.64903846153845 ) rotate(-90.0 ) ">
+      </g>
+      <g transform="translate(319.5768528376043 158.2980769230769 ) ">
+        <text style="font-size:15.0px;" y="0.0" class="axis-title-x" text-anchor="middle">
+          <tspan>Unmasked regret increase vs full mask (%)</tspan>
+        </text>
+      </g>
+      <path fill="rgb(0,0,0)" fill-opacity="0.0" stroke="rgb(71,71,71)" stroke-opacity="1.0" stroke-width="0.0" d="M-3.0 -3.0 L-3.0 164.2980769230769 L545.0 164.2980769230769 L545.0 -3.0 Z" pointer-events="none">
+      </path>
+    </g>
+    <g id="dnOCwhv">
+    </g>
+  </svg>
+</svg>

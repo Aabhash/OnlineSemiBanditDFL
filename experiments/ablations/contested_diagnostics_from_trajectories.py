@@ -2,7 +2,7 @@
 """Plot trajectory diagnostics from saved final trajectories.
 
 This script does not run experiments. It extracts the aggregate diagnostic traces
-already stored in trajectories.pkl and renders paper-style LetsPlot figures.
+already stored in trajectory pickles and renders paper-style LetsPlot figures.
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ from lets_plot.export import ggsave
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_TRAJECTORIES = REPO_ROOT / "results/paper/eval_online_10k/metrics/trajectories.pkl"
+DEFAULT_TRAJECTORIES = REPO_ROOT / "results/paper/eval_online_10k/metrics"
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "results/paper/ablations/contested_diagnostics_from_trajectories"
 
 MPL_CACHE = Path("/tmp/constrained_bandits_contested_diag_mpl_cache")
@@ -125,9 +125,17 @@ def resolve_path(path: str | Path) -> Path:
     return REPO_ROOT / path
 
 
+def load_trajectories(path: Path, datasets: list[str]) -> dict:
+    paths = [path / f"trajectories_{dataset}.pkl" for dataset in datasets] if path.is_dir() else [path]
+    raw = {}
+    for filename in paths:
+        with filename.open("rb") as f:
+            raw.update(pickle.load(f))
+    return raw
+
+
 def load_rows(path: Path, datasets: list[str], agents: list[str], feedback: str) -> pd.DataFrame:
-    with path.open("rb") as f:
-        raw = pickle.load(f)
+    raw = load_trajectories(path, datasets)
 
     dataset_set = set(datasets)
     agent_set = set(agents)
@@ -171,8 +179,7 @@ def load_rows(path: Path, datasets: list[str], agents: list[str], feedback: str)
 
 
 def load_flip_rows(path: Path, datasets: list[str], agents: list[str], feedback: str) -> pd.DataFrame:
-    with path.open("rb") as f:
-        raw = pickle.load(f)
+    raw = load_trajectories(path, datasets)
 
     dataset_set = set(datasets)
     agent_set = set(agents)
@@ -563,7 +570,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Extract contested vs. non-contested diagnostics from saved trajectories."
     )
-    parser.add_argument("--trajectories", default=str(DEFAULT_TRAJECTORIES.relative_to(REPO_ROOT)))
+    parser.add_argument(
+        "--trajectories",
+        default=str(DEFAULT_TRAJECTORIES.relative_to(REPO_ROOT)),
+        help="Trajectory pickle or directory of per-dataset trajectory pickles.",
+    )
     parser.add_argument("--output", default=str(DEFAULT_OUTPUT_DIR.relative_to(REPO_ROOT)))
     parser.add_argument("--datasets", nargs="+", default=DEFAULT_DATASETS)
     parser.add_argument(

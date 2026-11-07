@@ -1,0 +1,99 @@
+{
+  "LinUCB": {
+    "params": {
+      "alpha": 0.11098816505094332,
+      "lambda_reg": 0.05274468853642112
+    },
+    "mean_validation_regret": 25.567350351729104,
+    "std_validation_regret": 7.414256752274096,
+    "n_trials": 147
+  },
+  "TS": {
+    "params": {
+      "prior_var": 0.2838742953185489,
+      "noise_var": 0.014485904573956588
+    },
+    "mean_validation_regret": 28.518418975978516,
+    "std_validation_regret": 3.711519548359587,
+    "n_trials": 145
+  },
+  "EpsilonGreedy": {
+    "params": {
+      "init_lr": 0.003,
+      "epsilon": 0.049129098432896944,
+      "decay_epsilon": false,
+      "hidden_dim": 32
+    },
+    "mean_validation_regret": 2397.6170600215187,
+    "std_validation_regret": 385.8995923517927,
+    "n_trials": 148
+  },
+  "NeuralUCB": {
+    "params": {
+      "init_lr": 0.003,
+      "alpha": 1.7504662635758657,
+      "lambda_reg": 0.014703781737017028,
+      "batch_size": 4,
+      "hidden_dim": 32
+    },
+    "mean_validation_regret": 1382.1409047798531,
+    "std_validation_regret": 370.7129917006045,
+    "n_trials": 146
+  },
+  "BayesianSPO": {
+    "params": {
+      "init_lr": 0.003,
+      "beta": 0.4545097331164223,
+      "hidden_dim": 16,
+      "lambda_reg": 0.01241073341185644
+    },
+    "mean_validation_regret": 25.70345775818478,
+    "std_validation_regret": 2.593747146497308,
+    "n_trials": 141
+  },
+  "BayesianPFY": {
+    "params": {
+      "init_lr": 0.0003,
+      "beta": 0.3198747470361918,
+      "hidden_dim": 32,
+      "lambda_reg": 0.028254194619304035
+    },
+    "mean_validation_regret": 30.67797910212036,
+    "std_validation_regret": 6.796045947567071,
+    "n_trials": 138
+  },
+  "BayesianMSE": {
+    "params": {
+      "init_lr": 0.0003,
+      "beta": 0.30404018492813945,
+      "hidden_dim": 32,
+      "lambda_reg": 0.04538080797293249
+    },
+    "mean_validation_regret": 27.369685427265054,
+    "std_validation_regret": 6.4311617862586115,
+    "n_trials": 139
+  },
+  "BLL-Online": {
+    "params": {
+      "init_lr": 0.001,
+      "beta": 0.25039334301941146,
+      "hidden_dim": 32,
+      "lambda_reg": 0.03988252319226061,
+      "noise_var": 5.964155275234953
+    },
+    "mean_validation_regret": 24.57545317913616,
+    "std_validation_regret": 8.672392323087182,
+    "n_trials": 49
+  },
+  "WeberDecisionSPO": {
+    "params": {
+      "init_lr": 0.001,
+      "beta": 0.12356937302899759,
+      "hidden_dim": 32,
+      "lambda_reg": 0.021761525341257127
+    },
+    "mean_validation_regret": 22.90568813097666,
+    "std_validation_regret": 5.607710611856491,
+    "n_trials": 149
+  }
+}

@@ -1,0 +1,1267 @@
+{
+  "metric": "Final cumulative realized regret",
+  "standard_deviation": "Sample SD across paired evaluation seeds (ddof=1)",
+  "display_units": "Knapsack and shortest path: thousands; Portfolio: unscaled",
+  "rows": [
+    {
+      "dataset": "Knapsack 100",
+      "check": "Non-Bayesian head SPO",
+      "baseline_regret": 49622.81427012961,
+      "ablation_regret": 464769.0745794492,
+      "ablation_sd": 26776.079725901134,
+      "baseline_sd": 4231.430987148029,
+      "baseline_agent": "BayesianSPO",
+      "ablation_agent": "DeterministicSPO",
+      "source": "results/paper/ablations/architecture/knapsack_100/results.pkl",
+      "source_sha256": "e7782b29609528deca36f8865b3b750627ede9558b27cb8e8219c45eb693f09d",
+      "records": [
+        {
+          "seed": 100,
+          "baseline_regret": 55840.93751276306,
+          "ablation_regret": 433763.12281532754,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 101,
+          "baseline_regret": 43092.41231597695,
+          "ablation_regret": 527697.5915928966,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 102,
+          "baseline_regret": 49428.00722052374,
+          "ablation_regret": 470702.86149091553,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 103,
+          "baseline_regret": 55889.39387803519,
+          "ablation_regret": 447119.5551329504,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 104,
+          "baseline_regret": 44914.06900609175,
+          "ablation_regret": 448223.7043655278,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 105,
+          "baseline_regret": 50174.68550610973,
+          "ablation_regret": 458959.56593763485,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 106,
+          "baseline_regret": 49814.56396674897,
+          "ablation_regret": 470393.2351998697,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 107,
+          "baseline_regret": 50889.4815483742,
+          "ablation_regret": 453899.77955963876,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 108,
+          "baseline_regret": 45671.256139015546,
+          "ablation_regret": 487173.1682233094,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 109,
+          "baseline_regret": 50513.33560765693,
+          "ablation_regret": 449758.16147642105,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        }
+      ]
+    },
+    {
+      "dataset": "Portfolio",
+      "check": "Non-Bayesian head SPO",
+      "baseline_regret": 67.28325159775689,
+      "ablation_regret": 519.5586046999567,
+      "ablation_sd": 83.17024839798995,
+      "baseline_sd": 7.950747317439449,
+      "baseline_agent": "BayesianSPO",
+      "ablation_agent": "DeterministicSPO",
+      "source": "results/paper/ablations/architecture/portfolio_32/results.pkl",
+      "source_sha256": "db0082423ef1449334dd052fbc093265dbcac8ed70abec1c1aeed342e0aa7f61",
+      "records": [
+        {
+          "seed": 100,
+          "baseline_regret": 75.51709710980172,
+          "ablation_regret": 647.7994895616146,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 101,
+          "baseline_regret": 68.5992065781535,
+          "ablation_regret": 488.0287021068307,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 102,
+          "baseline_regret": 74.9854192554658,
+          "ablation_regret": 501.40143130848946,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 103,
+          "baseline_regret": 73.24879485950254,
+          "ablation_regret": 512.811662963062,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 104,
+          "baseline_regret": 68.89381026852551,
+          "ablation_regret": 411.0845767272158,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 105,
+          "baseline_regret": 66.39664158571792,
+          "ablation_regret": 584.0599798222477,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 106,
+          "baseline_regret": 52.385253738230745,
+          "ablation_regret": 408.20365904795176,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 107,
+          "baseline_regret": 54.205835104640705,
+          "ablation_regret": 559.4052848259943,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 108,
+          "baseline_regret": 69.25087687426613,
+          "ablation_regret": 623.7731549835801,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 109,
+          "baseline_regret": 69.34958060326426,
+          "ablation_regret": 459.01810565258154,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        }
+      ]
+    },
+    {
+      "dataset": "SP 20x20",
+      "check": "Non-Bayesian head SPO",
+      "baseline_regret": 22934.584841373275,
+      "ablation_regret": 169636.56580001413,
+      "ablation_sd": 5745.826901818547,
+      "baseline_sd": 2203.39600819183,
+      "baseline_agent": "BayesianSPO",
+      "ablation_agent": "DeterministicSPO",
+      "source": "results/paper/ablations/architecture/shortest_path_20x20/results.pkl",
+      "source_sha256": "d1a0e5feee11afee6bc76328b736a074afd066878e58e7176d7dd53f5eb1f547",
+      "records": [
+        {
+          "seed": 100,
+          "baseline_regret": 20918.660142861365,
+          "ablation_regret": 173816.35687427918,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 101,
+          "baseline_regret": 26716.937593613606,
+          "ablation_regret": 164954.29348176767,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 102,
+          "baseline_regret": 22795.783375089348,
+          "ablation_regret": 168413.67176873956,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 103,
+          "baseline_regret": 24734.02220295588,
+          "ablation_regret": 164813.88869015782,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 104,
+          "baseline_regret": 22214.485230690014,
+          "ablation_regret": 177572.88052506492,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 105,
+          "baseline_regret": 19603.233310020383,
+          "ablation_regret": 174824.85108910824,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 106,
+          "baseline_regret": 25573.431153156504,
+          "ablation_regret": 165254.12870103554,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 107,
+          "baseline_regret": 21284.731213319785,
+          "ablation_regret": 171740.2176527051,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 108,
+          "baseline_regret": 22161.19901615425,
+          "ablation_regret": 160064.3145243274,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 109,
+          "baseline_regret": 23343.365175871615,
+          "ablation_regret": 174911.05469295583,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        }
+      ]
+    },
+    {
+      "dataset": "Knapsack 100",
+      "check": "DecoupledSPO-Eps",
+      "baseline_regret": 49622.81427012961,
+      "ablation_regret": 83852.99518099455,
+      "ablation_sd": 3694.633454019872,
+      "baseline_sd": 4231.430987148029,
+      "baseline_agent": "DecoupledSPO-UCB",
+      "ablation_agent": "DecoupledSPO-Eps",
+      "source": "results/paper/ablations/decoupling/knapsack_100/results.pkl",
+      "source_sha256": "53e9e5142c04c0d5f6115a1d5010b1242755e99d0fdee906c2964565ae1bd9cf",
+      "records": [
+        {
+          "seed": 100,
+          "baseline_regret": 55840.93751276306,
+          "ablation_regret": 89934.28135097217,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 101,
+          "baseline_regret": 43092.41231597695,
+          "ablation_regret": 76159.64868065208,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 102,
+          "baseline_regret": 49428.00722052374,
+          "ablation_regret": 82743.97154711129,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 103,
+          "baseline_regret": 55889.39387803519,
+          "ablation_regret": 87110.00592712418,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 104,
+          "baseline_regret": 44914.06900609175,
+          "ablation_regret": 84862.91657711103,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 105,
+          "baseline_regret": 50174.68550610973,
+          "ablation_regret": 82723.03364400897,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 106,
+          "baseline_regret": 49814.56396674897,
+          "ablation_regret": 83010.70308262981,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 107,
+          "baseline_regret": 50889.4815483742,
+          "ablation_regret": 85633.03468515135,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 108,
+          "baseline_regret": 45671.256139015546,
+          "ablation_regret": 81207.13530932876,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 109,
+          "baseline_regret": 50513.33560765693,
+          "ablation_regret": 85145.22100585588,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        }
+      ]
+    },
+    {
+      "dataset": "Knapsack 100",
+      "check": "Coupled head SPO (0.5x lr)",
+      "baseline_regret": 49622.81427012961,
+      "ablation_regret": 581573.6941361295,
+      "ablation_sd": 26347.084815010912,
+      "baseline_sd": 4231.430987148029,
+      "baseline_agent": "DecoupledSPO-UCB",
+      "ablation_agent": "CoupledSPO-Eps-x0.5",
+      "source": "results/paper/ablations/decoupling/knapsack_100/results.pkl",
+      "source_sha256": "53e9e5142c04c0d5f6115a1d5010b1242755e99d0fdee906c2964565ae1bd9cf",
+      "records": [
+        {
+          "seed": 100,
+          "baseline_regret": 55840.93751276306,
+          "ablation_regret": 561123.8401070113,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 101,
+          "baseline_regret": 43092.41231597695,
+          "ablation_regret": 638264.5220440561,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 102,
+          "baseline_regret": 49428.00722052374,
+          "ablation_regret": 585195.5067955864,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 103,
+          "baseline_regret": 55889.39387803519,
+          "ablation_regret": 559670.5102822455,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 104,
+          "baseline_regret": 44914.06900609175,
+          "ablation_regret": 561960.2874326266,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 105,
+          "baseline_regret": 50174.68550610973,
+          "ablation_regret": 602315.8065786841,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 106,
+          "baseline_regret": 49814.56396674897,
+          "ablation_regret": 570074.9950925669,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 107,
+          "baseline_regret": 50889.4815483742,
+          "ablation_regret": 564484.6763618997,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 108,
+          "baseline_regret": 45671.256139015546,
+          "ablation_regret": 606796.6916256498,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 109,
+          "baseline_regret": 50513.33560765693,
+          "ablation_regret": 565850.1050409687,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        }
+      ]
+    },
+    {
+      "dataset": "Knapsack 100",
+      "check": "Coupled head SPO (1x lr)",
+      "baseline_regret": 49622.81427012961,
+      "ablation_regret": 464769.0745794492,
+      "ablation_sd": 26776.079725901134,
+      "baseline_sd": 4231.430987148029,
+      "baseline_agent": "DecoupledSPO-UCB",
+      "ablation_agent": "CoupledSPO-Eps-x1",
+      "source": "results/paper/ablations/decoupling/knapsack_100/results.pkl",
+      "source_sha256": "53e9e5142c04c0d5f6115a1d5010b1242755e99d0fdee906c2964565ae1bd9cf",
+      "records": [
+        {
+          "seed": 100,
+          "baseline_regret": 55840.93751276306,
+          "ablation_regret": 433763.12281532754,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 101,
+          "baseline_regret": 43092.41231597695,
+          "ablation_regret": 527697.5915928966,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 102,
+          "baseline_regret": 49428.00722052374,
+          "ablation_regret": 470702.86149091553,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 103,
+          "baseline_regret": 55889.39387803519,
+          "ablation_regret": 447119.5551329504,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 104,
+          "baseline_regret": 44914.06900609175,
+          "ablation_regret": 448223.7043655278,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 105,
+          "baseline_regret": 50174.68550610973,
+          "ablation_regret": 458959.56593763485,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 106,
+          "baseline_regret": 49814.56396674897,
+          "ablation_regret": 470393.2351998697,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 107,
+          "baseline_regret": 50889.4815483742,
+          "ablation_regret": 453899.77955963876,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 108,
+          "baseline_regret": 45671.256139015546,
+          "ablation_regret": 487173.1682233094,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 109,
+          "baseline_regret": 50513.33560765693,
+          "ablation_regret": 449758.16147642105,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        }
+      ]
+    },
+    {
+      "dataset": "Knapsack 100",
+      "check": "Coupled head SPO (2x lr)",
+      "baseline_regret": 49622.81427012961,
+      "ablation_regret": 339489.43667558534,
+      "ablation_sd": 27754.421268860508,
+      "baseline_sd": 4231.430987148029,
+      "baseline_agent": "DecoupledSPO-UCB",
+      "ablation_agent": "CoupledSPO-Eps-x2",
+      "source": "results/paper/ablations/decoupling/knapsack_100/results.pkl",
+      "source_sha256": "53e9e5142c04c0d5f6115a1d5010b1242755e99d0fdee906c2964565ae1bd9cf",
+      "records": [
+        {
+          "seed": 100,
+          "baseline_regret": 55840.93751276306,
+          "ablation_regret": 325512.37368574186,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 101,
+          "baseline_regret": 43092.41231597695,
+          "ablation_regret": 402182.7409481291,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 102,
+          "baseline_regret": 49428.00722052374,
+          "ablation_regret": 349688.41793705174,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 103,
+          "baseline_regret": 55889.39387803519,
+          "ablation_regret": 306141.39672120224,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 104,
+          "baseline_regret": 44914.06900609175,
+          "ablation_regret": 314838.20150545554,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 105,
+          "baseline_regret": 50174.68550610973,
+          "ablation_regret": 335482.83611305867,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 106,
+          "baseline_regret": 49814.56396674897,
+          "ablation_regret": 341850.7056186156,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 107,
+          "baseline_regret": 50889.4815483742,
+          "ablation_regret": 358833.4120989424,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 108,
+          "baseline_regret": 45671.256139015546,
+          "ablation_regret": 344571.35054230486,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 109,
+          "baseline_regret": 50513.33560765693,
+          "ablation_regret": 315792.9315853509,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        }
+      ]
+    },
+    {
+      "dataset": "Portfolio",
+      "check": "DecoupledSPO-Eps",
+      "baseline_regret": 69.91297308750202,
+      "ablation_regret": 125.1941914151317,
+      "ablation_sd": 6.939943858081415,
+      "baseline_sd": 5.724602042790306,
+      "baseline_agent": "DecoupledSPO-UCB",
+      "ablation_agent": "DecoupledSPO-Eps",
+      "source": "results/paper/ablations/decoupling/portfolio_32/results.pkl",
+      "source_sha256": "abad7626ae861964e0911711695b8a0011d34ff9f4bf3576fb66a1302beb37fd",
+      "records": [
+        {
+          "seed": 100,
+          "baseline_regret": 79.69076795735587,
+          "ablation_regret": 124.56799605280835,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 101,
+          "baseline_regret": 74.25409868722365,
+          "ablation_regret": 116.22578215346341,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 102,
+          "baseline_regret": 70.6272953998285,
+          "ablation_regret": 135.02450952257868,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 103,
+          "baseline_regret": 74.11070014835138,
+          "ablation_regret": 132.52049055722225,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 104,
+          "baseline_regret": 67.15424113599441,
+          "ablation_regret": 116.0964713863975,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 105,
+          "baseline_regret": 68.02720862992336,
+          "ablation_regret": 124.37726382992274,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 106,
+          "baseline_regret": 60.54109335107179,
+          "ablation_regret": 121.18163352304272,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 107,
+          "baseline_regret": 74.09895737658692,
+          "ablation_regret": 126.34275224452928,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 108,
+          "baseline_regret": 66.63767138269796,
+          "ablation_regret": 134.4308092614747,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 109,
+          "baseline_regret": 63.98769680598639,
+          "ablation_regret": 121.1742056198773,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        }
+      ]
+    },
+    {
+      "dataset": "Portfolio",
+      "check": "Coupled head SPO (0.5x lr)",
+      "baseline_regret": 69.91297308750202,
+      "ablation_regret": 777.9562970457515,
+      "ablation_sd": 124.0013764436546,
+      "baseline_sd": 5.724602042790306,
+      "baseline_agent": "DecoupledSPO-UCB",
+      "ablation_agent": "CoupledSPO-Eps-x0.5",
+      "source": "results/paper/ablations/decoupling/portfolio_32/results.pkl",
+      "source_sha256": "abad7626ae861964e0911711695b8a0011d34ff9f4bf3576fb66a1302beb37fd",
+      "records": [
+        {
+          "seed": 100,
+          "baseline_regret": 79.69076795735587,
+          "ablation_regret": 909.7894016231364,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 101,
+          "baseline_regret": 74.25409868722365,
+          "ablation_regret": 689.9276460809366,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 102,
+          "baseline_regret": 70.6272953998285,
+          "ablation_regret": 760.7911235087228,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 103,
+          "baseline_regret": 74.11070014835138,
+          "ablation_regret": 799.0956745332868,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 104,
+          "baseline_regret": 67.15424113599441,
+          "ablation_regret": 605.4182171375182,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 105,
+          "baseline_regret": 68.02720862992336,
+          "ablation_regret": 866.1292165847271,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 106,
+          "baseline_regret": 60.54109335107179,
+          "ablation_regret": 611.5017228236297,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 107,
+          "baseline_regret": 74.09895737658692,
+          "ablation_regret": 867.7820752553206,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 108,
+          "baseline_regret": 66.63767138269796,
+          "ablation_regret": 962.6030899050764,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 109,
+          "baseline_regret": 63.98769680598639,
+          "ablation_regret": 706.5248030051595,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        }
+      ]
+    },
+    {
+      "dataset": "Portfolio",
+      "check": "Coupled head SPO (1x lr)",
+      "baseline_regret": 69.91297308750202,
+      "ablation_regret": 518.9301860791188,
+      "ablation_sd": 82.93374078401497,
+      "baseline_sd": 5.724602042790306,
+      "baseline_agent": "DecoupledSPO-UCB",
+      "ablation_agent": "CoupledSPO-Eps-x1",
+      "source": "results/paper/ablations/decoupling/portfolio_32/results.pkl",
+      "source_sha256": "abad7626ae861964e0911711695b8a0011d34ff9f4bf3576fb66a1302beb37fd",
+      "records": [
+        {
+          "seed": 100,
+          "baseline_regret": 79.69076795735587,
+          "ablation_regret": 641.0589927113986,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 101,
+          "baseline_regret": 74.25409868722365,
+          "ablation_regret": 481.50931183183604,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 102,
+          "baseline_regret": 70.6272953998285,
+          "ablation_regret": 494.25061214318686,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 103,
+          "baseline_regret": 74.11070014835138,
+          "ablation_regret": 511.50909154953285,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 104,
+          "baseline_regret": 67.15424113599441,
+          "ablation_regret": 411.086861382331,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 105,
+          "baseline_regret": 68.02720862992336,
+          "ablation_regret": 587.8173747031523,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 106,
+          "baseline_regret": 60.54109335107179,
+          "ablation_regret": 412.43154423699707,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 107,
+          "baseline_regret": 74.09895737658692,
+          "ablation_regret": 570.182649154631,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 108,
+          "baseline_regret": 66.63767138269796,
+          "ablation_regret": 622.5306394375439,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 109,
+          "baseline_regret": 63.98769680598639,
+          "ablation_regret": 456.9247836405784,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        }
+      ]
+    },
+    {
+      "dataset": "Portfolio",
+      "check": "Coupled head SPO (2x lr)",
+      "baseline_regret": 69.91297308750202,
+      "ablation_regret": 350.0563815819197,
+      "ablation_sd": 49.8155686096534,
+      "baseline_sd": 5.724602042790306,
+      "baseline_agent": "DecoupledSPO-UCB",
+      "ablation_agent": "CoupledSPO-Eps-x2",
+      "source": "results/paper/ablations/decoupling/portfolio_32/results.pkl",
+      "source_sha256": "abad7626ae861964e0911711695b8a0011d34ff9f4bf3576fb66a1302beb37fd",
+      "records": [
+        {
+          "seed": 100,
+          "baseline_regret": 79.69076795735587,
+          "ablation_regret": 422.8882982244044,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 101,
+          "baseline_regret": 74.25409868722365,
+          "ablation_regret": 314.0968552825458,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 102,
+          "baseline_regret": 70.6272953998285,
+          "ablation_regret": 339.59311158439334,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 103,
+          "baseline_regret": 74.11070014835138,
+          "ablation_regret": 353.062162950755,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 104,
+          "baseline_regret": 67.15424113599441,
+          "ablation_regret": 285.1683615008721,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 105,
+          "baseline_regret": 68.02720862992336,
+          "ablation_regret": 357.4570690496068,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 106,
+          "baseline_regret": 60.54109335107179,
+          "ablation_regret": 313.95368959773083,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 107,
+          "baseline_regret": 74.09895737658692,
+          "ablation_regret": 441.6289657117012,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 108,
+          "baseline_regret": 66.63767138269796,
+          "ablation_regret": 361.74218591426455,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 109,
+          "baseline_regret": 63.98769680598639,
+          "ablation_regret": 310.97311600292295,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        }
+      ]
+    },
+    {
+      "dataset": "SP 20x20",
+      "check": "DecoupledSPO-Eps",
+      "baseline_regret": 22934.584841373275,
+      "ablation_regret": 31797.893657351437,
+      "ablation_sd": 2481.210039081455,
+      "baseline_sd": 2203.39600819183,
+      "baseline_agent": "DecoupledSPO-UCB",
+      "ablation_agent": "DecoupledSPO-Eps",
+      "source": "results/paper/ablations/decoupling/shortest_path_20x20/results.pkl",
+      "source_sha256": "c845a8bf03b06a8d836e37939279572cf70ce02ba7397617755d3130d3e6c7bd",
+      "records": [
+        {
+          "seed": 100,
+          "baseline_regret": 20918.660142861365,
+          "ablation_regret": 28758.954350134998,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 101,
+          "baseline_regret": 26716.937593613606,
+          "ablation_regret": 32154.629912597215,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 102,
+          "baseline_regret": 22795.783375089348,
+          "ablation_regret": 34356.025630818476,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 103,
+          "baseline_regret": 24734.02220295588,
+          "ablation_regret": 33269.69331571364,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 104,
+          "baseline_regret": 22214.485230690014,
+          "ablation_regret": 33162.43065035858,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 105,
+          "baseline_regret": 19603.233310020383,
+          "ablation_regret": 29584.13845761612,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 106,
+          "baseline_regret": 25573.431153156504,
+          "ablation_regret": 35592.663218576694,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 107,
+          "baseline_regret": 21284.731213319785,
+          "ablation_regret": 30186.014979022293,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 108,
+          "baseline_regret": 22161.19901615425,
+          "ablation_regret": 28223.48260813742,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 109,
+          "baseline_regret": 23343.365175871615,
+          "ablation_regret": 32690.903450538928,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        }
+      ]
+    },
+    {
+      "dataset": "SP 20x20",
+      "check": "Coupled head SPO (0.5x lr)",
+      "baseline_regret": 22934.584841373275,
+      "ablation_regret": 174477.5262907334,
+      "ablation_sd": 6448.501192971648,
+      "baseline_sd": 2203.39600819183,
+      "baseline_agent": "DecoupledSPO-UCB",
+      "ablation_agent": "CoupledSPO-Eps-x0.5",
+      "source": "results/paper/ablations/decoupling/shortest_path_20x20/results.pkl",
+      "source_sha256": "c845a8bf03b06a8d836e37939279572cf70ce02ba7397617755d3130d3e6c7bd",
+      "records": [
+        {
+          "seed": 100,
+          "baseline_regret": 20918.660142861365,
+          "ablation_regret": 176890.11819864847,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 101,
+          "baseline_regret": 26716.937593613606,
+          "ablation_regret": 174382.14937025533,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 102,
+          "baseline_regret": 22795.783375089348,
+          "ablation_regret": 170434.3157100768,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 103,
+          "baseline_regret": 24734.02220295588,
+          "ablation_regret": 169672.5599519327,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 104,
+          "baseline_regret": 22214.485230690014,
+          "ablation_regret": 182343.09021915434,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 105,
+          "baseline_regret": 19603.233310020383,
+          "ablation_regret": 175661.80190085486,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 106,
+          "baseline_regret": 25573.431153156504,
+          "ablation_regret": 168796.03557631123,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 107,
+          "baseline_regret": 21284.731213319785,
+          "ablation_regret": 181214.78061504298,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 108,
+          "baseline_regret": 22161.19901615425,
+          "ablation_regret": 163159.85962847987,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 109,
+          "baseline_regret": 23343.365175871615,
+          "ablation_regret": 182220.55173657747,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        }
+      ]
+    },
+    {
+      "dataset": "SP 20x20",
+      "check": "Coupled head SPO (1x lr)",
+      "baseline_regret": 22934.584841373275,
+      "ablation_regret": 169636.56580001413,
+      "ablation_sd": 5745.826901818547,
+      "baseline_sd": 2203.39600819183,
+      "baseline_agent": "DecoupledSPO-UCB",
+      "ablation_agent": "CoupledSPO-Eps-x1",
+      "source": "results/paper/ablations/decoupling/shortest_path_20x20/results.pkl",
+      "source_sha256": "c845a8bf03b06a8d836e37939279572cf70ce02ba7397617755d3130d3e6c7bd",
+      "records": [
+        {
+          "seed": 100,
+          "baseline_regret": 20918.660142861365,
+          "ablation_regret": 173816.35687427918,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 101,
+          "baseline_regret": 26716.937593613606,
+          "ablation_regret": 164954.29348176767,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 102,
+          "baseline_regret": 22795.783375089348,
+          "ablation_regret": 168413.67176873956,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 103,
+          "baseline_regret": 24734.02220295588,
+          "ablation_regret": 164813.88869015782,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 104,
+          "baseline_regret": 22214.485230690014,
+          "ablation_regret": 177572.88052506492,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 105,
+          "baseline_regret": 19603.233310020383,
+          "ablation_regret": 174824.85108910824,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 106,
+          "baseline_regret": 25573.431153156504,
+          "ablation_regret": 165254.12870103554,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 107,
+          "baseline_regret": 21284.731213319785,
+          "ablation_regret": 171740.2176527051,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 108,
+          "baseline_regret": 22161.19901615425,
+          "ablation_regret": 160064.3145243274,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 109,
+          "baseline_regret": 23343.365175871615,
+          "ablation_regret": 174911.05469295583,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        }
+      ]
+    },
+    {
+      "dataset": "SP 20x20",
+      "check": "Coupled head SPO (2x lr)",
+      "baseline_regret": 22934.584841373275,
+      "ablation_regret": 135185.84437447652,
+      "ablation_sd": 6512.9062450678075,
+      "baseline_sd": 2203.39600819183,
+      "baseline_agent": "DecoupledSPO-UCB",
+      "ablation_agent": "CoupledSPO-Eps-x2",
+      "source": "results/paper/ablations/decoupling/shortest_path_20x20/results.pkl",
+      "source_sha256": "c845a8bf03b06a8d836e37939279572cf70ce02ba7397617755d3130d3e6c7bd",
+      "records": [
+        {
+          "seed": 100,
+          "baseline_regret": 20918.660142861365,
+          "ablation_regret": 143639.05142875036,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 101,
+          "baseline_regret": 26716.937593613606,
+          "ablation_regret": 128823.15679928736,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 102,
+          "baseline_regret": 22795.783375089348,
+          "ablation_regret": 133033.79292794908,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 103,
+          "baseline_regret": 24734.02220295588,
+          "ablation_regret": 128397.86954801792,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 104,
+          "baseline_regret": 22214.485230690014,
+          "ablation_regret": 143751.76979387144,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 105,
+          "baseline_regret": 19603.233310020383,
+          "ablation_regret": 143068.71931804667,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 106,
+          "baseline_regret": 25573.431153156504,
+          "ablation_regret": 130053.8861608489,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 107,
+          "baseline_regret": 21284.731213319785,
+          "ablation_regret": 135261.63784271665,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 108,
+          "baseline_regret": 22161.19901615425,
+          "ablation_regret": 137758.63514580022,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        },
+        {
+          "seed": 109,
+          "baseline_regret": 23343.365175871615,
+          "ablation_regret": 128069.92477947669,
+          "baseline_rounds": 10000,
+          "ablation_rounds": 10000
+        }
+      ]
+    }
+  ]
+}

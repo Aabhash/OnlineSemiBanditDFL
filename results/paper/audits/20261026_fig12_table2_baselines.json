@@ -1,0 +1,620 @@
+{
+  "date": "2026-10-26",
+  "scope": "Read-only Figure12 full-mask baseline versus Table2 source audit; no experiment runs, source changes, figure changes or table changes.",
+  "figure": "paper_neurips_2026/result_figures/masked_imputation_dose_matched.pdf",
+  "plotting_source": "experiments/plot_ablation_results.py::plot_imputation",
+  "table_source": "paper_neurips_2026/main_camera_ready.tex::tab:results",
+  "method": "BayesianSPO",
+  "feedback": "semi_bandit",
+  "metric": "Cumulative realized regret after 10000 rounds; mean and sample SD (ddof=1) over ten evaluation seeds100-109. Knapsack/SP display in thousands; Portfolio unscaled.",
+  "canonical_aggregate": {
+    "path": "results/rebuttal/sp20_m_sweep/metrics/final_eval_regrets.json",
+    "sha256": "0084c352bf97d940e2794b0531ae51988a7897118525c8cb5060f0f56b1346c4",
+    "construction_source": "experiments/rebuttal/sp20_m_sweep/analyze.py",
+    "construction": "Copies the original main-table export and replaces only SP20 BayesianSPO with documented-config M2 rerun endpoints.",
+    "original_export_path": "results/paper/eval_online_10k/metrics/final_eval_regrets.json",
+    "original_export_sha256": "d9cdeca6a40ff7b42a07395b7db17a970027687cb9942d459434bdf82b3585e4"
+  },
+  "datasets": {
+    "knapsack_100": {
+      "fig12_raw_source": "results/paper/ablations/imputation/knapsack_100/results.pkl",
+      "fig12_raw_sha256": "3906cf45549a9c72d7a0b2d8d5c51a1bab5ab12a63d51de862de166cd6fe7283",
+      "fig12_row": "BayesianSPO-w0",
+      "seeds": [
+        100,
+        101,
+        102,
+        103,
+        104,
+        105,
+        106,
+        107,
+        108,
+        109
+      ],
+      "rounds": [
+        10000
+      ],
+      "figure12": {
+        "mean": 49622.81427012961,
+        "sample_sd": 4231.430987148029,
+        "n": 10,
+        "final_regret_by_seed": {
+          "100": 55840.93751276306,
+          "101": 43092.41231597695,
+          "102": 49428.00722052374,
+          "103": 55889.39387803519,
+          "104": 44914.06900609175,
+          "105": 50174.68550610973,
+          "106": 49814.56396674897,
+          "107": 50889.4815483742,
+          "108": 45671.256139015546,
+          "109": 50513.33560765693
+        }
+      },
+      "table2": {
+        "mean": 49622.81427012961,
+        "sample_sd": 4231.430987148029,
+        "n": 10,
+        "final_regret_by_seed": {
+          "100": 55840.93751276306,
+          "101": 43092.41231597695,
+          "102": 49428.00722052374,
+          "103": 55889.39387803519,
+          "104": 44914.06900609175,
+          "105": 50174.68550610973,
+          "106": 49814.56396674897,
+          "107": 50889.4815483742,
+          "108": 45671.256139015546,
+          "109": 50513.33560765693
+        },
+        "canonical_export_source": "results/rebuttal/sp20_m_sweep/metrics/final_eval_regrets.json",
+        "original_main_export_matches": true,
+        "published_mean_sd_rounded": "49.6 +/- 4.2",
+        "display_scale_divisor": 1000
+      },
+      "comparison": {
+        "exact_equal_all_seeds": true,
+        "equal_seed_count": 10,
+        "difference_fig12_minus_table2_by_seed": {
+          "100": 0.0,
+          "101": 0.0,
+          "102": 0.0,
+          "103": 0.0,
+          "104": 0.0,
+          "105": 0.0,
+          "106": 0.0,
+          "107": 0.0,
+          "108": 0.0,
+          "109": 0.0
+        },
+        "mean_difference": 0.0,
+        "max_absolute_seed_difference": 0.0,
+        "percent_ratio_of_means": 0.0,
+        "mean_seedwise_percent_difference": 0.0
+      },
+      "settings": {
+        "archived_tuning_source": "results/paper/tuning/best_hyperparams_knapsack_100_semi_bandit.json",
+        "archived_tuning_source_sha256": "c7c28f25d4a86141d02403c6f49ee459819e3714aff4a65ec3db65ab7e592892",
+        "archived_tuning_params": {
+          "init_lr": 0.003,
+          "beta": 3.881003914520923,
+          "hidden_dim": 32,
+          "lambda_reg": 0.031893288849720064,
+          "imputation_samples": 1
+        },
+        "fig12_record_fields": [
+          "final_optimal",
+          "final_regret",
+          "final_reward",
+          "n_rounds",
+          "obs_counts"
+        ],
+        "fig12_snapshot_limitation": "Compact Figure12 records omit hyperparameters, solver configuration, source revision and invocation flags. Current runner defaults and tuning files describe intended settings but do not independently certify all settings actually used in these archived records.",
+        "trajectory_source": "results/paper/eval_online_10k/metrics/trajectories_knapsack_100.pkl",
+        "trajectory_source_sha256": "6f0b6c1df488ec6ab61455d0468b60e07388f94561c8d15cb1a0f93b7c3a9b05",
+        "trajectory_params": {
+          "init_lr": 0.003,
+          "beta": 4.669344957862061,
+          "hidden_dim": 32,
+          "lambda_reg": 0.025577281997040513
+        },
+        "trajectory_params_identical_across_seeds": true,
+        "trajectory_final_regrets_match_table2_export": false,
+        "trajectory_endpoint_summary": {
+          "mean": 49642.945451952306,
+          "sample_sd": 3589.1484041865706,
+          "n": 10
+        },
+        "trajectory_endpoint_differences_from_table2_by_seed": {
+          "100": 58.35958983429009,
+          "101": 2497.8417947106427,
+          "102": 715.1957950531214,
+          "103": -5888.291659785173,
+          "104": -1428.731512173188,
+          "105": -1570.2507518288403,
+          "106": 4361.044721460879,
+          "107": -903.571361965558,
+          "108": 3775.289114701285,
+          "109": -1415.573911780375
+        },
+        "warning": "The saved main trajectory pickle belongs to a different parameter/result batch than the canonical final-regret export: beta and lambda differ from the archived tuning file, and all ten endpoints differ. Do not substitute these trajectory endpoints or attribute their parameters to the Table2/Figure12 values. Table2 49.6 +/- 4.2 agrees exactly with the canonical seed-level export and Figure12 w0."
+      }
+    },
+    "shortest_path_20x20": {
+      "fig12_raw_source": "results/paper/ablations/imputation/shortest_path_20x20/results.pkl",
+      "fig12_raw_sha256": "47279328fe9d87f32e8723afd9efde8a6586a22e96a9a8e41ce2569c1f9950dc",
+      "fig12_row": "BayesianSPO-w0",
+      "seeds": [
+        100,
+        101,
+        102,
+        103,
+        104,
+        105,
+        106,
+        107,
+        108,
+        109
+      ],
+      "rounds": [
+        10000
+      ],
+      "figure12": {
+        "mean": 22934.584841373275,
+        "sample_sd": 2203.39600819183,
+        "n": 10,
+        "final_regret_by_seed": {
+          "100": 20918.660142861365,
+          "101": 26716.937593613606,
+          "102": 22795.783375089348,
+          "103": 24734.02220295588,
+          "104": 22214.485230690014,
+          "105": 19603.233310020383,
+          "106": 25573.431153156504,
+          "107": 21284.731213319785,
+          "108": 22161.19901615425,
+          "109": 23343.365175871615
+        }
+      },
+      "table2": {
+        "mean": 22934.584841373275,
+        "sample_sd": 2203.39600819183,
+        "n": 10,
+        "final_regret_by_seed": {
+          "100": 20918.660142861365,
+          "101": 26716.937593613606,
+          "102": 22795.783375089348,
+          "103": 24734.02220295588,
+          "104": 22214.485230690014,
+          "105": 19603.233310020383,
+          "106": 25573.431153156504,
+          "107": 21284.731213319785,
+          "108": 22161.19901615425,
+          "109": 23343.365175871615
+        },
+        "canonical_export_source": "results/rebuttal/sp20_m_sweep/metrics/final_eval_regrets.json",
+        "original_main_export_matches": false,
+        "published_mean_sd_rounded": "22.9 +/- 2.2",
+        "display_scale_divisor": 1000
+      },
+      "comparison": {
+        "exact_equal_all_seeds": true,
+        "equal_seed_count": 10,
+        "difference_fig12_minus_table2_by_seed": {
+          "100": 0.0,
+          "101": 0.0,
+          "102": 0.0,
+          "103": 0.0,
+          "104": 0.0,
+          "105": 0.0,
+          "106": 0.0,
+          "107": 0.0,
+          "108": 0.0,
+          "109": 0.0
+        },
+        "mean_difference": 0.0,
+        "max_absolute_seed_difference": 0.0,
+        "percent_ratio_of_means": 0.0,
+        "mean_seedwise_percent_difference": 0.0
+      },
+      "settings": {
+        "archived_tuning_source": "results/paper/tuning/best_hyperparams_shortest_path_20x20_semi_bandit.json",
+        "archived_tuning_source_sha256": "23d92daba4889ece6f1418c87e1d02b68904454bb50698dd2b37b32fc23c3d7f",
+        "archived_tuning_params": {
+          "init_lr": 0.003,
+          "beta": 0.12724288303620818,
+          "hidden_dim": 8,
+          "lambda_reg": 0.09004682388013154,
+          "imputation_samples": 2
+        },
+        "fig12_record_fields": [
+          "final_optimal",
+          "final_regret",
+          "final_reward",
+          "n_rounds",
+          "obs_counts"
+        ],
+        "fig12_snapshot_limitation": "Compact Figure12 records omit hyperparameters, solver configuration, source revision and invocation flags. Current runner defaults and tuning files describe intended settings but do not independently certify all settings actually used in these archived records.",
+        "trajectory_source": "results/rebuttal/sp20_m_sweep/metrics/trajectory_overrides_sp20.pkl",
+        "trajectory_source_sha256": "0881b46ba2cac84fbe6ff52761935bfc6d5bd54d0d27cea439f5a5de1e9f2068",
+        "trajectory_params": {
+          "init_lr": 0.003,
+          "beta": 0.12724288303620818,
+          "hidden_dim": 8,
+          "lambda_reg": 0.09004682388013154,
+          "imputation_samples": 2,
+          "imputation_scale": 1.0,
+          "use_posterior_predictive": false,
+          "noise_var": 1.0,
+          "max_grad_norm": 5.0,
+          "nonlinear": false,
+          "gradient_mode": "current",
+          "missing_grad_weight": 0.0,
+          "exploration_strategy": "ucb"
+        },
+        "trajectory_params_identical_across_seeds": true,
+        "trajectory_final_regrets_match_table2_export": true,
+        "trajectory_endpoint_summary": {
+          "mean": 22934.584841373275,
+          "sample_sd": 2203.39600819183,
+          "n": 10
+        },
+        "trajectory_endpoint_differences_from_table2_by_seed": {
+          "100": 0.0,
+          "101": 0.0,
+          "102": 0.0,
+          "103": 0.0,
+          "104": 0.0,
+          "105": 0.0,
+          "106": 0.0,
+          "107": 0.0,
+          "108": 0.0,
+          "109": 0.0
+        },
+        "fresh_rerun_config_source": "results/rebuttal/sp20_m_sweep/config.json",
+        "fresh_rerun_config": {
+          "dataset": "shortest_path_20x20",
+          "rounds": 10000,
+          "seeds": [
+            100,
+            101,
+            102,
+            103,
+            104,
+            105,
+            106,
+            107,
+            108,
+            109
+          ],
+          "m_values": [
+            2,
+            1,
+            4,
+            8,
+            12
+          ],
+          "environment": {
+            "grid_size": 20,
+            "context_dim": 5,
+            "deg": 6,
+            "noise_width": 0.25
+          },
+          "agent_params": {
+            "init_lr": 0.003,
+            "beta": 0.12724288303620818,
+            "hidden_dim": 8,
+            "lambda_reg": 0.09004682388013154,
+            "imputation_samples": 2,
+            "imputation_scale": 1.0,
+            "use_posterior_predictive": false,
+            "noise_var": 1.0,
+            "max_grad_norm": 5.0,
+            "nonlinear": false,
+            "gradient_mode": "current",
+            "missing_grad_weight": 0.0,
+            "exploration_strategy": "ucb"
+          },
+          "factory_settings": {
+            "mask_grad": true,
+            "minimize": true,
+            "decay_rounds": 10000
+          },
+          "update_lr": 0.001,
+          "diagnostics": true,
+          "diagnostics_interval": 25,
+          "episode_source": "results/rebuttal/camera_ready_nonlinear/ordered_nonlinear/sources/8368303e6ed9",
+          "tuning_source": "results/paper/tuning/best_hyperparams_shortest_path_20x20_semi_bandit.json",
+          "table2_source": "results/paper/eval_online_10k/metrics/results_summary.json",
+          "comparison": "Test the documented Table 2 configuration without changing archived values; M=2 completes before the other M values."
+        },
+        "direct_M2_json_and_npz_equal_table2": true
+      }
+    },
+    "portfolio_32": {
+      "fig12_raw_source": "results/paper/ablations/imputation/portfolio_32/results.pkl",
+      "fig12_raw_sha256": "03ec3f3a1dff2d6e6f4d345b2e9972fe30efecc7e13c38412e06b20cb9b68028",
+      "fig12_row": "BayesianSPO-w0",
+      "seeds": [
+        100,
+        101,
+        102,
+        103,
+        104,
+        105,
+        106,
+        107,
+        108,
+        109
+      ],
+      "rounds": [
+        10000
+      ],
+      "figure12": {
+        "mean": 69.74778586444432,
+        "sample_sd": 5.282587099579704,
+        "n": 10,
+        "final_regret_by_seed": {
+          "100": 74.65907864041975,
+          "101": 77.00694462650385,
+          "102": 67.29031552674729,
+          "103": 74.81254848235255,
+          "104": 67.6952098440966,
+          "105": 71.17675720266192,
+          "106": 60.67847830127753,
+          "107": 73.30491730978761,
+          "108": 66.86591190460976,
+          "109": 63.98769680598639
+        }
+      },
+      "table2": {
+        "mean": 68.63002524538258,
+        "sample_sd": 3.4281427308578034,
+        "n": 10,
+        "final_regret_by_seed": {
+          "100": 69.643888092872,
+          "101": 70.19341182156941,
+          "102": 68.70933406445417,
+          "103": 75.28413155323116,
+          "104": 69.23652443643489,
+          "105": 63.485768173520356,
+          "106": 65.00657476185503,
+          "107": 69.73962120609195,
+          "108": 70.17168525199783,
+          "109": 64.82931309179895
+        },
+        "canonical_export_source": "results/rebuttal/sp20_m_sweep/metrics/final_eval_regrets.json",
+        "original_main_export_matches": true,
+        "published_mean_sd_rounded": "68.6 +/- 3.4",
+        "display_scale_divisor": 1
+      },
+      "comparison": {
+        "exact_equal_all_seeds": false,
+        "equal_seed_count": 0,
+        "difference_fig12_minus_table2_by_seed": {
+          "100": 5.015190547547746,
+          "101": 6.8135328049344395,
+          "102": -1.4190185377068758,
+          "103": -0.4715830708786086,
+          "104": -1.5413145923382956,
+          "105": 7.690989029141562,
+          "106": -4.328096460577505,
+          "107": 3.5652961036956583,
+          "108": -3.305773347388069,
+          "109": -0.8416162858125631
+        },
+        "mean_difference": 1.1177606190617488,
+        "max_absolute_seed_difference": 7.690989029141562,
+        "percent_ratio_of_means": 1.6286758092616926,
+        "mean_seedwise_percent_difference": 1.654986610255993
+      },
+      "settings": {
+        "archived_tuning_source": "results/paper/tuning/best_hyperparams_portfolio_32_semi_bandit.json",
+        "archived_tuning_source_sha256": "429060e69c21f341b7a4850f7cfa172fbb051f783fcda6e3c575d797a3672abd",
+        "archived_tuning_params": {
+          "init_lr": 0.003,
+          "beta": 0.16550975250188352,
+          "hidden_dim": 32,
+          "lambda_reg": 0.010930987468173704,
+          "imputation_samples": 1
+        },
+        "fig12_record_fields": [
+          "final_optimal",
+          "final_regret",
+          "final_reward",
+          "n_rounds",
+          "obs_counts"
+        ],
+        "fig12_snapshot_limitation": "Compact Figure12 records omit hyperparameters, solver configuration, source revision and invocation flags. Current runner defaults and tuning files describe intended settings but do not independently certify all settings actually used in these archived records.",
+        "trajectory_source": "results/paper/eval_online_10k/metrics/trajectories_portfolio_32.pkl",
+        "trajectory_source_sha256": "905cabbed8d3eb489951cd993d752e7d9031e5e65206a2e9720f6051692c817d",
+        "trajectory_params": {
+          "init_lr": 0.003,
+          "beta": 0.16550975250188352,
+          "hidden_dim": 32,
+          "lambda_reg": 0.010930987468173704
+        },
+        "trajectory_params_identical_across_seeds": true,
+        "trajectory_final_regrets_match_table2_export": true,
+        "trajectory_endpoint_summary": {
+          "mean": 68.63002524538258,
+          "sample_sd": 3.4281427308578034,
+          "n": 10
+        },
+        "trajectory_endpoint_differences_from_table2_by_seed": {
+          "100": 0.0,
+          "101": 0.0,
+          "102": 0.0,
+          "103": 0.0,
+          "104": 0.0,
+          "105": 0.0,
+          "106": 0.0,
+          "107": 0.0,
+          "108": 0.0,
+          "109": 0.0
+        },
+        "summary_metadata_warning": {
+          "path": "results/paper/eval_online_10k/metrics/results_summary.json",
+          "stale_hyperparameters": {
+            "init_lr": 0.003,
+            "beta": 0.21965263990517586,
+            "hidden_dim": 32,
+            "lambda_reg": 0.010998048070790942
+          },
+          "interpretation": "Summary statistics match Table2, but its embedded hyperparameter metadata differ from the actual matching saved trajectories. Use the trajectory parameters, which also match the tuning JSON; M=1 is explicit in the tuning JSON."
+        }
+      },
+      "oracle_totals": {
+        "fig12_by_seed": {
+          "100": 6430.106674987696,
+          "101": 6434.286286790788,
+          "102": 6432.241728074181,
+          "103": 6401.286849824142,
+          "104": 6432.545995131296,
+          "105": 6464.302516174523,
+          "106": 6471.480464218873,
+          "107": 6460.949922771496,
+          "108": 6430.3378278899445,
+          "109": 6445.08853380876
+        },
+        "main_by_seed": {
+          "100": 6435.364835055287,
+          "101": 6434.8790754955935,
+          "102": 6437.252970474154,
+          "103": 6402.022464034588,
+          "104": 6432.550148952212,
+          "105": 6464.320631284318,
+          "106": 6471.805691363666,
+          "107": 6461.083673107571,
+          "108": 6430.337827889925,
+          "109": 6445.088533808763
+        },
+        "difference_by_seed": {
+          "100": -5.258160067590325,
+          "101": -0.5927887048055709,
+          "102": -5.011242399972616,
+          "103": -0.7356142104454193,
+          "104": -0.004153820916144468,
+          "105": -0.018115109794962336,
+          "106": -0.3252271447927342,
+          "107": -0.13375033607462683,
+          "108": 1.9099388737231493e-11,
+          "109": -2.7284841053187847e-12
+        },
+        "max_absolute_difference": 5.258160067590325,
+        "interpretation": "Saved oracle totals also differ in eight seeds, so equality of seed identities is not enough to establish identical realized oracle references. The stored summaries do not establish why these runs differ."
+      },
+      "hypothetical_cross_source_references": [
+        {
+          "weight": 0,
+          "mean_regret": 69.74778586444432,
+          "mean_seedwise_percent_vs_true_matched_w0": 0.0,
+          "mean_seedwise_percent_vs_canonical_table2": 1.654986610255993,
+          "ratio_means_percent_vs_canonical_table2": 1.6286758092616926
+        },
+        {
+          "weight": 0.05,
+          "mean_regret": 69.43695558223052,
+          "mean_seedwise_percent_vs_true_matched_w0": -0.41032348702070703,
+          "mean_seedwise_percent_vs_canonical_table2": 1.2353316328975037,
+          "ratio_means_percent_vs_canonical_table2": 1.175768672622235
+        },
+        {
+          "weight": 0.25,
+          "mean_regret": 70.16020318182721,
+          "mean_seedwise_percent_vs_true_matched_w0": 0.8393152846913207,
+          "mean_seedwise_percent_vs_canonical_table2": 2.277351620844008,
+          "ratio_means_percent_vs_canonical_table2": 2.229604216191916
+        },
+        {
+          "weight": 0.5,
+          "mean_regret": 71.38806461250559,
+          "mean_seedwise_percent_vs_true_matched_w0": 2.500450079992179,
+          "mean_seedwise_percent_vs_canonical_table2": 4.096750573673472,
+          "ratio_means_percent_vs_canonical_table2": 4.018706618949652
+        },
+        {
+          "weight": 0.75,
+          "mean_regret": 72.75142694323709,
+          "mean_seedwise_percent_vs_true_matched_w0": 4.399565066422049,
+          "mean_seedwise_percent_vs_canonical_table2": 6.018300585925595,
+          "ratio_means_percent_vs_canonical_table2": 6.005245784361413
+        },
+        {
+          "weight": 1,
+          "mean_regret": 110.67330923633335,
+          "mean_seedwise_percent_vs_true_matched_w0": 58.49920934045514,
+          "mean_seedwise_percent_vs_canonical_table2": 60.91290274601458,
+          "ratio_means_percent_vs_canonical_table2": 61.26077302263477
+        }
+      ]
+    }
+  },
+  "evidence_summary": "Figure12 w0 agrees exactly with Table2 for K100 and corrected SP20. Portfolio Figure12 w0 is a different archived result than Table2: 69.7477858644 +/- 5.2825870996 versus 68.6300252454 +/- 3.4281427309. All three Table2 displayed cells accurately round their canonical seed-level exports.",
+  "runner_protocol_sources": [
+    "experiments/ablations/posterior_strategy_ablation.py",
+    "experiments/ablations/common.py",
+    "experiments/configs/experiment.yaml"
+  ],
+  "runner_protocol_caveat": "The current masked-imputation runner loads tuned parameters when available and creates a separate solver per agent; the compact results do not preserve invocation flags, loaded parameter snapshots, or solver telemetry. Current source defaults are not proof of historical settings.",
+  "recommendation": {
+    "table2": "Retain the canonical Table2 entries: the numerical cells are supported by their saved seed-level data. Replacing the Portfolio main-table row with a separate ablation batch merely to align a figure would change the evaluation provenance and require updating comparisons, significance and dependent results.",
+    "figure12": "Latest selected presentation: change only the blue reference to the canonical Table2 mean. Do not add a separate ablation-baseline line or point. Preserve the positive-weight results, original orange curve, existing segments and paired statistics against archived w0. The caption must distinguish the canonical blue reference from the matched-ablation basis of the preserved comparisons.",
+    "dependent_claims": "With the canonical Portfolio denominator, the best displayed nonzero weight .05 is descriptively +1.2353% by mean seedwise percent, instead of the true matched-ablation -0.4103%. The full-leakage endpoint becomes descriptively +60.9129%, instead of the genuine matched effect. These hypothetical cross-source percentages must not replace the original paired-statistic interpretation silently."
+  },
+  "related_previous_audit": "results/paper/audits/20261026_masking_and_completion_wording.json",
+  "preservation": "Previous audits and raw result archives remain unchanged.",
+  "decision_history_2026_10_26": [
+    {
+      "authority": "Latest explicit user instruction conveyed by the parent agent",
+      "decision": "Keep Table2 unchanged. Use Table2 values for the blue Figure12 reference; preserve the distinct archived Portfolio w0 result as a separately styled gray dashed reference/point.",
+      "blue_reference_source": "results/rebuttal/sp20_m_sweep/metrics/final_eval_regrets.json",
+      "blue_reference_means": {
+        "knapsack_100": 49622.81427012961,
+        "shortest_path_20x20": 22934.584841373275,
+        "portfolio_32": 68.63002524538258
+      },
+      "portfolio_matched_ablation_reference": {
+        "source": "results/paper/ablations/imputation/portfolio_32/results.pkl",
+        "row": "BayesianSPO-w0",
+        "mean": 69.74778586444432
+      },
+      "paired_statistics_policy": "Retain the genuine paired weight-change statistics relative to each dataset's own archived w0 runs. Explicitly distinguish these from descriptive gaps to the blue Table2 reference; in Portfolio the two references differ.",
+      "preserve": [
+        "All Table2 values",
+        "All archived raw result records",
+        "Previous audits and their historical calculations"
+      ],
+      "caption_requirement": "Identify blue as the Table2 reference and gray as the separate Portfolio matched-ablation w0 reference; explain which baseline anchors matched comparison statistics/segments.",
+      "scope": "This records and checks the numerical provenance of the authorized decision; it does not claim the plotting code has already been changed or the figure regenerated.",
+      "status": "Superseded by later user instruction on 2026-10-26: no separate ablation-baseline marker."
+    }
+  ],
+  "decision_2026_10_26": {
+    "authority": "Latest explicit user instruction conveyed by the parent agent",
+    "instruction": "No need to mark the separate ablation baseline. Everything else stays the same.",
+    "decision": "Keep Table2 unchanged. Change only the blue Figure12 reference to Table2 values. Do not add a separate ablation-baseline line or point.",
+    "blue_reference_source": "results/rebuttal/sp20_m_sweep/metrics/final_eval_regrets.json",
+    "blue_reference_means": {
+      "knapsack_100": 49622.81427012961,
+      "shortest_path_20x20": 22934.584841373275,
+      "portfolio_32": 68.63002524538258
+    },
+    "preserved_plot_elements": [
+      "Positive-weight results",
+      "Original orange curve",
+      "Existing paired-comparison segments"
+    ],
+    "paired_statistics_policy": "Keep the existing paired weight-change statistics and segments relative to each dataset's own archived w0 runs. In Portfolio, this unchanged matched-ablation basis has mean69.74778586444432 and differs from the blue Table2 reference68.63002524538258. No new visual marker for the archived baseline is added.",
+    "preserve": [
+      "All Table2 values",
+      "All archived raw result records",
+      "Positive-weight measurements",
+      "Existing paired statistics and comparison segments",
+      "Previous audits and historical decisions"
+    ],
+    "caption_requirement": "Identify blue as the Table2 reference and clarify that existing comparison segments and paired statistics use archived matched w0 runs; Portfolio uses different reference sources. Do not imply that the paired statistics or segment lengths are calculated from the blue Table2 reference.",
+    "scope": "Decision and numerical-provenance record only; no claim that plotting changes or regeneration have already completed."
+  }
+}

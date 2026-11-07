@@ -1,0 +1,24 @@
+======================================================================
+STATISTICAL SIGNIFICANCE ANALYSIS
+======================================================================
+Dataset: shortest_path_8x8
+Feedback: semi_bandit
+Agents: 9
+Selection metric: tuning/train cumulative regret
+
+AGENT RANKING (by cumulative regret)
+----------------------------------------------------------------------
+Rank   Agent                      Mean Regret     Wins
+1     BayesianSPO                     2004.6        0
+2     WeberBLL-Online                 2055.9        0
+3     BayesianMSE                     2071.7        0
+4     WeberDecisionSPO                2092.7        0
+5     BayesianPFY                     2698.1        0
+6     LinUCB                          6182.0        0
+7     TS                              6226.2        0
+8     NeuralUCB                       6370.8        0
+9     EpsilonGreedy                  10891.9        0
+
+SIGNIFICANT DIFFERENCES (p < 0.05)
+----------------------------------------------------------------------
+  No significant differences found

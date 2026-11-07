@@ -1,0 +1,556 @@
+{
+  "audit_date": "2026-10-26",
+  "status": "unrestricted_results_restored_grouped_results_withdrawn",
+  "scope": "Provenance audit of Figure 5 and Table 3, including the completed grouped experiment and the subsequent user-directed restoration of unrestricted results. Numerical source artifacts are preserved.",
+  "repository_head": "90a19726b45a1256b509505e694750058c6e5f36",
+  "conclusion": {
+    "table3": "Documented and directly observed to use unrestricted exact top-two selection.",
+    "figure5": "Every traced generator/helper version uses unrestricted exact top-two selection; the canonical seed-0 cache alone lacks training actions and a code revision, so its precise historical solver cannot be independently certified from the cache.",
+    "oracle_rule": "With noise width zero, the true-value oracle picks one arm from {0,1} and one from {2,3} almost surely. This is a property of the DGP, not the implemented feasible-set constraint."
+  },
+  "metric": {
+    "name": "same_pair_action_rounds",
+    "definition": "Count saved action rows a for which abs(sum(a[0:2])-1)>1e-6 or abs(sum(a[2:4])-1)>1e-6.",
+    "interpretation": "Such actions violate the proposed one-per-pair feasible set, but are permitted by unrestricted exact top-two selection.",
+    "tolerance": 1e-06,
+    "first_round_indexing": "one-based"
+  },
+  "table3": {
+    "config_path": "results/exploratory/quadrant_capacity_20261021/config.json",
+    "config_sha256": "4324e37da7943266872f9b1fad9012302fb33f593fa53a1462a9b48320b7b5b4",
+    "widths": [
+      2,
+      3,
+      6,
+      16
+    ],
+    "seeds": [
+      200,
+      201,
+      202,
+      203,
+      204,
+      205,
+      206,
+      207,
+      208,
+      209
+    ],
+    "rounds": 10000,
+    "stream_seed": 42,
+    "test_seed": 99,
+    "n_test": 500,
+    "beta": 1,
+    "lambda_reg": 0.1,
+    "lr": 0.03,
+    "imputation_samples": 8,
+    "imputation_scale": 1,
+    "noise_width": 0,
+    "nuisance_strength": 2,
+    "gradient_mode": "current",
+    "nonlinear": false,
+    "mask_spo": true,
+    "mask_mse": false,
+    "checkpoint_interval": 1000,
+    "retuned": false,
+    "recorded_solver": "Existing exact, unrestricted top-two selection; a fresh agent for each cell.",
+    "directly_inspected_scope": "Four saved runs at width 2 and seed 200, not an exhaustive action-count audit of all 160 runs.",
+    "action_checks": [
+      {
+        "path": "results/exploratory/quadrant_capacity_20261021/q2/seed_200/BayesianMSE_full.npz",
+        "sha256": "6d7f02b2e169b896105cdd516ec2372b142227434e72103c5e2b9127652d6ff6",
+        "width": 2,
+        "seed": 200,
+        "rounds": 10000,
+        "same_pair_action_rounds": 1,
+        "first_same_pair_action_round": 1,
+        "first_same_pair_action": [
+          0,
+          0,
+          1,
+          1
+        ]
+      },
+      {
+        "path": "results/exploratory/quadrant_capacity_20261021/q2/seed_200/BayesianMSE_partial.npz",
+        "sha256": "c21b9971f6245643c351fb68b387693ea2721204327abaf0c9ccaaa12b9bcab4",
+        "width": 2,
+        "seed": 200,
+        "rounds": 10000,
+        "same_pair_action_rounds": 7530,
+        "first_same_pair_action_round": 1,
+        "first_same_pair_action": [
+          0,
+          0,
+          1,
+          1
+        ]
+      },
+      {
+        "path": "results/exploratory/quadrant_capacity_20261021/q2/seed_200/BayesianSPO_full.npz",
+        "sha256": "206525f38247c4c684dc91754118b514c02438051878eb58c5d396ee58dcf3cf",
+        "width": 2,
+        "seed": 200,
+        "rounds": 10000,
+        "same_pair_action_rounds": 1,
+        "first_same_pair_action_round": 1,
+        "first_same_pair_action": [
+          0,
+          0,
+          1,
+          1
+        ]
+      },
+      {
+        "path": "results/exploratory/quadrant_capacity_20261021/q2/seed_200/BayesianSPO_partial.npz",
+        "sha256": "0c6e0c4ee4365a79f4b548b07fdf80868fb8106cd63e182879be9e3017bb6848",
+        "width": 2,
+        "seed": 200,
+        "rounds": 10000,
+        "same_pair_action_rounds": 5827,
+        "first_same_pair_action_round": 1,
+        "first_same_pair_action": [
+          0,
+          0,
+          1,
+          1
+        ]
+      }
+    ]
+  },
+  "figure5": {
+    "cache_path": "results/paper/ablations/decision_nuisance_top2/cache/decision_nuisance_top2_m8_r10000_seed0.npz",
+    "cache_sha256": "17c700b593ed26fdf250eb1ce7b9ed6d416955d18967cfa27cd384ed6d77e87c",
+    "metadata_path": "results/paper/ablations/decision_nuisance_top2/cache/decision_nuisance_top2_m8_r10000_seed0.json",
+    "metadata_sha256": "59e53a173122d0b9b04bc430952196911cde8ac4dd1bfb540c0b4614782ec9af",
+    "metadata": {
+      "n_rounds": 10000,
+      "seed": 0,
+      "BayesianSPO_partial_final_regret": 2952.1146480526672,
+      "BayesianMSE_partial_final_regret": 6190.106784258791
+    },
+    "cache_keys": [
+      "x_test",
+      "decisions_test",
+      "values_test",
+      "h_spo_full",
+      "h_mse_full",
+      "h_spo",
+      "h_mse",
+      "W1_spo_full",
+      "W1_mse_full",
+      "W1_spo",
+      "W1_mse"
+    ],
+    "shape_evidence": {
+      "x_test": [
+        500,
+        5
+      ],
+      "decisions_test": [
+        500,
+        4
+      ],
+      "values_test": [
+        500,
+        4
+      ],
+      "each_learned_feature_array": [
+        500,
+        2
+      ],
+      "each_W1_array": [
+        5,
+        2
+      ]
+    },
+    "filesystem_mtime_observed": "2026-05-05 08:34:50",
+    "limitations": [
+      "No saved training actions",
+      "No solver identity",
+      "No code revision",
+      "No complete hyperparameter manifest",
+      "Filesystem mtime is not proof of execution revision",
+      "Oracle labels do not distinguish grouped and unrestricted feasible sets on this noiseless DGP"
+    ]
+  },
+  "history": [
+    {
+      "revision": "cd19aa0^",
+      "path": "notebooks/feature_representation_analysis_helpers.py",
+      "lines": "4255-4263,4301-4306",
+      "finding": "Exact2Solver selects unrestricted top two; a separate context-based oracle function chooses one winner per pair."
+    },
+    {
+      "revision": "cd19aa0",
+      "date": "2026-05-03",
+      "path": "experiments/ablations/decision_nuisance_top2_helpers.py",
+      "finding": "New standalone helper already uses unrestricted argsort(values)[-2:]."
+    },
+    {
+      "revision": "472079a",
+      "date": "2026-05-05",
+      "path": "experiments/ablations/decision_nuisance_top2.py",
+      "finding": "Introduces figure wording 'Pick one from {0,1}. Pick another from {2,3}.' without changing solver."
+    },
+    {
+      "revision": "466369a",
+      "date": "2026-07-27",
+      "path": "experiments/ablations/decision_nuisance_top2_helpers.py",
+      "finding": "Adds nuisance-strength support and row-share helper, leaves solver unchanged."
+    },
+    {
+      "revision": "working_tree_at_audit",
+      "path": "experiments/ablations/decision_nuisance_top2_helpers.py",
+      "finding": "Uncommitted change only adds gradient_mode to create_agent_pair and agent arguments; no solver change."
+    }
+  ],
+  "decision": {
+    "date": "2026-10-26",
+    "status": "Current user decision: restore the prior unrestricted results and old Figure 5 with accuracy labels.",
+    "action_constraint": "unrestricted_top2",
+    "figure5_cache": "results/paper/ablations/decision_nuisance_top2/cache/decision_nuisance_top2_m8_r10000_seed0.npz",
+    "figure5_metadata": "results/paper/ablations/decision_nuisance_top2/cache/decision_nuisance_top2_m8_r10000_seed0.json",
+    "figure5_accuracy_labels": true,
+    "table3_config": "results/exploratory/quadrant_capacity_20261021/config.json",
+    "grouped_publication_status": "withdrawn_not_paper_results",
+    "withdrawn_archive": "archive/20261026_one_per_pair_diagnostic_withdrawn",
+    "supersedes": [
+      "grouped-rerun publication choice",
+      "interim use of grouped Figure 5 and Table 3"
+    ],
+    "interpretation": "Any two arms are feasible; one-per-pair selection is a property of the noiseless oracle, not a constraint on every action.",
+    "preservation": "Original unrestricted artifacts remain canonical. All grouped measurements, validation and source snapshots are retained separately; withdrawal does not change their numerical values."
+  },
+  "status_history": [
+    {
+      "date": "2026-10-26",
+      "status": "user_authorized_grouped_reruns"
+    },
+    {
+      "date": "2026-10-26",
+      "status": "grouped_reruns_completed_and_validated",
+      "publication_status": "superseded"
+    },
+    {
+      "date": "2026-10-26",
+      "status": "unrestricted_results_restored_grouped_results_withdrawn",
+      "decision": "User reversed the grouped publication choice and restored unrestricted results with Figure 5 accuracy labels."
+    }
+  ],
+  "completed_grouped_reruns": {
+    "date": "2026-10-26",
+    "root": "archive/20261026_one_per_pair_diagnostic_withdrawn",
+    "figure5_config": "archive/20261026_one_per_pair_diagnostic_withdrawn/figure5/config.json",
+    "width_study_config": "archive/20261026_one_per_pair_diagnostic_withdrawn/width_study/config.json",
+    "figure5_seed": 0,
+    "figure5_width": 2,
+    "widths": [
+      2,
+      3,
+      6,
+      16
+    ],
+    "seeds": [
+      200,
+      201,
+      202,
+      203,
+      204,
+      205,
+      206,
+      207,
+      208,
+      209
+    ],
+    "settings": {
+      "rounds": 10000,
+      "stream_seed": 42,
+      "test_seed": 99,
+      "n_test": 500,
+      "beta": 1.0,
+      "lambda_reg": 0.1,
+      "lr": 0.03,
+      "imputation_samples": 8,
+      "imputation_scale": 1.0,
+      "noise_width": 0.0,
+      "nuisance_strength": 2.0,
+      "gradient_mode": "current",
+      "nonlinear": false,
+      "mask_spo": true,
+      "mask_mse": false,
+      "checkpoint_interval": 1000,
+      "retuned": false,
+      "methods": [
+        "BayesianSPO",
+        "BayesianMSE"
+      ],
+      "feedback": [
+        "partial",
+        "full"
+      ],
+      "action_constraint": "one_per_pair",
+      "solver": "Exact selection of one arm from {0,1} and one arm from {2,3}; a fresh agent for each cell."
+    },
+    "validation_report": "archive/20261026_one_per_pair_diagnostic_withdrawn/report/validation_report.json",
+    "validation_checks": {
+      "training_actions": 1640000,
+      "greedy_actions": 82000,
+      "heldout_oracle_actions": 20500,
+      "matched_initial_weight_blocks": 41,
+      "identical_heldout_blocks": 41,
+      "training_regret_reconstructed": true,
+      "saved_metrics_match_arrays": true,
+      "final_and_initial_checkpoints_match": true,
+      "all_numeric_arrays_finite": true,
+      "probe_accuracy_refitted": false
+    },
+    "validated_runs": 164,
+    "rank_checks": 80,
+    "all_q6_q16_rank_five": true,
+    "rank_definition": "matrix_rank(W1, tol=norm(W1, 2) * 1e-6), preserving stored dtype",
+    "probe_accuracy_source": "Saved five-fold scores; checked finite/in-range and against aggregate rows, not refitted",
+    "figure5": [
+      {
+        "width": 2,
+        "seed": 0,
+        "method": "BayesianSPO",
+        "feedback": "full",
+        "raw_json": "figure5/q2/seed_0/BayesianSPO_full.json",
+        "row_norms": [
+          0.4394801920213923,
+          0.3421120709833634,
+          0.0018268975399518203,
+          0.004244597382611132,
+          0.003837561092438224
+        ],
+        "row_shares": [
+          0.5552488435087779,
+          0.4322318393695864,
+          0.0023081421294589384,
+          0.005362716751840538,
+          0.004848458240336089
+        ],
+        "decision_row_share": 0.9874806828783643,
+        "probe_accuracy": 0.976,
+        "final_regret": 23.52138869955591
+      },
+      {
+        "width": 2,
+        "seed": 0,
+        "method": "BayesianMSE",
+        "feedback": "full",
+        "raw_json": "figure5/q2/seed_0/BayesianMSE_full.json",
+        "row_norms": [
+          0.37313352327782834,
+          0.19292607090680067,
+          0.1353203538160103,
+          0.13524106771573297,
+          0.13529725102050966
+        ],
+        "row_shares": [
+          0.3839145080898486,
+          0.19850030348182526,
+          0.13923017855229206,
+          0.13914860163066106,
+          0.13920640824537292
+        ],
+        "decision_row_share": 0.5824148115716739,
+        "probe_accuracy": 0.604,
+        "final_regret": 2331.81164070904
+      },
+      {
+        "width": 2,
+        "seed": 0,
+        "method": "BayesianSPO",
+        "feedback": "partial",
+        "raw_json": "figure5/q2/seed_0/BayesianSPO_partial.json",
+        "row_norms": [
+          0.08950031664091702,
+          0.4573638815751168,
+          0.15142202988824982,
+          0.14861911267079017,
+          0.13606949334885743
+        ],
+        "row_shares": [
+          0.09105046592640745,
+          0.46528544342921946,
+          0.15404466587713156,
+          0.15119320201441963,
+          0.13842622275282185
+        ],
+        "decision_row_share": 0.5563359093556269,
+        "probe_accuracy": 0.502,
+        "final_regret": 3560.18630377545
+      },
+      {
+        "width": 2,
+        "seed": 0,
+        "method": "BayesianMSE",
+        "feedback": "partial",
+        "raw_json": "figure5/q2/seed_0/BayesianMSE_partial.json",
+        "row_norms": [
+          0.04558134109105339,
+          0.16878420517562878,
+          0.15930052428319896,
+          0.15779747063323185,
+          0.15807164851480013
+        ],
+        "row_shares": [
+          0.06610444509876671,
+          0.24477968303484773,
+          0.231025952936483,
+          0.22884614591223873,
+          0.22924377301766377
+        ],
+        "decision_row_share": 0.31088412813361443,
+        "probe_accuracy": 0.532,
+        "final_regret": 3650.022861674302
+      }
+    ],
+    "table3": [
+      {
+        "feedback": "full",
+        "width": 2,
+        "n_seeds": 10,
+        "spo_decision_row_share_mean_pct": 98.81400649881991,
+        "spo_decision_row_share_sd_pct": 0.4750181270358151,
+        "spo_probe_accuracy_mean_pct": 96.64000000000001,
+        "spo_probe_accuracy_sd_pct": 1.2212925757391395,
+        "mse_decision_row_share_mean_pct": 61.339431864946484,
+        "mse_decision_row_share_sd_pct": 11.17784346959449,
+        "mse_probe_accuracy_mean_pct": 58.0,
+        "mse_probe_accuracy_sd_pct": 1.8618986725025248
+      },
+      {
+        "feedback": "full",
+        "width": 3,
+        "n_seeds": 10,
+        "spo_decision_row_share_mean_pct": 64.89465341513163,
+        "spo_decision_row_share_sd_pct": 8.025776410809547,
+        "spo_probe_accuracy_mean_pct": 95.83999999999999,
+        "spo_probe_accuracy_sd_pct": 0.7589466384404115,
+        "mse_decision_row_share_mean_pct": 68.61541126107728,
+        "mse_decision_row_share_sd_pct": 8.554410318233884,
+        "mse_probe_accuracy_mean_pct": 93.17999999999999,
+        "mse_probe_accuracy_sd_pct": 2.6254311815183597
+      },
+      {
+        "feedback": "full",
+        "width": 6,
+        "n_seeds": 10,
+        "spo_decision_row_share_mean_pct": 55.907461422260575,
+        "spo_decision_row_share_sd_pct": 5.147730726282726,
+        "spo_probe_accuracy_mean_pct": 95.14,
+        "spo_probe_accuracy_sd_pct": 0.6257440016137183,
+        "mse_decision_row_share_mean_pct": 42.69995310653097,
+        "mse_decision_row_share_sd_pct": 5.905489831884239,
+        "mse_probe_accuracy_mean_pct": 87.72,
+        "mse_probe_accuracy_sd_pct": 3.727614667734732
+      },
+      {
+        "feedback": "full",
+        "width": 16,
+        "n_seeds": 10,
+        "spo_decision_row_share_mean_pct": 52.621692280540664,
+        "spo_decision_row_share_sd_pct": 1.9693338186861988,
+        "spo_probe_accuracy_mean_pct": 95.84,
+        "spo_probe_accuracy_sd_pct": 0.29514591494905146,
+        "mse_decision_row_share_mean_pct": 40.97953322580979,
+        "mse_decision_row_share_sd_pct": 3.825395599124223,
+        "mse_probe_accuracy_mean_pct": 93.84,
+        "mse_probe_accuracy_sd_pct": 0.8262364471909172
+      },
+      {
+        "feedback": "partial",
+        "width": 2,
+        "n_seeds": 10,
+        "spo_decision_row_share_mean_pct": 54.37240680530236,
+        "spo_decision_row_share_sd_pct": 10.904627021639788,
+        "spo_probe_accuracy_mean_pct": 54.919999999999995,
+        "spo_probe_accuracy_sd_pct": 3.70369185183289,
+        "mse_decision_row_share_mean_pct": 43.785555645957274,
+        "mse_decision_row_share_sd_pct": 12.772339522072349,
+        "mse_probe_accuracy_mean_pct": 54.760000000000005,
+        "mse_probe_accuracy_sd_pct": 2.798094589775927
+      },
+      {
+        "feedback": "partial",
+        "width": 3,
+        "n_seeds": 10,
+        "spo_decision_row_share_mean_pct": 66.34559370194351,
+        "spo_decision_row_share_sd_pct": 4.3811531285034375,
+        "spo_probe_accuracy_mean_pct": 93.78,
+        "spo_probe_accuracy_sd_pct": 2.4375762096348432,
+        "mse_decision_row_share_mean_pct": 54.30065253678654,
+        "mse_decision_row_share_sd_pct": 6.27716545616079,
+        "mse_probe_accuracy_mean_pct": 88.08000000000001,
+        "mse_probe_accuracy_sd_pct": 4.733990564699794
+      },
+      {
+        "feedback": "partial",
+        "width": 6,
+        "n_seeds": 10,
+        "spo_decision_row_share_mean_pct": 47.64400061629297,
+        "spo_decision_row_share_sd_pct": 6.442344484142798,
+        "spo_probe_accuracy_mean_pct": 90.34,
+        "spo_probe_accuracy_sd_pct": 3.5189013436961605,
+        "mse_decision_row_share_mean_pct": 38.50051917131141,
+        "mse_decision_row_share_sd_pct": 5.655530183524411,
+        "mse_probe_accuracy_mean_pct": 84.82,
+        "mse_probe_accuracy_sd_pct": 4.483500616457835
+      },
+      {
+        "feedback": "partial",
+        "width": 16,
+        "n_seeds": 10,
+        "spo_decision_row_share_mean_pct": 43.37632408253556,
+        "spo_decision_row_share_sd_pct": 4.221614325256766,
+        "spo_probe_accuracy_mean_pct": 94.49999999999999,
+        "spo_probe_accuracy_sd_pct": 0.42426406871192857,
+        "mse_decision_row_share_mean_pct": 39.7077827986596,
+        "mse_decision_row_share_sd_pct": 2.511407436888591,
+        "mse_probe_accuracy_mean_pct": 94.2,
+        "mse_probe_accuracy_sd_pct": 0.853749898324379
+      }
+    ],
+    "result_paths": {
+      "figure5": "figure5/q2/seed_0/{method}_{feedback}.{json,npz}",
+      "table3": "width_study/q{width}/seed_{seed}/{method}_{feedback}.{json,npz}"
+    },
+    "report_paths": {
+      "summary.json": "archive/20261026_one_per_pair_diagnostic_withdrawn/report/summary.json",
+      "summary.csv": "archive/20261026_one_per_pair_diagnostic_withdrawn/report/summary.csv",
+      "table_rows.tex": "archive/20261026_one_per_pair_diagnostic_withdrawn/report/table_rows.tex",
+      "figure5_metrics.json": "archive/20261026_one_per_pair_diagnostic_withdrawn/report/figure5_metrics.json",
+      "validation_report.json": "archive/20261026_one_per_pair_diagnostic_withdrawn/report/validation_report.json"
+    },
+    "report_sha256": {
+      "summary.json": "5af30855fa3368aa6e5a7f761c016e73c60b9912e881998c664c770683ff6b5f",
+      "summary.csv": "9862877f9194719282f6983897a5a2b0b544040b0bea2e3f6b2122a4a1b2df4e",
+      "table_rows.tex": "ed1427a255ac7664a70be10d0425c0b19743ede3472274f319cf53f14106b3c7",
+      "figure5_metrics.json": "782f41ffeebed13603f59ccd76eb43b51c29fe555ff3eea4749d04750159fcf1",
+      "validation_report.json": "07fc160316db4408702610b7bcfb5064aca7333f029ae8f30a9681177af8ea5a"
+    },
+    "original_root": "results/paper/ablations/decision_nuisance_one_per_pair_20261026",
+    "publication_status": "withdrawn_not_paper_results",
+    "use_for_active_paper": false,
+    "withdrawal_date": "2026-10-26",
+    "superseded_publication_decision": "Use grouped reruns for Figure 5 and Table 3. Preserve the historical unrestricted evidence separately. Revise the q2 probe comparison and replace the old above-92-percent threshold at q>=3 with the observed 90.3-to-94.5-percent range.",
+    "current_disposition": "Retain in withdrawn archive as historical evidence for the grouped feasible set; do not use for active Figure 5 or Table 3."
+  },
+  "decision_history": [
+    {
+      "date": "2026-10-26",
+      "status": "User explicitly chose grouped feasibility and authorized Figure 5 and Table 3 reruns.",
+      "superseded_pending_options": [
+        "Retain existing experiments and describe one-per-pair selection as the noiseless oracle rule.",
+        "Enforce one-per-pair feasibility and rerun affected experiments."
+      ],
+      "authorization": "Enforce exactly one arm from {0,1} and exactly one arm from {2,3}; rerun Figure 5 and Table 3. Preserve existing unrestricted results separately.",
+      "actions_taken": "Saved this audit and linked it from results/paper/README.md, then recorded the explicit user decision. This audit agent has not changed solvers or started runs; the primary agent coordinates the authorized implementation, reruns, and publication updates.",
+      "superseded": true,
+      "superseded_by": "restore_unrestricted_results_and_accuracy_figure"
+    }
+  ]
+}

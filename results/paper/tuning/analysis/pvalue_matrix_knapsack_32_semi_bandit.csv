@@ -1,0 +1,10 @@
+,LinUCB,TS,EpsilonGreedy,NeuralUCB,BayesianSPO,BayesianPFY,BayesianMSE,WeberBLL-Online,WeberDecisionSPO
+LinUCB,1.0,0.5,0.25,0.25,0.25,0.25,0.25,0.25,0.25
+TS,0.5,1.0,0.5,0.5,0.5,0.5,0.5,0.5,0.5
+EpsilonGreedy,0.25,0.5,1.0,0.25,0.25,0.25,0.25,0.25,0.25
+NeuralUCB,0.25,0.5,0.25,1.0,0.25,0.25,0.25,0.25,0.25
+BayesianSPO,0.25,0.5,0.25,0.25,1.0,0.5,1.0,0.5,1.0
+BayesianPFY,0.25,0.5,0.25,0.25,0.5,1.0,0.25,1.0,0.5
+BayesianMSE,0.25,0.5,0.25,0.25,1.0,0.25,1.0,0.25,1.0
+WeberBLL-Online,0.25,0.5,0.25,0.25,0.5,1.0,0.25,1.0,0.75
+WeberDecisionSPO,0.25,0.5,0.25,0.25,1.0,0.5,1.0,0.75,1.0
