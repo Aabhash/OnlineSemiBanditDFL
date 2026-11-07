@@ -1379,7 +1379,7 @@ def plot_imputation(results_dir, output_dir, fmt="pdf"):
 
         # Table 2 supplies the blue reference; paired ablation statistics retain w=0.
         root = Path(__file__).resolve().parents[1]
-        table_source = root / "results/rebuttal/sp20_m_sweep/metrics/final_eval_regrets.json"
+        table_source = root / "results/paper/eval_online_10k/metrics/final_eval_regrets.json"
         table_regrets = json.loads(table_source.read_text())
         dataset_keys = {label: key for key, label in dataset_names.items()}
         table_reference_df = baseline_df.copy()
@@ -2341,12 +2341,6 @@ def plot_imputation_samples(results_dir, output_dir, fmt="pdf", main_table_dir=N
     if not entries:
         print("  imputation_samples: no data found, skipping")
         return
-    if any(dataset == "shortest_path_20x20" for dataset, _ in entries):
-        sp20_path = Path("results/rebuttal/sp20_m_sweep/imputation_samples.pkl").resolve(strict=True)
-        entries = [
-            (dataset, sp20_path if dataset == "shortest_path_20x20" else path)
-            for dataset, path in entries
-        ]
     point_overrides = {}
     if any(dataset == "portfolio_32" for dataset, _ in entries):
         # Use the main evaluation for the displayed M=1 point; preserve the raw sweep.

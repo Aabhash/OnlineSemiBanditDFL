@@ -16,7 +16,6 @@ echo "=== Step 2: Post-processing ==="
 
 uv run python experiments/plot_paper_core_results.py \
     --trajectories results/eval_online_10k/metrics/trajectories.pkl \
-    --trajectory-overrides \
     --canonical-regrets results/eval_online_10k/metrics/final_eval_regrets.json \
     --canonical-times results/eval_online_10k/metrics/final_eval_summary.csv \
     --output results/paper/figures/result_figures

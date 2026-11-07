@@ -134,17 +134,9 @@ def save_vector_pdf(fig, out: str, **savefig_kwargs) -> None:
     cairosvg.svg2pdf(url=svg_out, write_to=out)
 
 
-def load_trajectories(path: str, override_paths: list[str] | None = None) -> dict:
+def load_trajectories(path: str) -> dict:
     with open(path, "rb") as f:
-        raw = pickle.load(f)
-
-    for override_path in override_paths or []:
-        with open(override_path, "rb") as f:
-            override = pickle.load(f)
-        raw.update(override)
-        print(f"Applied trajectory override: {override_path}")
-
-    return raw
+        return pickle.load(f)
 
 
 def calibrate_to_final_regrets(raw: dict, canonical_path: str | None) -> dict:
@@ -609,27 +601,19 @@ def main() -> None:
         help="Directory for generated PDF figures.",
     )
     parser.add_argument(
-        "--trajectory-overrides",
-        nargs="*",
-        default=[
-            "results/rebuttal/sp20_m_sweep/metrics/trajectory_overrides_sp20.pkl",
-        ],
-        help="Optional trajectory pickle(s) whose entries override the main pickle.",
-    )
-    parser.add_argument(
         "--canonical-regrets",
-        default="results/rebuttal/sp20_m_sweep/metrics/final_eval_regrets.json",
+        default="results/paper/eval_online_10k/metrics/final_eval_regrets.json",
         help="Final regret JSON used to align trajectory endpoints with the table.",
     )
     parser.add_argument(
         "--canonical-times",
-        default="results/rebuttal/sp20_m_sweep/metrics/final_eval_summary.csv",
+        default="results/paper/eval_online_10k/metrics/final_eval_summary.csv",
         help="Final summary CSV used to align wall-clock means with the table.",
     )
     args = parser.parse_args()
 
     os.makedirs(args.output, exist_ok=True)
-    raw = load_trajectories(args.trajectories, args.trajectory_overrides)
+    raw = load_trajectories(args.trajectories)
     raw = calibrate_to_final_regrets(raw, args.canonical_regrets)
     raw = calibrate_wall_times(raw, args.canonical_times)
     make_regret_plots(raw, args.output)

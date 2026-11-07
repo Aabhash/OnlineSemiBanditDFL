@@ -143,12 +143,4 @@ writing_outputs/
 /Online DFL Obsidian/
 notebooks/
 /data/
-.aris/
-results/rebuttal/*
-/results/exploratory/
-/experiments/exploratory/
-.agents/*
-/.claude/
-/AGENTS.md
-/CODEX.md
-/results/paper/
+/results/
